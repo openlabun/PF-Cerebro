@@ -128,9 +128,6 @@ Ejemplos de técnicas:
 
 Aunque comúnmente se asocia menos pistas con mayor dificultad, investigaciones muestran que **la distribución es más importante que la cantidad**.
 
-Referencia:
-
-- Taking Sudoku Seriously – Jason Rosenhouse (2011)
 
 ---
 
