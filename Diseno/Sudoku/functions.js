@@ -300,14 +300,369 @@ function crearPuzzle(board, vacios = 40, seed = 1234) {
 // EJEMPLO
 // =====================================
 
-let seed = 5678;
+//let seed = 5678;
 
-console.log("Solución con seed:", seed);
-let solucion = generarSolucion(seed);
+//console.log("Solución con seed:", seed);
+//let solucion = generarSolucion(seed);
+//console.table(solucion);
+
+//console.log("Puzzle con misma seed:");
+//let puzzle = crearPuzzle(solucion, 40, seed);
+//console.table(puzzle);
+
+//=====================================
+//Analisis de dificultad
+//=====================================
+
+function analizarDificultad(board) {
+
+    let stats = {
+        single: 0,
+        hiddenSingle: 0,
+        nakedPair: 0,
+        nakedTriple: 0,
+        xwing: 0,
+        backtracking: 0
+    };
+
+    let working = board.map(r => [...r]);
+
+    function getCandidatesGrid() {
+        let grid = Array.from({ length: 9 }, () =>
+            Array.from({ length: 9 }, () => [])
+        );
+
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (working[r][c] === 0) {
+                    grid[r][c] = obtenerCandidatos(working, r, c);
+                }
+            }
+        }
+        return grid;
+    }
+
+    let progreso = true;
+
+    while (progreso) {
+        progreso = false;
+        let candidates = getCandidatesGrid();
+
+        // ==============================
+        // Single Candidate
+        // ==============================
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (working[r][c] === 0 && candidates[r][c].length === 1) {
+                    working[r][c] = candidates[r][c][0];
+                    stats.single++;
+                    progreso = true;
+                }
+            }
+        }
+
+        candidates = getCandidatesGrid();
+
+        // ==============================
+        // Hidden Single
+        // ==============================
+        function hiddenSingleUnidad(celdas) {
+            let conteo = {};
+            for (let [r, c] of celdas) {
+                for (let n of candidates[r][c]) {
+                    conteo[n] = conteo[n] ? conteo[n] + 1 : 1;
+                }
+            }
+
+            for (let n in conteo) {
+                if (conteo[n] === 1) {
+                    for (let [r, c] of celdas) {
+                        if (candidates[r][c].includes(Number(n))) {
+                            working[r][c] = Number(n);
+                            stats.hiddenSingle++;
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Filas
+        for (let r = 0; r < 9; r++) {
+            let celdas = [];
+            for (let c = 0; c < 9; c++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+
+            if (hiddenSingleUnidad(celdas)) progreso = true;
+        }
+
+        // Columnas
+        for (let c = 0; c < 9; c++) {
+            let celdas = [];
+            for (let r = 0; r < 9; r++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+
+            if (hiddenSingleUnidad(celdas)) progreso = true;
+        }
+
+        // Bloques
+        for (let br = 0; br < 3; br++) {
+            for (let bc = 0; bc < 3; bc++) {
+                let celdas = [];
+                for (let r = br * 3; r < br * 3 + 3; r++) {
+                    for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                        if (working[r][c] === 0)
+                            celdas.push([r, c]);
+                    }
+                }
+                if (hiddenSingleUnidad(celdas)) progreso = true;
+            }
+        }
+
+        candidates = getCandidatesGrid();
+
+        // ==============================
+        // Naked Pair
+        // ==============================
+        function nakedPairUnidad(celdas) {
+            let pares = {};
+
+            for (let [r, c] of celdas) {
+                if (candidates[r][c].length === 2) {
+                    let key = candidates[r][c].join("-");
+                    pares[key] = pares[key] ? pares[key].concat([[r, c]]) : [[r, c]];
+                }
+            }
+
+            for (let key in pares) {
+                if (pares[key].length === 2) {
+                    let valores = key.split("-").map(Number);
+
+                    for (let [r, c] of celdas) {
+                        if (!pares[key].some(([rr, cc]) => rr === r && cc === c)) {
+                            let antes = candidates[r][c].length;
+                            candidates[r][c] = candidates[r][c].filter(x => !valores.includes(x));
+                            if (candidates[r][c].length < antes) {
+                                stats.nakedPair++;
+                                progreso = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // aplicar a filas, columnas y bloques
+        for (let r = 0; r < 9; r++) {
+            let celdas = [];
+            for (let c = 0; c < 9; c++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+            nakedPairUnidad(celdas);
+        }
+
+        for (let c = 0; c < 9; c++) {
+            let celdas = [];
+            for (let r = 0; r < 9; r++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+            nakedPairUnidad(celdas);
+        }
+
+        for (let br = 0; br < 3; br++) {
+            for (let bc = 0; bc < 3; bc++) {
+                let celdas = [];
+                for (let r = br * 3; r < br * 3 + 3; r++)
+                    for (let c = bc * 3; c < bc * 3 + 3; c++)
+                        if (working[r][c] === 0)
+                            celdas.push([r, c]);
+                nakedPairUnidad(celdas);
+            }
+        }
+
+        // ==============================
+        // X-Wing 
+        // ==============================
+
+        for (let n = 1; n <= 9; n++) {
+
+            let filas = {};
+
+            for (let r = 0; r < 9; r++) {
+                let cols = [];
+                for (let c = 0; c < 9; c++)
+                    if (working[r][c] === 0 && candidates[r][c].includes(n))
+                        cols.push(c);
+
+                if (cols.length === 2)
+                    filas[r] = cols;
+            }
+
+            let filasKeys = Object.keys(filas);
+
+            for (let i = 0; i < filasKeys.length; i++) {
+                for (let j = i + 1; j < filasKeys.length; j++) {
+                    let r1 = filasKeys[i];
+                    let r2 = filasKeys[j];
+
+                    if (filas[r1][0] === filas[r2][0] &&
+                        filas[r1][1] === filas[r2][1]) {
+
+                        let c1 = filas[r1][0];
+                        let c2 = filas[r1][1];
+
+                        for (let r = 0; r < 9; r++) {
+                            if (r != r1 && r != r2) {
+                                for (let c of [c1, c2]) {
+                                    if (working[r][c] === 0 &&
+                                        candidates[r][c].includes(n)) {
+
+                                        candidates[r][c] =
+                                            candidates[r][c].filter(x => x !== n);
+
+                                        stats.xwing++;
+                                        progreso = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (working.flat().includes(0)) {
+        stats.backtracking++;
+    }
+
+    return stats;
+}
+
+//=====================================
+//Clasificacion de dificultad 
+//=====================================
+function evaluarDificultad(board) {
+
+    const stats = analizarDificultad(board);
+
+    const huecos = board.flat().filter(x => x === 0).length;
+
+    // 🔢 Sistema de puntuación ponderado
+    const score =
+        stats.single * 1 +
+        stats.hiddenSingle * 2 +
+        stats.nakedPair * 6 +
+        stats.nakedTriple * 12 +
+        stats.xwing * 25 +
+        stats.backtracking * 100;
+
+    let nivel = "";
+
+    // 🎚 Clasificación principal por técnica más avanzada
+    if (stats.backtracking > 0) {
+        nivel = "Profesional";
+    }
+    else if (stats.xwing > 0) {
+        nivel = "Experto";
+    }
+    else if (stats.nakedTriple > 0) {
+        nivel = "Avanzado";
+    }
+    else if (stats.nakedPair > 0) {
+        nivel = "Intermedio";
+    }
+    else if (stats.hiddenSingle > 0) {
+        nivel = "Iniciado";
+    }
+    else {
+        nivel = "Principiante";
+    }
+
+    //  Ajuste fino por cantidad de huecos
+    if (nivel === "Principiante" && huecos > 40) {
+        nivel = "Iniciado";
+    }
+
+    return {
+        dificultad: nivel,
+        score: score,
+        huecos: huecos,
+        estadisticas: stats
+    };
+}
+
+
+//=====================================
+//Obtener candidatos para una celda
+//=====================================
+function obtenerCandidatos(board, r, c) {
+    let usados = new Set();
+
+    for (let i = 0; i < 9; i++) {
+        usados.add(board[r][i]);
+        usados.add(board[i][c]);
+    }
+
+    let br = Math.floor(r/3)*3;
+    let bc = Math.floor(c/3)*3;
+
+    for (let i = br; i < br+3; i++) {
+        for (let j = bc; j < bc+3; j++) {
+            usados.add(board[i][j]);
+        }
+    }
+
+    let candidatos = [];
+    for (let n = 1; n <= 9; n++) {
+        if (!usados.has(n)) candidatos.push(n);
+    }
+
+    return candidatos;
+}
+
+
+//=====================================
+//generador de semillas
+//=====================================
+function generarSemillasPorDificultad(cantidad, nivelDeseado) {
+    let semillas = [];
+    let seed = 1;
+
+    while (semillas.length < cantidad) {
+
+        let solucion = generarSolucion(seed);
+        let puzzle = crearPuzzle(solucion, 40, seed);
+
+        let resultado = evaluarDificultad(puzzle);
+        let nivel = resultado.dificultad;
+
+        if (nivel === nivelDeseado) {
+            semillas.push(seed);
+        }
+
+        seed++;
+    }
+
+    return semillas;
+}
+
+ 
+let semillasIntermedio = generarSemillasPorDificultad(10, "Intermedio");
+console.log(semillasIntermedio);
+
+
+
+console.log("Solución con seed:", semillasIntermedio[1]);
+let solucion = generarSolucion(semillasIntermedio[1]);
 console.table(solucion);
 
 console.log("Puzzle con misma seed:");
-let puzzle = crearPuzzle(solucion, 40, seed);
+let puzzle = crearPuzzle(solucion, 40, semillasIntermedio[1]);
 console.table(puzzle);
 
-
+let evaluarTablero = evaluarDificultad(puzzle);
+console.log("Evaluación del tablero:", evaluarTablero);
