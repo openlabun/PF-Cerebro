@@ -706,7 +706,9 @@ function estaResuelto(board) {
 let semillasIntermedio = generarSemillasPorDificultad(10, "Intermedio");
 console.log(semillasIntermedio);
 
-
+//=====================================
+// Generar solución y puzzle con una de las semillas obtenidas
+//=====================================
 
 console.log("Solución con seed:", semillasIntermedio[1]);
 let solucion = generarSolucion(semillasIntermedio[1]);
