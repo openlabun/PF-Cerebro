@@ -649,7 +649,73 @@ function generarSemillasPorDificultad(cantidad, nivelDeseado) {
 
     return semillas;
 }
+//=====================================
+//verificacion de tablero resuelto
+//=====================================
+function estaResuelto(board) {
 
+    // 1️⃣ Verificar que sea matriz 9x9
+    if (!Array.isArray(board) || board.length !== 9) return false;
+
+    for (let r = 0; r < 9; r++) {
+        if (!Array.isArray(board[r]) || board[r].length !== 9) return false;
+    }
+
+    // 2️⃣ Verificar que no haya ceros
+    for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+            if (board[r][c] === 0) return false;
+        }
+    }
+
+    // Función auxiliar para validar conjunto 1-9 sin repetir
+    function esValidoGrupo(nums) {
+        let set = new Set(nums);
+        if (set.size !== 9) return false;
+
+        for (let n of set) {
+            if (n < 1 || n > 9) return false;
+        }
+
+        return true;
+    }
+
+    // 3️⃣ Verificar filas
+    for (let r = 0; r < 9; r++) {
+        if (!esValidoGrupo(board[r])) return false;
+    }
+
+    // 4️⃣ Verificar columnas
+    for (let c = 0; c < 9; c++) {
+        let col = [];
+        for (let r = 0; r < 9; r++) {
+            col.push(board[r][c]);
+        }
+        if (!esValidoGrupo(col)) return false;
+    }
+
+    // 5️⃣ Verificar bloques 3x3
+    for (let br = 0; br < 3; br++) {
+        for (let bc = 0; bc < 3; bc++) {
+
+            let bloque = [];
+
+            for (let r = br * 3; r < br * 3 + 3; r++) {
+                for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                    bloque.push(board[r][c]);
+                }
+            }
+
+            if (!esValidoGrupo(bloque)) return false;
+        }
+    }
+
+    return true;
+}
+
+//=====================================
+// Ejemplo de generación de semillas para nivel Intermedio
+//=====================================
  
 let semillasIntermedio = generarSemillasPorDificultad(10, "Intermedio");
 console.log(semillasIntermedio);
@@ -666,3 +732,6 @@ console.table(puzzle);
 
 let evaluarTablero = evaluarDificultad(puzzle);
 console.log("Evaluación del tablero:", evaluarTablero);
+
+let resultado = estaResuelto(puzzle);
+console.log("¿El tablero está resuelto?", resultado);
