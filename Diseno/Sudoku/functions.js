@@ -640,14 +640,14 @@ function generarSemillasPorDificultad(cantidad, nivelDeseado) {
 //=====================================
 function estaResuelto(board) {
 
-    // 1️⃣ Verificar que sea matriz 9x9
+    // Verificar que sea matriz 9x9
     if (!Array.isArray(board) || board.length !== 9) return false;
 
     for (let r = 0; r < 9; r++) {
         if (!Array.isArray(board[r]) || board[r].length !== 9) return false;
     }
 
-    // 2️⃣ Verificar que no haya ceros
+    // Verificar que no haya ceros
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
             if (board[r][c] === 0) return false;
@@ -666,12 +666,12 @@ function estaResuelto(board) {
         return true;
     }
 
-    // 3️⃣ Verificar filas
+    // Verificar filas
     for (let r = 0; r < 9; r++) {
         if (!esValidoGrupo(board[r])) return false;
     }
 
-    // 4️⃣ Verificar columnas
+    // Verificar columnas
     for (let c = 0; c < 9; c++) {
         let col = [];
         for (let r = 0; r < 9; r++) {
@@ -680,7 +680,7 @@ function estaResuelto(board) {
         if (!esValidoGrupo(col)) return false;
     }
 
-    // 5️⃣ Verificar bloques 3x3
+    // Verificar bloques 3x3
     for (let br = 0; br < 3; br++) {
         for (let bc = 0; bc < 3; bc++) {
 
