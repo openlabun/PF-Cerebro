@@ -296,20 +296,6 @@ function crearPuzzle(board, vacios = 40, seed = 1234) {
     return puzzle;
 }
 
-// =====================================
-// EJEMPLO
-// =====================================
-
-//let seed = 5678;
-
-//console.log("Solución con seed:", seed);
-//let solucion = generarSolucion(seed);
-//console.table(solucion);
-
-//console.log("Puzzle con misma seed:");
-//let puzzle = crearPuzzle(solucion, 40, seed);
-//console.table(puzzle);
-
 //=====================================
 //Analisis de dificultad
 //=====================================
