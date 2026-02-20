@@ -1,89 +1,200 @@
-# Planeación estrategias de gamificación y tracking personal
+# Planeación de Estrategias de Gamificación y Tracking Personal
 
+## 1. Visión General de la Plataforma
 
-## 1. Visión general de la plataforma
+El sistema debe diseñarse como una plataforma escalable para múltiples
+juegos, no únicamente como una herramienta de sudoku.\
+Los sistemas de tracking y gamificación deben ser adaptables para evitar
+rediseños estructurales al agregar nuevos juegos.
 
-Para el desarrollo de este proyecto, y en específico para la implementación de estrategias de gamificación y trackin personal, es importante que veamos a largo plazo no solo como una herramienta de sudoku, sino como una plataforma para múltiples juegos.
+------------------------------------------------------------------------
 
-Por esto, los sitemas de tracking personal y gamificación deben ser lo suficientemente adaptables como para no generar la necesidad de adaptación excesiva con la implementación de nuevos juegos.
+## 2. Estrategias de Gamificación
 
-## 2. Estrategias de gamificación
+### 2.1 Sistema de Rachas
 
-###  2.1 Sistema de rachas
-    Es una herramienta fundamental si queremos propagar este proyecto más allá del uso en olimpiadas y para generar la mayor retención posible.
+**Condición para mantener racha:** 
+- Completar mínimo 1 partida válida por día. 
+- Hora de corte: 4:00 AM (zona horaria del usuario).
 
-    La implementación de esta estrategia implica recompensar a los usuarios por ingresar y completar por lo menos una partida de alguno de los juegos disponibles en la plataforma.
+**Hitos de racha:** 
+- 3 días → Recompensa pequeña. 
+- 7 días → 1 salvador de racha. 
+- 14 días → paquete de experiencia( Nivel x 100) y salvador de racha. 
+- 30 días → Recompensa cosmética (icono). 
+- 50 días → Título especial. 
+- 100 días → Insignia exclusiva. 
+- Cada 100 días adicionales → Recompensa escalada.
 
-    Otras recompensas pueden darse en momentos clave de la racha (por ejemplo, al completar 10, 50, 100 días), de modo que haya una motivación a mantenerla y una recompensa clara por el esfuerzo.
+**Salvadores de racha:** 
+- Máximo acumulable: 3. 
+- Se obtiene 1 cada 7 días consecutivos o en recompensas especiales. 
+- No pueden usarse dos días seguidos. 
+- Consumo automático al fallar un día.
 
-    Las rachas implentarán también estrategias de felixibilidad como salvadores de racha obtenidos de recompensas al jugar, esto para permitir que los usuarios no pierdan todo su progreso solo por una o dos fallas.
+**Recompensa diaria:** 
 
-    Podemos usar como gran referente de esta estrategia a Duolingo, que ha conseguido mantener una amplia base de usuario en parte gracias a el compromiso que sienten por su racha.
+Bonus de experiencia acumulativo: +10% hasta máximo +50%.
 
+------------------------------------------------------------------------
 
-### 2.2 Retos Diarios y Eventos Temporales
+### 2.2 Retos Diarios
 
-    Los retos diarios evitan la motonia en el uso de la plataforma, además de que consiguen buena sinergia con las rachas al tener doble incentivo de ingresar cada día (mantener tu racha y completar un nuevo reto).
+**Características:** 
+- 1 reto nuevo cada día (Semilla predefinida). 
+- Dificultad rotativa (Aumenta grado de dificultad cada dia).
 
-    Los eventos temporales, por otra parte, incentivan a la participación más allá de solo mantener la racha, usando como motivación metas parciales con recompensas variadas que le den propocito más allá del ingreso diario.
+**Recompensas:** 
+- Nivel × (20--200 XP) según dificultad. 
+- Bonus semanal por completar 7 retos consecutivos ( Nivel × 500 ).
 
-    Chess.com usa esto de una manera excelente con sus puzzles diarios; en estos aplica ambas estrategias dado que es un reto diferente cada día, pero aumentan de dificultad a lo largo de la semana, además recompensando con puntos de elo según tu desempeño en completarlos.
+------------------------------------------------------------------------
 
+### 2.3 Eventos Temporales
 
-### 2.3 Logros e Insignias
+**Duración:** 7, 14 o 30 días.
 
-    Aquí otra vez usamos como referentes a Duolingo y Chess.com; en ambas plataformas se te recompensa al relaizar ciertos "hitos" en tu cuenta.
+**Estructura:** - 10--20 niveles por evento. - Barra de progreso.
 
-    Estos hitos pueden ir desde completar cierto número de partidas, alcanzar un elo significativo, completar un puzzle o sesión en un tiempo específico y muchos más ejemplos. Estos retos además suelen brindar elementos consmeticos como badges, títulos, iconos, etc.
+**Obtención de puntos:** 
+- Partida casual → 5 puntos. 
+- Victoria PVP → 15 puntos. 
+- Completar reto diario → 20 puntos.
 
-    Estos logros e insignias son una froma muy eficaz de motivar a los usarios a mantenerse activos haciendo uso de la competitividad y la sensación de logro al poder "presumir" de estos logros.
+**Recompensa:**
 
+-Bonus de experiencia +5--20% (Segun procentaje de completado alcanazdo) por la misma duracion del evento.
 
-### 3. Sistema de Puntaje
+-Titulo si se completa al 100%
 
-    Para manejar el progreso y muchos otros aspectos de la plataforma es importante definir un sistema de puntajes objetivo y estandarizado que pueda ser adoptado por todos los juegos que se planeen implementar, de modo que haya el menor conflicto posible.
+-Badge de porcentaje en caso de no completar 100%
 
-    Estos sistemas de puntaje pueden dividirse según si es progreso individual o competitivo.
+------------------------------------------------------------------------
 
-    Para el progreso personal puede ser un sistema de puntaje por partida, de modo que esto se acumule y aumente un "Nivel" general de la cuenta que refle la longevidad del usuario y su status.
+### 2.4 Logros e Insignias
 
-    En cambio, para el progreso competitivo se manejaria con un sistema de ELO, de modo que los mejores jugadores suban en los ranking y se enfrenten entre ellos; este puntaje se modificaran según victorias y derrotas después de cada partida PVP.
+**Logros de progreso (Fijo en el resumen de perfil):** 
+- 100 partidas → Bronce. 
+- 500 → Plata. 
+- 1000 → Oro. 
+- 5000 → Diamante.
 
-    Esta distincion es importante sobre todo para evitar mal emparejamineto, dado que una cuenta con alto progreso individual no siempre se traducira en un alto desempeño pvp.
+**Logros por marcas de tiempo:** 
+- Por definir
 
+**Rarezas (Reflejado en color de badges en el perfil):** 
+- Común 
+- Raro 
+- Épico 
+- Legendario
 
-### 4. Sitema de Ligas
+Recompensas visuales: badges (Logros por rendimiento), títulos (Logros por progreso, racha o torneo), marcos de perfil (Logros al alcanzar ligas especificas).
 
-    Siguiendo la idea de un sistema de ELO, debe implementarse ligas que den una sensacion de progreso en le pvp más allá de simplemente aumentar el número.
+------------------------------------------------------------------------
 
-    Se pueden usar rangos como bronce, plata, oro y diamante, con subdivisiones numericas de modo que cada cierta cantidad de puntos de ELO el usario logre un ascenso o un descenso.
+## 3. Sistema de Puntaje
 
-    Además, estas divisiones ayudaran a facilitar el matchmaking de estas partidas pvp o servirian como requisito de entrada en eventos como torneos.
+### 3.1 Nivel Global
 
-### 5. Juego Offline
+**XP por partida:**
+ - Fácil → 20 XP 
+ - Medio → 40 XP 
+ - Difícil → 70 XP 
+ - Experto → 120 XP 
+ - Extremo → 200 XP 
+ - Victoria PVP → +50 XP
 
-    La implementación movil debe garantizar disponibilidad offline, dado que muchas de las qejas actuales de platafromas es las constante necesidad de conexion; esto genera friccion innecesaria con el usario.
+**Progresión (Experiencia necesaria por nivel):** 
 
-    Para esto es obviamente importante garantizar que el progreso realizado en modo offline sea debidadmente registrado una vez se reestablezca la conexion.
+- Nivel 1--10 → Nivel × 100 XP 
+- Nivel 11--30 → Nivel × 150 XP 
+- Nivel 31--50 → Nivel × 250 XP 
+- Nivel 50+ → Nivel × (Nivel + 250 XP)
 
-    Este modo offline logicamente debe tener funciones restringidas, pero deber como minimo garantizar la vista de todo lo referente al perfil del usuario y sus estadisticas para el progreso individual.
+Cap inicial: Nivel 100.
 
-### 6. Manejo de Perfiles
+------------------------------------------------------------------------
 
-    Los perfiles son el eje central de toda la experiencia en la plataforma; deben ser altamente customizable y expresar de manera clara e intuitiva toda la experiencia del usuario.
+### 3.2 Sistema ELO
 
-    Estos perfiles deben incluir espacio para recompensas esteticas como badges, iconos, trofeos y demas.
+El sistema competitivo asigna a todos los jugadores un ELO inicial de 1000 puntos y ajusta su puntaje tras cada partida según la diferencia frente a la probabilidad esperada de victoria, permitiendo progresión rápida al inicio y mayor estabilidad en rangos altos.
 
-    Además, debe brindar tambien un vistazo a un dashboard con las estadisticas de la cuenta para maximizar la sensacion de progreso de los usuarios al ver sus acciones cuantificadas.
+Fórmula general:
+Nuevo_ELO = ELO_actual + K × (Resultado − E)
+donde E = 1 / (1 + 10^((R_oponente − R_jugador) / 400))
 
-    Aunque habra un excepcion para cuentas de invitado propias de la implementación web para fomentar el uso de nuevos usuario sin la friccion inicial de crear una cuenta.
+ELO inicial: 1000 puntos.
 
-### 7. Referencias 
-    - Chess. (s. f.). Chess.com - Play Chess online - free games. Chess.com. https://chess.com/
+K-factor:
 
-    - Duolingo - Learn a language for free @duolingo. (s. f.). Duolingo. https://duolingo.com/
+< 1200 → 40 (ajustes rápidos)
 
+1200–1800 → 30 (progresión equilibrada)
 
+1800 → 20 (mayor estabilidad)
 
+Primeras 10 partidas: modo provisional con pérdidas reducidas en 50% para estimar con mayor precisión el nivel real del jugador.
+Esta implementacion se basa en el modelo de calculo de ELO de chess.com
 
+------------------------------------------------------------------------
 
+## 4. Sistema de Ligas
+
+-   Bronce (0--999)
+-   Plata (1000--1199)
+-   Oro (1200--1499)
+-   Platino (1500--1799)
+-   Diamante (1800--2099)
+-   Maestro (2100+)
+
+Cada liga tiene 3 subdivisiones: III, II, I.
+
+**Comportamiento de las ligas:**
+
+-Ciclo de ligas mensual.
+
+-Marco de icono de perfil que expone la liga actual.
+
+-Recompensas semanales escaladas según liga.
+
+------------------------------------------------------------------------
+
+## 5. Juego Offline
+
+**Disponible offline:** 
+- Partidas individuales. 
+- Consulta de perfil. 
+- Estadísticas locales.
+
+**No disponible:** 
+- PVP. 
+- Eventos.
+
+Sincronización automática al reconectar.
+
+------------------------------------------------------------------------
+
+## 6. Manejo de Perfiles
+
+**Elementos visibles:** 
+- Nivel global. 
+- Liga actual. 
+- ELO. 
+- Racha actual y récord. 
+- Logros fijables/Badges (máx 6). 
+- Avatar y marco.
+
+**Dashboard:** 
+- Partidas jugadas. 
+- % victorias PVP. 
+- Tiempo promedio. 
+- Historial de ELO.
+
+Cuenta invitado con límite de 20 partidas y conversión conservando
+progreso.
+
+## 7. Referencias
+
+- https://www.Duolingo.com
+- https://www.Chess.com 
+    -  https://www.chess.com/blog/2325G/what-is-elo
