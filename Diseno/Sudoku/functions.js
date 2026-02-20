@@ -816,36 +816,40 @@ if (!response.ok) {
 // función para dar pista al usuario
 //=====================================
 
-function darPista(tableroActual, tableroSolucion) {
+function darPistaAleatoria(tableroActual, tableroSolucion) {
+
+    let diferencias = [];
 
     for (let r = 0; r < 9; r++) {
         for (let c = 0; c < 9; c++) {
-
-            // Si está vacío o incorrecto
             if (tableroActual[r][c] !== tableroSolucion[r][c]) {
-
-                tableroActual[r][c] = tableroSolucion[r][c];
-
-                return {
-                    ok: true,
-                    row: r,
-                    col: c,
-                    valor: tableroSolucion[r][c],
-                    mensaje: `Pista aplicada en (${r}, ${c})`
-                };
+                diferencias.push([r, c]);
             }
         }
     }
 
+    if (diferencias.length === 0) {
+        return { ok: false, mensaje: "El tablero ya está completo" };
+    }
+
+    // Elegir celda aleatoria
+    let indice = Math.floor(Math.random() * diferencias.length);
+    let [r, c] = diferencias[indice];
+
+    tableroActual[r][c] = tableroSolucion[r][c];
+
     return {
-        ok: false,
-        mensaje: "El tablero ya está completo"
+        ok: true,
+        row: r,
+        col: c,
+        valor: tableroSolucion[r][c],
+        restantes: diferencias.length - 1
     };
 }
 //=====================================
 // Ejemplo de uso de darPista
 //=====================================
-let pista = darPista(tableroActual, solucion);
+let pista = darPistaAleatoria(tableroActual, solucion);
 
 if (pista.ok) {
     console.log("Pista:", pista);
