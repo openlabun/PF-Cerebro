@@ -537,7 +537,7 @@ function evaluarDificultad(board) {
 
     const huecos = board.flat().filter(x => x === 0).length;
 
-    // 🔢 Sistema de puntuación ponderado
+    // Sistema de puntuación ponderado
     const score =
         stats.single * 1 +
         stats.hiddenSingle * 2 +
@@ -548,7 +548,7 @@ function evaluarDificultad(board) {
 
     let nivel = "";
 
-    // 🎚 Clasificación principal por técnica más avanzada
+    // Clasificación principal por técnica más avanzada
     if (stats.backtracking > 0) {
         nivel = "Profesional";
     }
