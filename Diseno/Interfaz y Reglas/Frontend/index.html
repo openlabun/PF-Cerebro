@@ -14,39 +14,120 @@
   </head>
   <body>
     <header class="topbar">
-      <a class="logo" href="#">Cere<span>bro</span></a>
+      <a class="logo" id="home-logo" href="#">Cere<span>bro</span></a>
       <nav>
         <button type="button" class="nav-btn active" id="tab-inicio">Inicio</button>
-        <button type="button" class="nav-btn" id="tab-jugar">Jugar</button>
-        <a class="nav-btn" href="#como-jugar">Cómo jugar</a>
-        <a class="nav-btn" href="#modos">Modos</a>
-        <a class="nav-btn" href="#ventajas">Ventajas</a>
+        <button type="button" class="nav-btn" id="tab-jugar">Jugar Sudoku</button>
+        <button type="button" class="nav-btn" id="tab-perfil">Perfil</button>
       </nav>
       <div class="topbar-actions">
-        <button id="theme-toggle" class="btn ghost" type="button">Tema: Sistema</button>
+        <button id="theme-toggle" class="btn ghost" type="button">Tema: Claro</button>
         <button class="btn ghost" type="button">Iniciar sesión</button>
+        <button class="btn ghost" id="open-profile" type="button">Mi perfil</button>
       </div>
     </header>
 
     <main>
-      <section class="hero" id="inicio-tab">
-        <div class="hero-text">
-          <p class="eyebrow">Sudoku</p>
-          <h1>Entrena tu mente con un Sudoku bonito y moderno</h1>
+      <section id="inicio-tab">
+        <article class="welcome-banner board-card">
+          <p class="eyebrow">Bienvenido a Cerebro</p>
+          <h1>Tu plataforma de juegos de agilidad mental</h1>
           <p class="subtitle">
-            Una experiencia limpia, amigable y rápida. Juega por niveles, guarda
-            progreso y compite contigo mismo.
+            Aquí encontrarás distintos desafíos para entrenar tu mente. Explora los
+            juegos disponibles y consulta sus reglas con el botón "Cómo jugar" de
+            cada uno.
           </p>
-          <div class="hero-actions">
-            <button class="btn primary" id="play-now" type="button">Jugar ahora</button>
-            <a class="btn light" href="#como-jugar">Cómo jugar</a>
-          </div>
+        </article>
+
+        <div class="games-list">
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Sudoku</p>
+              <h2>Entrena tu mente con un Sudoku bonito y moderno</h2>
+              <p class="subtitle">
+                Una experiencia limpia, amigable y rápida. Juega por niveles, guarda
+                progreso y compite contigo mismo.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" id="play-now" type="button">Jugar ahora</button>
+                <button class="btn light open-guide" data-guide="sudoku" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Sudoku">
+              <div class="board sign-board" id="sign-board"></div>
+            </div>
+          </section>
+
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Ajedrez</p>
+              <h2>Piensa estratégico con partidas de Ajedrez</h2>
+              <p class="subtitle">
+                Practica táctica, aperturas y visión de tablero. Próximamente podrás
+                jugar partidas y retos de ajedrez en Cerebro.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" type="button" disabled>Próximamente</button>
+                <button class="btn light open-guide" data-guide="ajedrez" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Ajedrez">
+              <div class="board sign-board chess-sign-board" id="chess-sign-board"></div>
+            </div>
+          </section>
+
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Damas</p>
+              <h2>Mejora tu táctica con el clásico juego de Damas</h2>
+              <p class="subtitle">
+                Anticipa movimientos, crea trampas y domina diagonales. Este modo
+                estará disponible próximamente en Cerebro.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" type="button" disabled>Próximamente</button>
+                <button class="btn light open-guide" data-guide="damas" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Damas">
+              <div class="board sign-board chess-sign-board" id="checkers-sign-board"></div>
+            </div>
+          </section>
         </div>
 
-        <div class="board-card compact" aria-label="Letrero">
-          <div class="board sign-board" id="sign-board"></div>
+        
+      </section>
+
+
+      <section class="profile-tab hidden" id="perfil-tab">
+        <div class="game-header">
+          <h2>Perfil de usuario</h2>
+          <button class="btn light" id="back-home-from-profile" type="button">Volver al inicio</button>
+        </div>
+        <div class="board-card profile-card">
+          <p class="eyebrow">Cuenta activa</p>
+          <h3>Usuario: Invitado</h3>
+          <p class="subtitle">Aquí podrás ver tu progreso una vez inicies sesión: partidas jugadas, récords, racha y logros por juego.</p>
+          <div class="profile-grid">
+            <article><h4>Sudoku</h4><p>Partidas: 0 · Mejor tiempo: --:--</p></article>
+            <article><h4>Ajedrez</h4><p>Partidas: 0 · ELO inicial: 800</p></article>
+            <article><h4>Racha</h4><p>Días consecutivos: 0</p></article>
+          </div>
         </div>
       </section>
+
+
+      <div id="guide-modal" class="guide-modal hidden" aria-hidden="true">
+        <div class="guide-modal-backdrop" id="guide-modal-close" aria-label="Cerrar guía"></div>
+        <div class="guide-modal-card" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+          <button type="button" class="guide-modal-x" id="guide-modal-x" aria-label="Cerrar">✕</button>
+          <h2 id="guide-modal-title">Cómo jugar</h2>
+          <ul id="guide-modal-list"></ul>
+        </div>
+      </div>
 
       <section class="game-tab hidden" id="juego-tab">
         <div class="game-header">
@@ -77,71 +158,6 @@
             <button id="clear-cell" class="chip" type="button">Borrar</button>
           </div>
         </div>
-      </section>
-
-      <section id="como-jugar" class="how-to-play">
-        <h2>Cómo jugar Sudoku</h2>
-        <h3>Reglas básicas</h3>
-        <ul>
-          <li>Cada fila debe contener números del 1 al 9 sin repetirse.</li>
-          <li>Cada columna debe contener números del 1 al 9 sin repetirse.</li>
-          <li>Cada subcuadro 3x3 debe contener números del 1 al 9 sin repetirse.</li>
-          <li>Los números iniciales no pueden modificarse.</li>
-          <li>El objetivo es completar el tablero correctamente.</li>
-        </ul>
-
-        <h3>Modos de juego</h3>
-        <div class="mode-grid rules-modes">
-          <article>
-            <h4>Modo clásico</h4>
-            <ul>
-              <li>Sin límite de tiempo.</li>
-              <li>Sin límite de errores.</li>
-            </ul>
-          </article>
-          <article>
-            <h4>Modo limitado</h4>
-            <ul>
-              <li>Número máximo de errores permitidos.</li>
-              <li>Fin de partida al excederlos.</li>
-            </ul>
-          </article>
-          <article>
-            <h4>Modo competitivo</h4>
-            <ul>
-              <li>Sin ayudas.</li>
-              <li>Temporizador obligatorio.</li>
-              <li>Orientado a rankings.</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
-      <section id="modos" class="modes">
-        <h2>Elige tu modo favorito</h2>
-        <div class="mode-grid">
-          <article>
-            <h3>Clásico</h3>
-            <p>Juega sudokus tradicionales con interfaz clara y sin distracciones.</p>
-          </article>
-          <article>
-            <h3>Racha diaria</h3>
-            <p>Mantén tu progreso diario y desbloquea insignias por constancia.</p>
-          </article>
-          <article>
-            <h3>Contrarreloj</h3>
-            <p>Compite contra el reloj para mejorar velocidad y precisión.</p>
-          </article>
-        </div>
-      </section>
-
-      <section id="ventajas" class="benefits">
-        <h2>Por qué te va a encantar</h2>
-        <ul>
-          <li>Diseño visual relajado y pensado para sesiones largas.</li>
-          <li>Controles táctiles grandes para móvil y tablet.</li>
-          <li>Guardado automático de partida y estadísticas personales.</li>
-        </ul>
       </section>
     </main>
 

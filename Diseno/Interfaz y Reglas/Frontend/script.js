@@ -19,11 +19,20 @@ const difficultyLevels = [
   { key: "maestro", label: "Profesional", givens: 24 },
 ];
 
-const themes = ["system", "light", "dark"];
+const themes = ["light", "dark"];
 const THEME_KEY = "sudoku-theme";
 
 const boardEl = document.getElementById("board");
 const signBoardEl = document.getElementById("sign-board");
+const chessSignBoardEl = document.getElementById("chess-sign-board");
+const checkersSignBoardEl = document.getElementById("checkers-sign-board");
+const homeLogo = document.getElementById("home-logo");
+const openGuideBtns = document.querySelectorAll(".open-guide");
+const guideModal = document.getElementById("guide-modal");
+const guideModalClose = document.getElementById("guide-modal-close");
+const guideModalX = document.getElementById("guide-modal-x");
+const guideModalTitle = document.getElementById("guide-modal-title");
+const guideModalList = document.getElementById("guide-modal-list");
 const keypadEl = document.getElementById("keypad");
 const timerEl = document.getElementById("timer");
 const statusEl = document.getElementById("status");
@@ -33,9 +42,13 @@ const themeBtn = document.getElementById("theme-toggle");
 const playNowBtn = document.getElementById("play-now");
 const tabInicioBtn = document.getElementById("tab-inicio");
 const tabJugarBtn = document.getElementById("tab-jugar");
+const tabPerfilBtn = document.getElementById("tab-perfil");
+const openProfileBtn = document.getElementById("open-profile");
 const backHomeBtn = document.getElementById("back-home");
+const backHomeFromProfileBtn = document.getElementById("back-home-from-profile");
 const inicioTab = document.getElementById("inicio-tab");
 const juegoTab = document.getElementById("juego-tab");
+const perfilTab = document.getElementById("perfil-tab");
 const difficultySelect = document.getElementById("difficulty-select");
 const difficultyLabel = document.getElementById("difficulty-label");
 const progressFill = document.getElementById("progress-fill");
@@ -45,7 +58,7 @@ let puzzle = [];
 let state = [];
 let selectedCell = null;
 let seconds = 0;
-let activeTheme = "system";
+let activeTheme = "light";
 let timerInterval = null;
 let currentDifficulty = difficultyLevels[2];
 
@@ -83,28 +96,34 @@ function createPuzzle(givens, difficultyKey) {
 
 function setTab(mode) {
   const isGame = mode === "juego";
-  inicioTab.classList.toggle("hidden", isGame);
+  const isProfile = mode === "perfil";
+  const isHome = !isGame && !isProfile;
+
+  inicioTab.classList.toggle("hidden", !isHome);
   juegoTab.classList.toggle("hidden", !isGame);
-  tabInicioBtn.classList.toggle("active", !isGame);
+  perfilTab.classList.toggle("hidden", !isProfile);
+
+  tabInicioBtn.classList.toggle("active", isHome);
   tabJugarBtn.classList.toggle("active", isGame);
-  if (isGame) window.scrollTo({ top: 0, behavior: "smooth" });
+  tabPerfilBtn.classList.toggle("active", isProfile);
+
+  if (isGame || isProfile) window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function applyTheme(theme) {
-  activeTheme = theme;
-  if (theme === "system") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", theme);
+  activeTheme = themes.includes(theme) ? theme : "light";
+  document.documentElement.setAttribute("data-theme", activeTheme);
   try {
-    localStorage.setItem(THEME_KEY, theme);
+    localStorage.setItem(THEME_KEY, activeTheme);
   } catch {}
-  const label = theme === "system" ? "Sistema" : theme === "light" ? "Claro" : "Oscuro";
+  const label = activeTheme === "light" ? "Claro" : "Oscuro";
   themeBtn.textContent = `Tema: ${label}`;
 }
 
 function initTheme() {
-  let stored = "system";
+  let stored = "light";
   try {
-    stored = localStorage.getItem(THEME_KEY) || "system";
+    stored = localStorage.getItem(THEME_KEY) || "light";
   } catch {}
   applyTheme(stored);
   themeBtn.addEventListener("click", () => {
@@ -219,7 +238,7 @@ function createBoard() {
 }
 
 function createSignBoard() {
-  const letters = ["C", "E", "R", "E", "B", "R", "O", "!", "!"];
+  const letters = ["S", "U", "", "D", "O", "K", "", "U", ""];
   signBoardEl.innerHTML = "";
   for (let i = 0; i < 81; i += 1) {
     const row = Math.floor(i / 9);
@@ -236,6 +255,100 @@ function createSignBoard() {
 
     signBoardEl.appendChild(cell);
   }
+}
+
+function createChessSignBoard() {
+  if (!chessSignBoardEl) return;
+  const blackBack = ["♜", "♞", "♝", "♛", "♚", "♝", "♞", "♜"];
+  const whiteBack = ["♖", "♘", "♗", "♕", "♔", "♗", "♘", "♖"];
+
+  chessSignBoardEl.innerHTML = "";
+  for (let i = 0; i < 64; i += 1) {
+    const row = Math.floor(i / 8);
+    const col = i % 8;
+    const cell = document.createElement("div");
+    cell.className = "sign-cell chess-cell";
+
+    cell.classList.add((row + col) % 2 === 0 ? "light" : "dark");
+    if (row === 0) cell.textContent = blackBack[col];
+    else if (row === 1) cell.textContent = "♟";
+    else if (row === 6) cell.textContent = "♙";
+    else if (row === 7) cell.textContent = whiteBack[col];
+
+    chessSignBoardEl.appendChild(cell);
+  }
+}
+
+function createCheckersSignBoard() {
+  if (!checkersSignBoardEl) return;
+  checkersSignBoardEl.innerHTML = "";
+  for (let i = 0; i < 64; i += 1) {
+    const row = Math.floor(i / 8);
+    const col = i % 8;
+    const cell = document.createElement("div");
+    cell.className = "sign-cell chess-cell checkers-cell";
+
+    const darkSquare = (row + col) % 2 !== 0;
+    cell.classList.add(darkSquare ? "dark" : "light");
+
+    if (darkSquare && row <= 2) cell.textContent = "●";
+    else if (darkSquare && row >= 5) cell.textContent = "○";
+
+    checkersSignBoardEl.appendChild(cell);
+  }
+}
+
+
+function closeGuideModal() {
+  guideModal.classList.add("hidden");
+  guideModal.setAttribute("aria-hidden", "true");
+}
+
+function openGuide(guide) {
+  const guides = {
+    sudoku: {
+      title: "Cómo jugar Sudoku",
+      items: [
+        "Cada fila debe contener números del 1 al 9 sin repetirse.",
+        "Cada columna debe contener números del 1 al 9 sin repetirse.",
+        "Cada subcuadro 3x3 debe contener números del 1 al 9 sin repetirse.",
+        "Los números iniciales no pueden modificarse.",
+        "El objetivo es completar el tablero correctamente.",
+      ],
+    },
+    ajedrez: {
+      title: "Cómo jugar Ajedrez",
+      items: [
+        "Cada jugador inicia con 16 piezas.",
+        "El objetivo es dar jaque mate al rey rival.",
+        "Cada tipo de pieza tiene un movimiento específico.",
+        "No puedes dejar a tu rey en jaque.",
+        "Si no hay movimientos legales y no hay jaque, es tablas.",
+      ],
+    },
+    damas: {
+      title: "Cómo jugar Damas",
+      items: [
+        "Se juega sobre un tablero de 8x8 usando las casillas oscuras.",
+        "Cada jugador mueve piezas en diagonal hacia adelante.",
+        "Capturas una pieza rival saltando sobre ella.",
+        "Si llegas al extremo opuesto, tu pieza se convierte en reina.",
+        "Gana quien deja al rival sin movimientos o sin piezas.",
+      ],
+    },
+  };
+
+  const selected = guides[guide] || guides.sudoku;
+  guideModalTitle.textContent = selected.title;
+  guideModalList.innerHTML = "";
+  selected.items.forEach((item) => {
+    const li = document.createElement("li");
+    li.textContent = item;
+    guideModalList.appendChild(li);
+  });
+
+  guideModal.classList.remove("hidden");
+  guideModal.setAttribute("aria-hidden", "false");
 }
 
 function createKeypad() {
@@ -308,13 +421,31 @@ function setupControls() {
   });
 
   playNowBtn.addEventListener("click", () => setTab("juego"));
+
+  openGuideBtns.forEach((btn) => {
+    btn.addEventListener("click", () => openGuide(btn.dataset.guide));
+  });
+
+  guideModalClose.addEventListener("click", closeGuideModal);
+  guideModalX.addEventListener("click", closeGuideModal);
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && guideModal.getAttribute("aria-hidden") === "false") closeGuideModal();
+  });
+
+  homeLogo.addEventListener("click", () => setTab("inicio"));
+  openProfileBtn.addEventListener("click", () => setTab("perfil"));
   tabJugarBtn.addEventListener("click", () => setTab("juego"));
   tabInicioBtn.addEventListener("click", () => setTab("inicio"));
+  tabPerfilBtn.addEventListener("click", () => setTab("perfil"));
   backHomeBtn.addEventListener("click", () => setTab("inicio"));
+  backHomeFromProfileBtn.addEventListener("click", () => setTab("inicio"));
 }
 
 initTheme();
 createSignBoard();
+createChessSignBoard();
+createCheckersSignBoard();
 createKeypad();
 initializeDifficultyOptions();
 setupControls();

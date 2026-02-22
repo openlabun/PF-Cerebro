@@ -27,11 +27,13 @@
 }
 
 * { box-sizing: border-box; }
+button { transition: transform .18s ease, box-shadow .18s ease, filter .18s ease; }
+button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 18px rgba(57, 68, 142, 0.18); filter: brightness(1.02); }
 html { scroll-behavior: smooth; }
 body { margin: 0; font-family: "Inter", sans-serif; color: var(--text); background: radial-gradient(circle at top right, #eceefe, var(--bg) 35%); }
 
 .topbar { max-width: 1160px; margin: 0 auto; padding: 1.2rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.logo { text-decoration: none; color: var(--text); font-size: 1.2rem; font-weight: 800; }
+.logo { text-decoration: none; color: var(--text); font-size: 1.55rem; font-weight: 800; }
 .logo span { color: var(--primary); }
 nav, .topbar-actions { display: flex; gap: .6rem; }
 
@@ -40,12 +42,15 @@ nav, .topbar-actions { display: flex; gap: .6rem; }
 .nav-btn.active { background: var(--primary); color: #fff; }
 
 main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
-.hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 2rem; align-items: center; padding: 2rem 0; }
+.welcome-banner { margin-top: 1rem; margin-bottom: 1.25rem; }
+.games-list { display: grid; gap: 1.5rem; }
+.hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 2rem; align-items: center; padding: 1.2rem 0; }
 .hero-actions { display: flex; gap: .75rem; margin: 1.2rem 0; }
 .btn { border: 0; border-radius: 12px; padding: .72rem 1.1rem; font-weight: 700; cursor: pointer; text-decoration: none; }
 .btn.primary { background: var(--primary); color: #fff; }
 .btn.light { background: #e6e8ff; color: var(--primary-dark); }
 .btn.ghost { background: transparent; border: 1px solid var(--border); color: var(--text); }
+.btn:disabled { opacity: .6; cursor: not-allowed; }
 
 .board-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 1rem; }
 .board-card.compact { max-width: 430px; }
@@ -78,10 +83,36 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 .chip { border: 1px solid var(--border); background: var(--surface); color: var(--muted); border-radius: 999px; padding: .45rem .8rem; cursor: pointer; }
 .chip.number { min-width: 42px; color: var(--text); font-weight: 700; }
 
+
+.guide-panel { margin-top: 1rem; }
+.how-to-play { margin-top: 1.6rem; }
+
+.guide-modal { position: fixed; inset: 0; display: grid; place-items: center; z-index: 20; }
+.guide-modal-backdrop { position: absolute; inset: 0; background: rgba(10, 18, 56, 0.45); backdrop-filter: blur(2px); }
+.guide-modal-card { position: relative; width: min(92vw, 620px); max-height: 82vh; overflow: auto; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); padding: 1.1rem 1.2rem 1.1rem; animation: popIn .24s ease; }
+.guide-modal-card h2 { margin: .1rem 2rem .7rem 0; }
+.guide-modal-card ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .45rem; }
+.guide-modal-x { position: absolute; top: .7rem; right: .7rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; width: 34px; height: 34px; cursor: pointer; }
+@keyframes popIn { from { opacity: 0; transform: scale(.95) translateY(6px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+
+.profile-tab { margin-top: 1rem; }
+.profile-card h3 { margin-top: 0; }
+.profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; margin-top: 1rem; }
+.profile-grid article { border: 1px solid var(--border); border-radius: 14px; padding: .8rem; background: color-mix(in srgb, var(--primary) 8%, var(--surface)); }
+.profile-grid h4 { margin: 0 0 .35rem; }
+.chess-sign-board { grid-template-columns: repeat(8,1fr); width: min(100%, 480px); }
+.chess-sign-board .sign-cell { font-size: clamp(1.1rem,2.7vw,1.7rem); }
+.chess-cell.light { background: #eef1ff; color: #27306b; }
+.chess-cell.dark { background: #8f9ef3; color: #15205f; }
+.checkers-cell { font-weight: 800; }
+.checkers-cell.dark { font-size: clamp(1.15rem,2.9vw,1.85rem); }
+
 .hidden { display: none !important; }
 
 @media (max-width: 930px) {
   nav { display: none; }
   .hero { grid-template-columns: 1fr; }
   .board-card.compact { max-width: none; }
+  .profile-grid { grid-template-columns: 1fr; }
 }
