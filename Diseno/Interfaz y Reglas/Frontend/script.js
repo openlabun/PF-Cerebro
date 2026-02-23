@@ -1,3 +1,4 @@
+// ===== Sudoku base data =====
 const solution = [
   [5, 3, 4, 6, 7, 8, 9, 1, 2],
   [6, 7, 2, 1, 9, 5, 3, 4, 8],
@@ -19,9 +20,11 @@ const difficultyLevels = [
   { key: "maestro", label: "Profesional", givens: 24 },
 ];
 
+// ===== Theme settings =====
 const themes = ["light", "dark"];
 const THEME_KEY = "sudoku-theme";
 
+// ===== DOM references =====
 const boardEl = document.getElementById("board");
 const signBoardEl = document.getElementById("sign-board");
 const chessSignBoardEl = document.getElementById("chess-sign-board");
@@ -53,7 +56,28 @@ const difficultySelect = document.getElementById("difficulty-select");
 const difficultyLabel = document.getElementById("difficulty-label");
 const progressFill = document.getElementById("progress-fill");
 const progressText = document.getElementById("progress-text");
+const profileAvatarEl = document.getElementById("profile-avatar");
+const openAvatarPickerBtn = document.getElementById("open-avatar-picker");
+const avatarModal = document.getElementById("avatar-modal");
+const badgeModal = document.getElementById("badge-modal");
+const avatarOptionsEl = document.getElementById("avatar-options");
+const badgeOptionsEl = document.getElementById("badge-options");
+const frameOptionsEl = document.getElementById("frame-options");
+const badgeSlotBtns = document.querySelectorAll(".badge-slot");
+const closePickerBtns = document.querySelectorAll("[data-close-picker]");
+const pickerTabBtns = document.querySelectorAll(".picker-tab");
+const openStreakCalendarBtn = document.getElementById("open-streak-calendar");
+const streakModal = document.getElementById("streak-modal");
+const streakCalendarEl = document.getElementById("streak-calendar");
+const streakCountEl = document.getElementById("streak-count");
+const streakPrevMonthBtn = document.getElementById("streak-prev-month");
+const streakNextMonthBtn = document.getElementById("streak-next-month");
+const streakMonthLabelEl = document.getElementById("streak-month-label");
+const modeCardBtns = document.querySelectorAll(".mode-card");
+const modeDetailTitle = document.getElementById("mode-detail-title");
+const modeDetailList = document.getElementById("mode-detail-list");
 
+// ===== Runtime state =====
 let puzzle = [];
 let state = [];
 let selectedCell = null;
@@ -62,6 +86,303 @@ let activeTheme = "light";
 let timerInterval = null;
 let currentDifficulty = difficultyLevels[2];
 
+
+const profileModeStats = {
+  sudoku: [
+    "Partidas jugadas: 42",
+    "Mejor tiempo: 03:52",
+    "Precisión promedio: 92%",
+    "Dificultad favorita: Intermedio",
+  ],
+  ajedrez: [
+    "Partidas jugadas: 18",
+    "ELO actual: 1035",
+    "Victorias: 11 · Derrotas: 7",
+    "Apertura favorita: Italiana",
+  ],
+  damas: [
+    "Partidas jugadas: 27",
+    "Victorias: 16 · Derrotas: 11",
+    "Racha máxima: 5 victorias",
+    "Tasa de capturas: 78%",
+  ],
+};
+
+// ===== Profile customization data =====
+const avatarOptions = ["♔", "♕", "♖", "♗", "♘", "♙"];
+const badgeOptions = ["🧠", "♟️", "🎯", "⚡", "🏆", "🔥", "🛡️", "💎", "🌟", "🎲"];
+const frameOptions = [
+  { key: "frame-royal", label: "Real", minStreak: 0 },
+  { key: "frame-arcane", label: "Arcano", minStreak: 0 },
+  { key: "frame-neon", label: "Neón", minStreak: 0 },
+  { key: "frame-ember", label: "Ascua", minStreak: 0 },
+  { key: "frame-ice", label: "Hielo", minStreak: 0 },
+  { key: "frame-inferno", label: "Inferno", minStreak: 11 },
+];
+const CURRENT_YEAR = new Date().getFullYear();
+
+function toYmd(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function createStreakActivityDates(year) {
+  const dates = new Set();
+  const today = new Date();
+
+  // Racha actual: últimos 17 días consecutivos hasta hoy.
+  for (let i = 0; i < 17; i += 1) {
+    const day = new Date(today);
+    day.setDate(today.getDate() - i);
+    if (day.getFullYear() === year) dates.add(toYmd(day));
+  }
+
+  // Días adicionales de actividad en meses anteriores del mismo año.
+  [
+    `${year}-01-04`,
+    `${year}-01-05`,
+    `${year}-01-12`,
+    `${year}-01-22`,
+    `${year}-02-02`,
+    `${year}-02-10`,
+    `${year}-03-08`,
+    `${year}-03-14`,
+    `${year}-04-03`,
+    `${year}-05-18`,
+    `${year}-06-02`,
+    `${year}-07-09`,
+  ].forEach((d) => dates.add(d));
+
+  return [...dates].sort();
+}
+
+const streakActivityDates = createStreakActivityDates(CURRENT_YEAR);
+let currentStreakMonth = new Date(CURRENT_YEAR, new Date().getMonth(), 1);
+let activeBadgeSlot = null;
+let activeFrame = "frame-royal";
+
+// ===== Profile UI logic =====
+function setProfileAvatar(symbol) {
+  profileAvatarEl.textContent = symbol;
+}
+
+function getCurrentStreak(activityDates) {
+  if (!activityDates.length) return 0;
+  const activitySet = new Set(activityDates);
+  const cursor = new Date();
+  let streak = 0;
+
+  while (activitySet.has(toYmd(cursor))) {
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+
+  return streak;
+}
+
+function isFrameUnlocked(frame) {
+  return getCurrentStreak(streakActivityDates) >= frame.minStreak;
+}
+
+function refreshStreakUi() {
+  streakCountEl.textContent = getCurrentStreak(streakActivityDates);
+}
+
+function openPicker(modalEl) {
+  modalEl.classList.remove("hidden");
+  modalEl.setAttribute("aria-hidden", "false");
+}
+
+function closePicker(modalEl) {
+  modalEl.classList.add("hidden");
+  modalEl.setAttribute("aria-hidden", "true");
+}
+
+function renderAvatarOptions() {
+  avatarOptionsEl.innerHTML = "";
+  avatarOptions.forEach((symbol) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option";
+    btn.textContent = symbol;
+    btn.addEventListener("click", () => {
+      setProfileAvatar(symbol);
+      closePicker(avatarModal);
+    });
+    avatarOptionsEl.appendChild(btn);
+  });
+}
+
+function renderBadgeOptions() {
+  badgeOptionsEl.innerHTML = "";
+  badgeOptions.forEach((symbol) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option";
+    btn.textContent = symbol;
+    btn.addEventListener("click", () => {
+      if (activeBadgeSlot) activeBadgeSlot.textContent = symbol;
+      closePicker(badgeModal);
+    });
+    badgeOptionsEl.appendChild(btn);
+  });
+}
+
+
+
+function setProfileFrame(frameKey) {
+  const selected = frameOptions.find((frame) => frame.key === frameKey) || frameOptions[0];
+  if (!isFrameUnlocked(selected)) return;
+
+  openAvatarPickerBtn.classList.remove(...frameOptions.map((frame) => frame.key));
+  openAvatarPickerBtn.classList.add(selected.key);
+  activeFrame = selected.key;
+}
+
+function renderFrameOptions() {
+  frameOptionsEl.innerHTML = "";
+  frameOptions.forEach((frame) => {
+    const unlocked = isFrameUnlocked(frame);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `picker-option frame-option ${frame.key}`;
+    btn.dataset.frame = frame.key;
+    btn.title = unlocked ? frame.label : `${frame.label} (desbloquea con racha > 10)`;
+
+    if (!unlocked) {
+      btn.classList.add("locked");
+      btn.textContent = "🔒";
+    }
+
+    if (activeFrame === frame.key) btn.classList.add("active");
+
+    btn.addEventListener("click", () => {
+      if (!unlocked) return;
+      setProfileFrame(frame.key);
+      renderFrameOptions();
+      closePicker(avatarModal);
+    });
+
+    frameOptionsEl.appendChild(btn);
+  });
+}
+
+function setAvatarPickerTab(tab) {
+  const isAvatar = tab === "avatar";
+  avatarOptionsEl.classList.toggle("hidden", !isAvatar);
+  frameOptionsEl.classList.toggle("hidden", isAvatar);
+  pickerTabBtns.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.pickerTab === tab);
+  });
+}
+
+function renderStreakCalendar() {
+  if (!streakCalendarEl) return;
+
+  const monthNames = [
+    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
+  ];
+
+  const month = currentStreakMonth.getMonth();
+  const year = currentStreakMonth.getFullYear();
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const startOffset = (firstDay.getDay() + 6) % 7; // Lunes=0
+
+  streakMonthLabelEl.textContent = `${monthNames[month]} ${year}`;
+  streakPrevMonthBtn.disabled = month === 0;
+  streakNextMonthBtn.disabled = month === 11;
+
+  const activitySet = new Set(streakActivityDates);
+  streakCalendarEl.innerHTML = "";
+
+  for (let i = 0; i < startOffset; i += 1) {
+    const empty = document.createElement("div");
+    empty.className = "calendar-day empty";
+    streakCalendarEl.appendChild(empty);
+  }
+
+  for (let day = 1; day <= lastDay.getDate(); day += 1) {
+    const date = new Date(year, month, day);
+    const cell = document.createElement("div");
+    cell.className = "calendar-day";
+    if (activitySet.has(toYmd(date))) cell.classList.add("active");
+    cell.textContent = day;
+    streakCalendarEl.appendChild(cell);
+  }
+}
+
+function renderModeDetail(mode) {
+  const selectedMode = profileModeStats[mode] ? mode : "sudoku";
+  modeCardBtns.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === selectedMode);
+  });
+  modeDetailTitle.textContent = selectedMode[0].toUpperCase() + selectedMode.slice(1);
+  modeDetailList.innerHTML = "";
+  profileModeStats[selectedMode].forEach((stat) => {
+    const item = document.createElement("li");
+    item.textContent = stat;
+    modeDetailList.appendChild(item);
+  });
+}
+
+function initProfileUi() {
+  renderAvatarOptions();
+  renderBadgeOptions();
+  renderStreakCalendar();
+  setProfileAvatar("♔");
+  refreshStreakUi();
+  setProfileFrame("frame-royal");
+  setAvatarPickerTab("avatar");
+  renderFrameOptions();
+  renderModeDetail("sudoku");
+
+  pickerTabBtns.forEach((btn) => {
+    btn.addEventListener("click", () => setAvatarPickerTab(btn.dataset.pickerTab));
+  });
+
+  openAvatarPickerBtn.addEventListener("click", () => openPicker(avatarModal));
+  openStreakCalendarBtn.addEventListener("click", () => {
+    currentStreakMonth = new Date(CURRENT_YEAR, new Date().getMonth(), 1);
+    renderStreakCalendar();
+    openPicker(streakModal);
+  });
+
+  streakPrevMonthBtn.addEventListener("click", () => {
+    if (currentStreakMonth.getMonth() === 0) return;
+    currentStreakMonth = new Date(CURRENT_YEAR, currentStreakMonth.getMonth() - 1, 1);
+    renderStreakCalendar();
+  });
+
+  streakNextMonthBtn.addEventListener("click", () => {
+    if (currentStreakMonth.getMonth() === 11) return;
+    currentStreakMonth = new Date(CURRENT_YEAR, currentStreakMonth.getMonth() + 1, 1);
+    renderStreakCalendar();
+  });
+
+  badgeSlotBtns.forEach((slot) => {
+    slot.addEventListener("click", () => {
+      activeBadgeSlot = slot;
+      openPicker(badgeModal);
+    });
+  });
+
+  modeCardBtns.forEach((btn) => {
+    btn.addEventListener("click", () => renderModeDetail(btn.dataset.mode));
+  });
+
+  closePickerBtns.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const type = btn.dataset.closePicker;
+      if (type === "avatar") closePicker(avatarModal);
+      if (type === "badge") closePicker(badgeModal);
+      if (type === "streak") closePicker(streakModal);
+    });
+  });
+}
+
+
+// ===== Sudoku game logic =====
 function seededRandom(seed) {
   let value = seed % 2147483647;
   if (value <= 0) value += 2147483646;
@@ -398,6 +719,7 @@ function loadDifficulty(levelKey) {
   startTimer(true);
 }
 
+// ===== App events =====
 function setupControls() {
   clearBtn.addEventListener("click", () => fillSelected(""));
   hintBtn.addEventListener("click", () => {
@@ -431,6 +753,9 @@ function setupControls() {
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && guideModal.getAttribute("aria-hidden") === "false") closeGuideModal();
+    if (event.key === "Escape" && avatarModal.getAttribute("aria-hidden") === "false") closePicker(avatarModal);
+    if (event.key === "Escape" && badgeModal.getAttribute("aria-hidden") === "false") closePicker(badgeModal);
+    if (event.key === "Escape" && streakModal.getAttribute("aria-hidden") === "false") closePicker(streakModal);
   });
 
   homeLogo.addEventListener("click", () => setTab("inicio"));
@@ -442,6 +767,7 @@ function setupControls() {
   backHomeFromProfileBtn.addEventListener("click", () => setTab("inicio"));
 }
 
+// ===== App bootstrap =====
 initTheme();
 createSignBoard();
 createChessSignBoard();
@@ -449,5 +775,6 @@ createCheckersSignBoard();
 createKeypad();
 initializeDifficultyOptions();
 setupControls();
+initProfileUi();
 loadDifficulty(currentDifficulty.key);
 setTab("inicio");

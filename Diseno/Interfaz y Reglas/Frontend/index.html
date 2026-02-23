@@ -107,17 +107,94 @@
           <h2>Perfil de usuario</h2>
           <button class="btn light" id="back-home-from-profile" type="button">Volver al inicio</button>
         </div>
-        <div class="board-card profile-card">
-          <p class="eyebrow">Cuenta activa</p>
-          <h3>Usuario: Invitado</h3>
-          <p class="subtitle">Aquí podrás ver tu progreso una vez inicies sesión: partidas jugadas, récords, racha y logros por juego.</p>
-          <div class="profile-grid">
-            <article><h4>Sudoku</h4><p>Partidas: 0 · Mejor tiempo: --:--</p></article>
-            <article><h4>Ajedrez</h4><p>Partidas: 0 · ELO inicial: 800</p></article>
-            <article><h4>Racha</h4><p>Días consecutivos: 0</p></article>
+        <div class="board-card profile-card lol-profile">
+          <div class="summoner-header">
+            <button class="avatar-frame" id="open-avatar-picker" type="button" aria-label="Elegir foto de perfil">
+              <div class="avatar-inner" id="profile-avatar">♔</div>
+              <span class="level-badge">47</span>
+            </button>
+            <div class="summoner-meta">
+              <p class="eyebrow">Cuenta activa</p>
+              <h3>Invitado#0001</h3>
+              <p class="profile-title">Título: "El dios de los números"</p>
+              <button type="button" class="streak-chip" id="open-streak-calendar" aria-label="Ver racha">🔥<span id="streak-count">0</span></button>
+              <div class="profile-level-wrap" aria-label="Progreso de nivel">
+                <div class="level-track">
+                  <div class="level-fill" style="width: 68%"></div>
+                </div>
+                <p class="level-text">Nivel 47 · 680 / 1000 XP</p>
+              </div>
+            </div>
           </div>
+
+          <div class="badges-panel" aria-label="Insignias del perfil">
+            <h4 class="badges-title">Badges</h4>
+            <p class="badge-help">Selecciona un círculo para elegir una insignia.</p>
+            <div class="badges-grid">
+              <button type="button" class="badge-slot" data-badge-slot="0" aria-label="Badge 1"></button>
+              <button type="button" class="badge-slot" data-badge-slot="1" aria-label="Badge 2"></button>
+              <button type="button" class="badge-slot" data-badge-slot="2" aria-label="Badge 3"></button>
+              <button type="button" class="badge-slot" data-badge-slot="3" aria-label="Badge 4"></button>
+              <button type="button" class="badge-slot" data-badge-slot="4" aria-label="Badge 5"></button>
+              <button type="button" class="badge-slot" data-badge-slot="5" aria-label="Badge 6"></button>
+            </div>
+          </div>
+
+          <div class="profile-grid mode-grid-selector" aria-label="Modos del usuario">
+            <button type="button" class="mode-card active" data-mode="sudoku"><h4>Sudoku</h4></button>
+            <button type="button" class="mode-card" data-mode="ajedrez"><h4>Ajedrez</h4></button>
+            <button type="button" class="mode-card" data-mode="damas"><h4>Damas</h4></button>
+          </div>
+
+          <article class="mode-detail" id="mode-detail" aria-live="polite">
+            <h4 id="mode-detail-title">Sudoku</h4>
+            <ul id="mode-detail-list"></ul>
+          </article>
         </div>
       </section>
+
+
+      <div id="avatar-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="avatar"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title">
+          <button type="button" class="picker-x" data-close-picker="avatar" aria-label="Cerrar">✕</button>
+          <h3 id="avatar-modal-title">Personaliza perfil</h3>
+          <div class="picker-switch">
+            <button type="button" class="picker-tab active" data-picker-tab="avatar">Foto</button>
+            <button type="button" class="picker-tab" data-picker-tab="frame">Marco</button>
+          </div>
+          <div class="picker-options" id="avatar-options"></div>
+          <div class="picker-options hidden" id="frame-options"></div>
+        </div>
+      </div>
+
+      <div id="badge-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="badge"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="badge-modal-title">
+          <button type="button" class="picker-x" data-close-picker="badge" aria-label="Cerrar">✕</button>
+          <h3 id="badge-modal-title">Elige insignia</h3>
+          <div class="picker-options" id="badge-options"></div>
+        </div>
+      </div>
+
+
+      <div id="streak-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="streak"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="streak-modal-title">
+          <button type="button" class="picker-x" data-close-picker="streak" aria-label="Cerrar">✕</button>
+          <h3 id="streak-modal-title">Racha de juego</h3>
+          <p class="badge-help">Días resaltados = días con actividad de racha en este año.</p>
+          <div class="calendar-toolbar" aria-label="Cambiar mes de calendario">
+            <button type="button" id="streak-prev-month" class="chip">◀</button>
+            <strong id="streak-month-label"></strong>
+            <button type="button" id="streak-next-month" class="chip">▶</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+          </div>
+          <div class="streak-calendar" id="streak-calendar"></div>
+        </div>
+      </div>
 
 
       <div id="guide-modal" class="guide-modal hidden" aria-hidden="true">
