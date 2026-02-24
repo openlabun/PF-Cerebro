@@ -825,7 +825,31 @@ function clasificarSeedsPorDificultad({
   return resultado;
 }
 
+// =====================
+// Ejemplo de uso
+// =====================
 
+const listas = clasificarSeedsPorDificultad({ huecos: 40, porDificultad: 15, masterSeed: 12345 });
+console.log(listas);
+console.log(listas.Principiante.length);
+console.log(evaluarDificultad(crearPuzzle(generarSolucion(listas.Principiante[0].seed), listas.Principiante[0].huecos, listas.Principiante[0].seed)));
+//=====================================
+// Generar solución y puzzle con una de las semillas obtenidas
+//=====================================
+/*
+console.log("Solución con seed:", semillasIntermedio[1]);
+let solucion = generarSolucion(semillasIntermedio[1]);
+console.table(solucion);
+
+console.log("Puzzle con misma seed:");
+let puzzle = crearPuzzle(solucion, 40, semillasIntermedio[1]);
+console.table(puzzle);
+
+let evaluarTablero = evaluarDificultad(puzzle);
+console.log("Evaluación del tablero:", evaluarTablero);
+
+let resultado = estaResuelto(puzzle);
+console.log("¿El tablero está resuelto?", resultado);
 
 
 //=====================
@@ -869,6 +893,7 @@ function esMovimientoValido(board, row, col, num) {
 //=====================================
 
 //IMPORTANTE: Esta función asume que el tableroActual es una copia del puzzleInicial y que se mantiene actualizado con los movimientos del usuario. El puzzleInicial se utiliza para verificar qué celdas son fijas y no deben ser modificadas.
+let tableroActual = puzzle.map(r => [...r]);
 function introducirNumero(tableroActual, puzzleInicial, row, col, num) {
 
     // Validar índices
@@ -903,7 +928,17 @@ function introducirNumero(tableroActual, puzzleInicial, row, col, num) {
     return { ok: true, mensaje: "Movimiento aplicado" };
 }
 
+//=====================================
+// Ejemplo de uso de introducirNumero
+//=====================================
+let response= introducirNumero(tableroActual, puzzle, 4, 2, 3);
 
+if (!response.ok) {
+    console.log("Error:", response.mensaje);
+} else {
+    console.log("valido", response.mensaje);
+    console.table(tableroActual);
+}
 //=====================================
 // función para dar pista al usuario
 //=====================================
@@ -937,6 +972,17 @@ function darPistaAleatoria(tableroActual, tableroSolucion) {
         valor: tableroSolucion[r][c],
         restantes: diferencias.length - 1
     };
+}
+//=====================================
+// Ejemplo de uso de darPista
+//=====================================
+let pista = darPistaAleatoria(tableroActual, solucion);
+
+if (pista.ok) {
+    console.log("Pista:", pista);
+    console.table(tableroActual);
+} else {
+    console.log("Nada que completar");
 }
 
 
@@ -1043,20 +1089,21 @@ function imprimirNotasComoTablero(notas) {
         console.log(filaTexto);
     }
 }
-export {
-  generarSolucion,
-  crearPuzzle,
-  resolverSudoku,
-  tieneSolucionUnica,
-  analizarDificultad,
-  evaluarDificultad,
-  clasificarSeedsPorDificultad,
-  esMovimientoValido,
-  introducirNumero,
-  estaResuelto,
-  darPistaAleatoria,
-  crearNotasVacias,
-  toggleNota,
-  limpiarNotasCelda,
-  imprimirNotasComoTablero
-};
+//=====================================
+// Ejemplo de uso de Notas y limpieza de notas relacionadas
+//=====================================
+
+//crear notas vacías
+let notas = crearNotasVacias();
+toggleNota(notas, tableroActual, 0, 2, 7);
+
+let nota = toggleNota(notas, tableroActual, 0, 2, 5);
+
+if (!nota.ok) {
+    console.log("Error:", nota.mensaje);
+} else {
+    console.log("Nota", nota.accion);
+}
+imprimirNotasComoTablero(notas);
+limpiarNotasCelda(notas, 0, 2);
+imprimirNotasComoTablero(notas);*/
