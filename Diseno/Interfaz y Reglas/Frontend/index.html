@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sudoku Proposal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="logo" id="home-logo" href="#">Cere<span>bro</span></a>
+      <nav>
+        <button type="button" class="nav-btn active" id="tab-inicio">Inicio</button>
+        <button type="button" class="nav-btn" id="tab-jugar">Jugar Sudoku</button>
+        <button type="button" class="nav-btn" id="tab-perfil">Perfil</button>
+      </nav>
+      <div class="topbar-actions">
+        <button id="theme-toggle" class="btn ghost" type="button">Tema: Claro</button>
+        <button class="btn ghost" type="button">Iniciar sesión</button>
+        <button class="btn ghost" id="open-profile" type="button">Mi perfil</button>
+      </div>
+    </header>
+
+    <main>
+      <section id="inicio-tab">
+        <article class="welcome-banner board-card">
+          <p class="eyebrow">Bienvenido a Cerebro</p>
+          <h1>Tu plataforma de juegos de agilidad mental</h1>
+          <p class="subtitle">
+            Aquí encontrarás distintos desafíos para entrenar tu mente. Explora los
+            juegos disponibles y consulta sus reglas con el botón "Cómo jugar" de
+            cada uno.
+          </p>
+        </article>
+
+        <div class="games-list">
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Sudoku</p>
+              <h2>Entrena tu mente con un Sudoku bonito y moderno</h2>
+              <p class="subtitle">
+                Una experiencia limpia, amigable y rápida. Juega por niveles, guarda
+                progreso y compite contigo mismo.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" id="play-now" type="button">Jugar ahora</button>
+                <button class="btn light open-guide" data-guide="sudoku" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Sudoku">
+              <div class="board sign-board" id="sign-board"></div>
+            </div>
+          </section>
+
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Ajedrez</p>
+              <h2>Piensa estratégico con partidas de Ajedrez</h2>
+              <p class="subtitle">
+                Practica táctica, aperturas y visión de tablero. Próximamente podrás
+                jugar partidas y retos de ajedrez en Cerebro.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" type="button" disabled>Próximamente</button>
+                <button class="btn light open-guide" data-guide="ajedrez" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Ajedrez">
+              <div class="board sign-board chess-sign-board" id="chess-sign-board"></div>
+            </div>
+          </section>
+
+          <section class="hero">
+            <div class="hero-text">
+              <p class="eyebrow">Damas</p>
+              <h2>Mejora tu táctica con el clásico juego de Damas</h2>
+              <p class="subtitle">
+                Anticipa movimientos, crea trampas y domina diagonales. Este modo
+                estará disponible próximamente en Cerebro.
+              </p>
+              <div class="hero-actions">
+                <button class="btn primary" type="button" disabled>Próximamente</button>
+                <button class="btn light open-guide" data-guide="damas" type="button">Cómo jugar</button>
+              </div>
+            </div>
+
+            <div class="board-card compact" aria-label="Letrero Damas">
+              <div class="board sign-board chess-sign-board" id="checkers-sign-board"></div>
+            </div>
+          </section>
+        </div>
+
+        
+      </section>
+
+
+      <section class="profile-tab hidden" id="perfil-tab">
+        <div class="game-header">
+          <h2>Perfil de usuario</h2>
+          <button class="btn light" id="back-home-from-profile" type="button">Volver al inicio</button>
+        </div>
+        <div class="board-card profile-card lol-profile">
+          <div class="summoner-header">
+            <button class="avatar-frame" id="open-avatar-picker" type="button" aria-label="Elegir foto de perfil">
+              <div class="avatar-inner" id="profile-avatar">♔</div>
+              <span class="level-badge">47</span>
+            </button>
+            <div class="summoner-meta">
+              <p class="eyebrow">Cuenta activa</p>
+              <h3>Invitado#0001</h3>
+              <p class="profile-title">Título: "El dios de los números"</p>
+              <button type="button" class="streak-chip" id="open-streak-calendar" aria-label="Ver racha">🔥<span id="streak-count">0</span></button>
+              <div class="profile-level-wrap" aria-label="Progreso de nivel">
+                <div class="level-track">
+                  <div class="level-fill" style="width: 68%"></div>
+                </div>
+                <p class="level-text">Nivel 47 · 680 / 1000 XP</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="badges-panel" aria-label="Insignias del perfil">
+            <h4 class="badges-title">Badges</h4>
+            <p class="badge-help">Selecciona un círculo para elegir una insignia.</p>
+            <div class="badges-grid">
+              <button type="button" class="badge-slot" data-badge-slot="0" aria-label="Badge 1"></button>
+              <button type="button" class="badge-slot" data-badge-slot="1" aria-label="Badge 2"></button>
+              <button type="button" class="badge-slot" data-badge-slot="2" aria-label="Badge 3"></button>
+              <button type="button" class="badge-slot" data-badge-slot="3" aria-label="Badge 4"></button>
+              <button type="button" class="badge-slot" data-badge-slot="4" aria-label="Badge 5"></button>
+              <button type="button" class="badge-slot" data-badge-slot="5" aria-label="Badge 6"></button>
+            </div>
+          </div>
+
+          <div class="profile-grid mode-grid-selector" aria-label="Modos del usuario">
+            <button type="button" class="mode-card active" data-mode="sudoku"><h4>Sudoku</h4></button>
+            <button type="button" class="mode-card" data-mode="ajedrez"><h4>Ajedrez</h4></button>
+            <button type="button" class="mode-card" data-mode="damas"><h4>Damas</h4></button>
+          </div>
+
+          <article class="mode-detail" id="mode-detail" aria-live="polite">
+            <h4 id="mode-detail-title">Sudoku</h4>
+            <ul id="mode-detail-list"></ul>
+          </article>
+        </div>
+      </section>
+
+
+      <div id="avatar-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="avatar"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="avatar-modal-title">
+          <button type="button" class="picker-x" data-close-picker="avatar" aria-label="Cerrar">✕</button>
+          <h3 id="avatar-modal-title">Personaliza perfil</h3>
+          <div class="picker-switch">
+            <button type="button" class="picker-tab active" data-picker-tab="avatar">Foto</button>
+            <button type="button" class="picker-tab" data-picker-tab="frame">Marco</button>
+          </div>
+          <div class="picker-options" id="avatar-options"></div>
+          <div class="picker-options hidden" id="frame-options"></div>
+        </div>
+      </div>
+
+      <div id="badge-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="badge"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="badge-modal-title">
+          <button type="button" class="picker-x" data-close-picker="badge" aria-label="Cerrar">✕</button>
+          <h3 id="badge-modal-title">Elige insignia</h3>
+          <div class="picker-options" id="badge-options"></div>
+        </div>
+      </div>
+
+
+      <div id="streak-modal" class="picker-modal hidden" aria-hidden="true">
+        <div class="picker-backdrop" data-close-picker="streak"></div>
+        <div class="picker-card" role="dialog" aria-modal="true" aria-labelledby="streak-modal-title">
+          <button type="button" class="picker-x" data-close-picker="streak" aria-label="Cerrar">✕</button>
+          <h3 id="streak-modal-title">Racha de juego</h3>
+          <p class="badge-help">Días resaltados = días con actividad de racha en este año.</p>
+          <div class="calendar-toolbar" aria-label="Cambiar mes de calendario">
+            <button type="button" id="streak-prev-month" class="chip">◀</button>
+            <strong id="streak-month-label"></strong>
+            <button type="button" id="streak-next-month" class="chip">▶</button>
+          </div>
+          <div class="calendar-weekdays" aria-hidden="true">
+            <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+          </div>
+          <div class="streak-calendar" id="streak-calendar"></div>
+        </div>
+      </div>
+
+
+      <div id="guide-modal" class="guide-modal hidden" aria-hidden="true">
+        <div class="guide-modal-backdrop" id="guide-modal-close" aria-label="Cerrar guía"></div>
+        <div class="guide-modal-card" role="dialog" aria-modal="true" aria-labelledby="guide-modal-title">
+          <button type="button" class="guide-modal-x" id="guide-modal-x" aria-label="Cerrar">✕</button>
+          <h2 id="guide-modal-title">Cómo jugar</h2>
+          <ul id="guide-modal-list"></ul>
+        </div>
+      </div>
+
+      <section class="game-tab hidden" id="juego-tab">
+        <div class="game-header">
+          <h2>Partida actual</h2>
+          <button class="btn light" id="back-home" type="button">Volver al inicio</button>
+        </div>
+
+        <div class="board-card" aria-label="Tablero sudoku">
+          <div class="board-header">
+            <div class="difficulty-wrap">
+              <label for="difficulty-select">Dificultad:</label>
+              <select id="difficulty-select" class="difficulty-select" aria-label="Seleccionar dificultad"></select>
+              <span id="difficulty-label" class="difficulty-label">Dificultad: Intermedio</span>
+            </div>
+            <span id="timer">00:00</span>
+          </div>
+          <div class="board" id="board"></div>
+          <div class="progress-wrapper" aria-label="Progreso del tablero">
+            <div class="progress-track">
+              <div id="progress-fill" class="progress-fill"></div>
+            </div>
+            <p id="progress-text" class="progress-text">0/0 celdas correctas (0%)</p>
+          </div>
+          <p id="status" class="status"></p>
+          <div id="keypad" class="board-actions" aria-label="Teclado numérico"></div>
+          <div class="board-actions controls">
+            <button id="hint" class="chip" type="button">Pista</button>
+            <button id="clear-cell" class="chip" type="button">Borrar</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>© 2026 Cerebro</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
