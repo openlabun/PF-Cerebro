@@ -1,16 +1,16 @@
-// ===== Sudoku base data =====
-const solution = [
-  [5, 3, 4, 6, 7, 8, 9, 1, 2],
-  [6, 7, 2, 1, 9, 5, 3, 4, 8],
-  [1, 9, 8, 3, 4, 2, 5, 6, 7],
-  [8, 5, 9, 7, 6, 1, 4, 2, 3],
-  [4, 2, 6, 8, 5, 3, 7, 9, 1],
-  [7, 1, 3, 9, 2, 4, 8, 5, 6],
-  [9, 6, 1, 5, 3, 7, 2, 8, 4],
-  [2, 8, 7, 4, 1, 9, 6, 3, 5],
-  [3, 4, 5, 2, 8, 6, 1, 7, 9],
-];
+// ===== Sudoku engine imports (ESM) =====
+import {
+  generarSolucion,
+  crearPuzzle,
+  introducirNumero,
+  estaResuelto,
+  darPistaAleatoria,
+  crearNotasVacias,
+  limpiarNotasCelda,
+  esMovimientoValido,
+} from "./Libreria/src/index.js";
 
+// ===== Difficulty settings (UI labels) =====
 const difficultyLevels = [
   { key: "muy-facil", label: "Principiante", givens: 48 },
   { key: "facil", label: "Iniciado", givens: 42 },
@@ -19,6 +19,8 @@ const difficultyLevels = [
   { key: "experto", label: "Experto", givens: 27 },
   { key: "maestro", label: "Profesional", givens: 24 },
 ];
+
+let currentDifficulty = difficultyLevels[2];
 
 // ===== Theme settings =====
 const themes = ["light", "dark"];
@@ -78,13 +80,66 @@ const modeDetailTitle = document.getElementById("mode-detail-title");
 const modeDetailList = document.getElementById("mode-detail-list");
 
 // ===== Runtime state =====
-let puzzle = [];
-let state = [];
-let selectedCell = null;
+
 let seconds = 0;
 let activeTheme = "light";
 let timerInterval = null;
-let currentDifficulty = difficultyLevels[2];
+let solucion = [];
+let puzzleInicial = [];
+let tableroActual = [];
+let notas = null;
+
+let selectedCell = null;
+let seedActual = null;
+
+// ===== Seeds de prueba por dificultad (TEMP: luego vendrán de BD) =====
+// Nota: aquí la dificultad es el label (Principiante..Profesional)
+const seedsPorDificultad = {
+  Principiante: [
+    { seed: 99469, huecos: 20 },
+    { seed: 998848, huecos: 20 },
+    { seed: 154140, huecos: 20 },
+    { seed: 544606, huecos: 20 },
+    { seed: 534139, huecos: 20 },
+  ],
+  Iniciado: [
+    { seed: 825023, huecos: 40 },
+    { seed: 945845, huecos: 40 },
+    { seed: 969344, huecos: 40 },
+    { seed: 627661, huecos: 40 },
+    { seed: 248826, huecos: 40 },
+  ],
+  Intermedio: [
+    { seed: 979729, huecos: 40 },
+    { seed: 484206, huecos: 40 },
+    { seed: 817935, huecos: 40 },
+    { seed: 73758, huecos: 40 },
+    { seed: 996827, huecos: 40 },
+  ],
+  Avanzado: [
+    { seed: 880642, huecos: 40 },
+    { seed: 237309, huecos: 40 },
+    { seed: 708446, huecos: 40 },
+    { seed: 793078, huecos: 40 },
+    { seed: 548659, huecos: 40 },
+  ],
+  Experto: [
+    { seed: 306753, huecos: 40 },
+    { seed: 766397, huecos: 40 },
+    { seed: 787320, huecos: 40 },
+    { seed: 597254, huecos: 40 },
+    { seed: 902005, huecos: 40 },
+  ],
+  Profesional: [
+    { seed: 509429, huecos: 40 },
+    { seed: 347472, huecos: 40 },
+    { seed: 459935, huecos: 40 },
+    { seed: 890624, huecos: 40 },
+    { seed: 305046, huecos: 40 },
+  ],
+};
+
+let huecosActual = 40;
 
 
 const profileModeStats = {
@@ -383,38 +438,6 @@ function initProfileUi() {
 
 
 // ===== Sudoku game logic =====
-function seededRandom(seed) {
-  let value = seed % 2147483647;
-  if (value <= 0) value += 2147483646;
-  return () => {
-    value = (value * 16807) % 2147483647;
-    return (value - 1) / 2147483646;
-  };
-}
-
-function createPuzzle(givens, difficultyKey) {
-  const base = solution.map((row) => [...row]);
-  const indices = Array.from({ length: 81 }, (_, i) => i);
-  const rng = seededRandom(
-    difficultyKey
-      .split("")
-      .reduce((acc, ch) => acc + ch.charCodeAt(0), 0)
-  );
-
-  for (let i = indices.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(rng() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-
-  for (let i = givens; i < indices.length; i += 1) {
-    const row = Math.floor(indices[i] / 9);
-    const col = indices[i] % 9;
-    base[row][col] = "";
-  }
-
-  return base;
-}
-
 function setTab(mode) {
   const isGame = mode === "juego";
   const isProfile = mode === "perfil";
@@ -453,42 +476,16 @@ function initTheme() {
   });
 }
 
-function hasConflict(row, col, value) {
-  if (value === "") return false;
-  const n = Number(value);
-  for (let i = 0; i < 9; i += 1) {
-    if (i !== col && Number(state[row][i]) === n) return true;
-    if (i !== row && Number(state[i][col]) === n) return true;
-  }
-
-  const startRow = Math.floor(row / 3) * 3;
-  const startCol = Math.floor(col / 3) * 3;
-  for (let r = startRow; r < startRow + 3; r += 1) {
-    for (let c = startCol; c < startCol + 3; c += 1) {
-      if ((r !== row || c !== col) && Number(state[r][c]) === n) return true;
-    }
-  }
-  return false;
-}
-
-function isSolved() {
-  for (let r = 0; r < 9; r += 1) {
-    for (let c = 0; c < 9; c += 1) {
-      if (Number(state[r][c]) !== solution[r][c]) return false;
-    }
-  }
-  return true;
-}
-
 function getProgress() {
   let editable = 0;
   let correct = 0;
 
   for (let r = 0; r < 9; r += 1) {
     for (let c = 0; c < 9; c += 1) {
-      if (puzzle[r][c] === "") {
+      // editable = celdas que NO venían dadas (0 en puzzleInicial)
+      if (puzzleInicial[r][c] === 0) {
         editable += 1;
-        if (Number(state[r][c]) === solution[r][c]) correct += 1;
+        if (tableroActual[r][c] === solucion[r][c]) correct += 1;
       }
     }
   }
@@ -496,6 +493,7 @@ function getProgress() {
   const percentage = editable === 0 ? 100 : Math.round((correct / editable) * 100);
   return { correct, editable, percentage };
 }
+
 
 function updateProgress() {
   const { correct, editable, percentage } = getProgress();
@@ -508,23 +506,88 @@ function setStatus(message, ok = false) {
   statusEl.classList.toggle("ok", ok);
 }
 
+
+function buildSudokuBoard(seed, huecos) {
+  seedActual = seed;
+  huecosActual = Number.isInteger(huecos) ? huecos : 40;
+
+  // 1) Generar solución determinística con la seed
+  solucion = generarSolucion(seedActual);
+
+  // 2) Crear puzzle con huecosActual (0 = vacío) y solución única
+  puzzleInicial = crearPuzzle(solucion, huecosActual, seedActual);
+
+  // 3) Estado jugable (copia)
+  tableroActual = puzzleInicial.map((row) => [...row]);
+
+  // 4) Notas
+  notas = crearNotasVacias();
+
+  // 5) UI
+  createBoard();
+  setStatus(`Selecciona una celda para comenzar.`);
+  updateProgress();
+  startTimer(true);
+}
+
+
 function fillSelected(value) {
-  if (!selectedCell || selectedCell.dataset.prefilled === "true") return;
+  if (!selectedCell) return;
+
   const row = Number(selectedCell.dataset.row);
   const col = Number(selectedCell.dataset.col);
 
-  state[row][col] = value === "" ? "" : Number(value);
-  selectedCell.textContent = value;
+  // No tocar celdas fijas
+  if (puzzleInicial[row][col] !== 0) {
+    setStatus("No puedes modificar una celda fija.");
+    return;
+  }
 
-  const conflict = hasConflict(row, col, value);
-  selectedCell.classList.toggle("error", conflict);
+  // Convertir input a num (0 = borrar)
+  const num = value === "" ? 0 : Number(value);
 
-  updateProgress();
+  // Borrar
+  if (num === 0) {
+    tableroActual[row][col] = 0;
+    limpiarNotasCelda(notas, row, col);
+    selectedCell.textContent = "";
+    selectedCell.classList.remove("error");
+    setStatus("Celda borrada");
+    updateProgress?.();
+    return;
+  }
 
-  if (conflict) return setStatus("Hay conflicto en fila, columna o subcuadro.");
-  if (isSolved()) return setStatus("¡Excelente! Completaste el Sudoku correctamente.", true);
-  return setStatus("Sigue así, vas muy bien.");
+  // Rango válido
+  if (num < 1 || num > 9 || Number.isNaN(num)) {
+    setStatus("Número inválido (1-9)");
+    return;
+  }
+
+  // Colocar SIEMPRE
+  tableroActual[row][col] = num;
+  limpiarNotasCelda(notas, row, col);
+  selectedCell.textContent = String(num);
+
+  // Validar reglas (si es inválido, queda pintado en rojo)
+  const valido = esMovimientoValido(tableroActual, row, col, num);
+  selectedCell.classList.toggle("error", !valido);
+
+  updateProgress?.();
+
+  if (!valido) {
+    setStatus("Movimiento viola reglas del Sudoku");
+    return;
+  }
+
+  if (estaResuelto(tableroActual)) {
+    setStatus("¡Sudoku completado correctamente!", true);
+    if (timerInterval) clearInterval(timerInterval);
+    return;
+  }
+
+  setStatus("Movimiento aplicado");
 }
+
 
 function createBoard() {
   boardEl.innerHTML = "";
@@ -537,14 +600,28 @@ function createBoard() {
       cell.className = "cell";
       cell.dataset.row = r;
       cell.dataset.col = c;
-      cell.dataset.prefilled = puzzle[r][c] !== "";
+
+      const isPrefilled = puzzleInicial[r][c] !== 0;
+      cell.dataset.prefilled = isPrefilled ? "true" : "false";
 
       if ((c + 1) % 3 === 0 && c !== 8) cell.classList.add("block-right");
       if ((r + 1) % 3 === 0 && r !== 8) cell.classList.add("block-bottom");
 
-      if (puzzle[r][c] !== "") {
-        cell.textContent = puzzle[r][c];
+      const value = tableroActual[r][c];
+
+      if (isPrefilled) {
+        cell.textContent = String(value);
         cell.classList.add("prefilled");
+      } else {
+        cell.textContent = value === 0 ? "" : String(value);
+
+        
+        if (value !== 0) {
+          const valido = esMovimientoValido(tableroActual, r, c, value);
+          if (!valido) {
+            cell.classList.add("error");
+          }
+        }
       }
 
       cell.addEventListener("click", () => {
@@ -557,6 +634,7 @@ function createBoard() {
     }
   }
 }
+
 
 function createSignBoard() {
   const letters = ["S", "U", "", "D", "O", "K", "", "U", ""];
@@ -707,29 +785,48 @@ function initializeDifficultyOptions() {
   });
 }
 
+function pickSeedAndHuecosByLabel(label) {
+  const lista = seedsPorDificultad[label] || seedsPorDificultad.Intermedio;
+  const chosen = lista[Math.floor(Math.random() * lista.length)];
+  return { seed: chosen.seed, huecos: chosen.huecos };
+}
+
 function loadDifficulty(levelKey) {
   const found = difficultyLevels.find((d) => d.key === levelKey) || difficultyLevels[2];
   currentDifficulty = found;
   difficultyLabel.textContent = `Dificultad: ${found.label}`;
-  puzzle = createPuzzle(found.givens, found.key);
-  state = puzzle.map((row) => [...row]);
-  createBoard();
-  setStatus("Selecciona una celda para comenzar.");
-  updateProgress();
-  startTimer(true);
+
+  // TEMP: elegimos una seed/huecos de la lista según la dificultad seleccionada.
+  // Luego esto vendrá desde BD.
+  const { seed, huecos } = pickSeedAndHuecosByLabel(found.label);
+  buildSudokuBoard(seed, huecos);
 }
+
 
 // ===== App events =====
 function setupControls() {
   clearBtn.addEventListener("click", () => fillSelected(""));
   hintBtn.addEventListener("click", () => {
-    if (!selectedCell || selectedCell.dataset.prefilled === "true") {
-      setStatus("Selecciona una celda vacía para usar pista.");
+    const resultado = darPistaAleatoria(tableroActual, solucion);
+
+    if (!resultado.ok) {
+      setStatus(resultado.mensaje);
       return;
     }
-    const row = Number(selectedCell.dataset.row);
-    const col = Number(selectedCell.dataset.col);
-    fillSelected(solution[row][col]);
+
+    // Aplicar pista y refrescar UI
+    const { row, col, valor } = resultado;
+    tableroActual[row][col] = valor;
+
+    createBoard();
+    updateProgress();
+
+    if (estaResuelto(tableroActual)) {
+      setStatus("¡Excelente! Completaste el Sudoku correctamente.", true);
+      if (timerInterval) clearInterval(timerInterval);
+    } else {
+      setStatus("Pista aplicada. ¡Sigue así!");
+    }
   });
 
   document.addEventListener("keydown", (event) => {

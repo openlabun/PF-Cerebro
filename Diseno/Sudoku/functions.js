@@ -470,9 +470,84 @@ function analizarDificultad(board) {
         }
 
         // ==============================
-        // X-Wing 
+        // Naked Triple  ✅ (AGREGADO)
         // ==============================
+        function nakedTripleUnidad(celdas) {
+            if (celdas.length < 3) return;
 
+            const candCeldas = celdas
+                .map(([r, c]) => ({ r, c, cand: candidates[r][c] }))
+                .filter(x => x.cand.length >= 2 && x.cand.length <= 3);
+
+            if (candCeldas.length < 3) return;
+
+            const esSubconjunto = (arr, sup) => arr.every(v => sup.includes(v));
+
+            for (let i = 0; i < candCeldas.length; i++) {
+                for (let j = i + 1; j < candCeldas.length; j++) {
+                    for (let k = j + 1; k < candCeldas.length; k++) {
+                        const a = candCeldas[i];
+                        const b = candCeldas[j];
+                        const d = candCeldas[k];
+
+                        const union = Array.from(new Set([...a.cand, ...b.cand, ...d.cand]));
+                        if (union.length !== 3) continue;
+
+                        if (!esSubconjunto(a.cand, union) || !esSubconjunto(b.cand, union) || !esSubconjunto(d.cand, union)) {
+                            continue;
+                        }
+
+                        let huboCambio = false;
+
+                        for (let [r, c] of celdas) {
+                            if ((r === a.r && c === a.c) || (r === b.r && c === b.c) || (r === d.r && c === d.c)) continue;
+                            if (working[r][c] !== 0) continue;
+
+                            const antes = candidates[r][c].length;
+                            candidates[r][c] = candidates[r][c].filter(x => !union.includes(x));
+                            if (candidates[r][c].length < antes) huboCambio = true;
+                        }
+
+                        if (huboCambio) {
+                            stats.nakedTriple++;
+                            progreso = true;
+                        }
+                    }
+                }
+            }
+        }
+
+        // aplicar a filas, columnas y bloques
+        for (let r = 0; r < 9; r++) {
+            let celdas = [];
+            for (let c = 0; c < 9; c++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+            nakedTripleUnidad(celdas);
+        }
+
+        for (let c = 0; c < 9; c++) {
+            let celdas = [];
+            for (let r = 0; r < 9; r++)
+                if (working[r][c] === 0)
+                    celdas.push([r, c]);
+            nakedTripleUnidad(celdas);
+        }
+
+        for (let br = 0; br < 3; br++) {
+            for (let bc = 0; bc < 3; bc++) {
+                let celdas = [];
+                for (let r = br * 3; r < br * 3 + 3; r++)
+                    for (let c = bc * 3; c < bc * 3 + 3; c++)
+                        if (working[r][c] === 0)
+                            celdas.push([r, c]);
+                nakedTripleUnidad(celdas);
+            }
+        }
+
+        // ==============================
+        // X-Wing
+        // ==============================
         for (let n = 1; n <= 9; n++) {
 
             let filas = {};
@@ -527,7 +602,6 @@ function analizarDificultad(board) {
 
     return stats;
 }
-
 //=====================================
 //Clasificacion de dificultad 
 //=====================================
@@ -537,7 +611,7 @@ function evaluarDificultad(board) {
 
     const huecos = board.flat().filter(x => x === 0).length;
 
-    // 🔢 Sistema de puntuación ponderado
+    // Sistema de puntuación ponderado
     const score =
         stats.single * 1 +
         stats.hiddenSingle * 2 +
@@ -548,7 +622,7 @@ function evaluarDificultad(board) {
 
     let nivel = "";
 
-    // 🎚 Clasificación principal por técnica más avanzada
+    // Clasificación principal por técnica más avanzada
     if (stats.backtracking > 0) {
         nivel = "Profesional";
     }
@@ -611,30 +685,7 @@ function obtenerCandidatos(board, r, c) {
 }
 
 
-//=====================================
-//generador de semillas
-//=====================================
-function generarSemillasPorDificultad(cantidad, nivelDeseado) {
-    let semillas = [];
-    let seed = 1;
 
-    while (semillas.length < cantidad) {
-
-        let solucion = generarSolucion(seed);
-        let puzzle = crearPuzzle(solucion, 40, seed);
-
-        let resultado = evaluarDificultad(puzzle);
-        let nivel = resultado.dificultad;
-
-        if (nivel === nivelDeseado) {
-            semillas.push(seed);
-        }
-
-        seed++;
-    }
-
-    return semillas;
-}
 //=====================================
 //verificacion de tablero resuelto
 //=====================================
@@ -699,17 +750,93 @@ function estaResuelto(board) {
     return true;
 }
 
-//=====================================
-// Ejemplo de generación de semillas para nivel Intermedio
-//=====================================
- 
-let semillasIntermedio = generarSemillasPorDificultad(10, "Intermedio");
-console.log(semillasIntermedio);
+// =====================================
+// Clasificar seeds (1..1M) por dificultad
+// Devuelve 6 listas: Principiante, Iniciado, Intermedio, Avanzado, Experto, Profesional
+// =====================================
 
+function clasificarSeedsPorDificultad({
+  huecos,
+  porDificultad = 20,     // cuántas seeds quieres por cada dificultad
+  masterSeed = 20260224,  // para que la búsqueda sea reproducible
+  maxIntentos = 2000    // límite para no quedarse eterno
+} = {}) {
+  if (!Number.isInteger(huecos) || huecos < 0 || huecos > 81) {
+    throw new Error("huecos debe ser un entero entre 0 y 81");
+  }
+
+  const niveles = ["Principiante", "Iniciado", "Intermedio", "Avanzado", "Experto", "Profesional"];
+
+  const resultado = {
+    Principiante: [],
+    Iniciado: [],
+    Intermedio: [],
+    Avanzado: [],
+    Experto: [],
+    Profesional: []
+  };
+
+  // Para no repetir seeds
+  const usados = new Set();
+
+  // RNG “global” para ir proponiendo seeds en 1..1,000,000 de forma reproducible
+  const pick = mulberry32(masterSeed);
+
+  let intentos = 0;
+
+  function completo() {
+    return niveles.every(n => resultado[n].length >= porDificultad);
+  }
+
+  while (!completo() && intentos < maxIntentos) {
+    intentos++;
+    console.log(intentos, "Intentando generar seed...");
+
+    // seed en [1..1,000,000]
+    const seed = Math.floor(pick() * 1_000_000) + 1;
+
+    if (usados.has(seed)) continue;
+    usados.add(seed);
+
+    try {
+      const solucion = generarSolucion(seed);
+      const puzzle = crearPuzzle(solucion, huecos, seed);
+      const evalRes = evaluarDificultad(puzzle); // { dificultad, score, huecos, ... }
+
+      const nivel = evalRes.dificultad;
+      if (resultado[nivel] && resultado[nivel].length < porDificultad) {
+        resultado[nivel].push({ seed, huecos });
+      }
+    } catch (e) {
+      // Si algo falla con esa seed, la saltamos sin romper todo
+      continue;
+    }
+  }
+
+  // opcional: info extra útil
+  resultado._meta = {
+    huecos,
+    porDificultad,
+    masterSeed,
+    intentos,
+    completado: completo()
+  };
+
+  return resultado;
+}
+
+// =====================
+// Ejemplo de uso
+// =====================
+
+const listas = clasificarSeedsPorDificultad({ huecos: 40, porDificultad: 15, masterSeed: 12345 });
+console.log(listas);
+console.log(listas.Principiante.length);
+console.log(evaluarDificultad(crearPuzzle(generarSolucion(listas.Principiante[0].seed), listas.Principiante[0].huecos, listas.Principiante[0].seed)));
 //=====================================
 // Generar solución y puzzle con una de las semillas obtenidas
 //=====================================
-
+/*
 console.log("Solución con seed:", semillasIntermedio[1]);
 let solucion = generarSolucion(semillasIntermedio[1]);
 console.table(solucion);
@@ -979,4 +1106,4 @@ if (!nota.ok) {
 }
 imprimirNotasComoTablero(notas);
 limpiarNotasCelda(notas, 0, 2);
-imprimirNotasComoTablero(notas);
+imprimirNotasComoTablero(notas);*/
