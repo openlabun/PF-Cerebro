@@ -787,7 +787,7 @@ function clasificarSeedsPorDificultad({
 // Ejemplo de uso
 // =====================
 
-const listas = clasificarSeedsPorDificultad({ huecos: 60, porDificultad: 5, masterSeed: 50, maxIntentos: 20});
+const listas = clasificarSeedsPorDificultad({ huecos: 45, porDificultad: 5, masterSeed: 50, maxIntentos: 100});
 console.log(listas);
 //console.log(listas.Principiante.length);
 

@@ -118,18 +118,18 @@ const seedsPorDificultad = {
     { seed: 996827, huecos: 40 },
   ],
   Avanzado: [
-    { seed: 880642, huecos: 40 },
-    { seed: 237309, huecos: 40 },
-    { seed: 708446, huecos: 40 },
-    { seed: 793078, huecos: 40 },
-    { seed: 548659, huecos: 40 },
+    { seed: 978497, huecos: 45 },
+    { seed: 637366, huecos: 45 },
+    { seed: 187073, huecos: 45 },
+    { seed: 324083, huecos: 45 },
+    { seed: 273520, huecos: 45 }
   ],
   Experto: [
-    { seed: 306753, huecos: 40 },
-    { seed: 766397, huecos: 40 },
-    { seed: 787320, huecos: 40 },
-    { seed: 597254, huecos: 40 },
-    { seed: 902005, huecos: 40 },
+    { seed: 73866, huecos: 50 },
+    { seed: 786485, huecos: 50 },
+    { seed: 461137, huecos: 50 },
+    { seed: 695902, huecos: 50 },
+    { seed: 187073, huecos: 50 }
   ],
   Profesional: [
     { seed: 542597, huecos: 60 },
