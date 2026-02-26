@@ -1,5 +1,5 @@
 {
-  "name": "cerebro-sudoku",
+  "name": "@uninorte/cerebro-sudoku",
   "version": "1.1.0",
   "description": "Funcionalidades para generar y resolver, crear y verificar tableros de Sudoku utilizando el algoritmo Dancing Links (DLX). Incluye generación de soluciones completas, creación de puzzles con diferentes niveles de dificultad, validación de movimientos del usuario, uso de notas y posibilidad de acceder a pistas",
   "type": "module",
