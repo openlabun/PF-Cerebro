@@ -353,7 +353,7 @@ function analizarDificultad(board) {
         if (working[r][c] === 0 && candidates[r][c].length === 1) {
           working[r][c] = candidates[r][c][0];
           stats.single++;
-          progreso = true; // ✅ solo cuando hay número colocado
+          progreso = true; // solo cuando hay número colocado
         }
       }
     }
@@ -419,7 +419,7 @@ function analizarDificultad(board) {
 
     // =====================================================
     // A PARTIR DE AQUÍ: técnicas que SOLO eliminan candidatos
-    // ❗ NO deben poner progreso=true, porque candidates se regenera
+    // NO deben poner progreso=true, porque candidates se regenera
     // =====================================================
 
     candidates = getCandidatesGrid();
@@ -439,7 +439,7 @@ function analizarDificultad(board) {
 
       for (let key in pares) {
         if (pares[key].length === 2) {
-          stats.nakedPair++; // ✅ contamos, pero NO cambiamos working
+          stats.nakedPair++; // contamos, pero NO cambiamos working
         }
       }
     }
@@ -544,7 +544,7 @@ function analizarDificultad(board) {
           let r2 = filasKeys[j];
 
           if (filas[r1][0] === filas[r2][0] && filas[r1][1] === filas[r2][1]) {
-            stats.xwing++; // ✅ contamos, pero NO cambiamos working
+            stats.xwing++; // contamos, pero NO cambiamos working
           }
         }
       }
