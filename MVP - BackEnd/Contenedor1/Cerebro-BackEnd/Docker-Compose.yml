@@ -1,0 +1,11 @@
+services:
+  cerebro-api:
+    container_name: cerebro-api
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api/.env
+    restart: unless-stopped
