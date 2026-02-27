@@ -1,12 +1,12 @@
+name: cerebro
 services:
-
   frontend:
     container_name: cerebro-frontend
     build:
       context: "./Diseno/IyR/Frontend"
       dockerfile: Dockerfile
     ports:
-      - "4173:80"
+      - "4173:5051"
     restart: unless-stopped
     depends_on:
       - cerebro-api
@@ -16,8 +16,6 @@ services:
     build:
       context: "./MVP-BackEnd/Contenedor1/api"
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
     env_file:
       - "./MVP-BackEnd/Contenedor1/api/.env"
     restart: unless-stopped
@@ -27,8 +25,6 @@ services:
     build:
       context: "./MVP-BackEnd/Contenedor2"
       dockerfile: Dockerfile
-    ports:
-      - "3001:3001"
     env_file:
       - "./MVP-BackEnd/Contenedor2/.env"
     restart: unless-stopped
