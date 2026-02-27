@@ -6,7 +6,7 @@ services:
       context: "./Diseno/IyR/Frontend"
       dockerfile: Dockerfile
     ports:
-      - "4173:5051"
+      - "5051:80"
     restart: unless-stopped
     depends_on:
       - cerebro-api
