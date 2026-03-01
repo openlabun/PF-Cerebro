@@ -92,7 +92,7 @@ Se requiere una plataforma integral que combine desafío mental, progresión per
 
 ### Objetivo General
 
-Diseñar e implementar un producto funcional de la plataforma CEREBRO centrado en juegos de desafío mental.
+Diseñar e implementar un producto funcional de la plataforma CEREBRO centrada en juegos de agilidad mental, que integre resolución de Sudoku, gamificación y modalidades competitivas.
 
 ### Objetivos Específicos
 
