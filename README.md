@@ -102,67 +102,110 @@ Diseñar e implementar un producto funcional de la plataforma CEREBRO centrada e
 * Incorporar analítica básica y rankings.
 * Garantizar despliegue reproducible mediante contenedores.
 
+
 ---
 
 ## 6. Estado del Arte y Soluciones Relacionadas
 
 ### 6.1 Gamificación
 
-La gamificación se basa en mecánicas como niveles, puntos de experiencia, logros, misiones periódicas y recompensas virtuales. Plataformas educativas y de entretenimiento han demostrado que estos elementos incrementan la retención y el compromiso del usuario.
+La gamificación se fundamenta en la incorporación de mecánicas propias de los videojuegos en contextos no lúdicos, tales como niveles, puntos de experiencia, logros, misiones periódicas y recompensas virtuales. Diversas plataformas han demostrado que estas estrategias incrementan la retención, el compromiso y la constancia del usuario.
 
-Ejemplos relevantes:
+**Duolingo**
 
-* Duolingo
-* Khan Academy
-* Sistemas de progresión en videojuegos competitivos
+Destaca por su sistema de rachas diarias, progresión por niveles y retroalimentación inmediata. Resultan particularmente relevantes:
+
+* La estructura clara de niveles progresivos.
+* El refuerzo positivo constante tras cada actividad completada.
+* La motivación sostenida mediante metas diarias.
+
+**Khan Academy**
+
+Sobresale por su sistema de insignias y seguimiento detallado del progreso por habilidades. Son de interés:
+
+* El reconocimiento de logros específicos vinculados al desempeño.
+* La visualización estructurada del avance del usuario.
+* La alineación de la gamificación con métricas objetivas de rendimiento.
 
 ---
 
 ### 6.2 Modo Torneos
 
-Las plataformas competitivas digitales implementan estructuras como:
+Las plataformas competitivas digitales implementan estructuras organizadas que garantizan equidad, escalabilidad y claridad en la clasificación.
 
-* Eliminación directa
-* Sistema suizo
-* Temporadas clasificatorias
-* Rankings por puntos acumulados
+**Chess.com**
 
-Ejemplos:
+Se caracteriza por su sistema de torneos automatizados y rankings dinámicos. Resultan relevantes:
 
-* Chess.com
-* Plataformas de eSports
+* La implementación de sistemas de eliminación directa.
+* Rankings actualizados en tiempo real.
+* Emparejamiento competitivo basado en desempeño.
+
+**Plataformas de eSports**
+
+Estas plataformas destacan por la organización de competencias estructuradas a gran escala. Son de interés:
+
+* La utilización de brackets claramente definidos.
+* Sistemas de clasificación automática.
+* Temporadas competitivas que fomentan continuidad y fidelización.
 
 ---
 
 ### 6.3 Sudoku Digital
 
-Las aplicaciones modernas de Sudoku incluyen:
+Las aplicaciones modernas de Sudoku incluyen generación automática de tableros, validación de soluciones y múltiples niveles de dificultad.
 
-* Generación automática de tableros.
-* Validación de soluciones.
-* Diferentes niveles de dificultad.
-* Sistemas de ayuda o pistas.
+**Sudoku.com**
 
-Ejemplos:
+Se distingue por su experiencia de usuario intuitiva y variedad de niveles. Resultan relevantes:
 
-* Sudoku.com
-* WebSudoku
+* Generación dinámica de tableros.
+* Validación automática de errores.
+* Diseño accesible y claro.
+
+**WebSudoku**
+
+Destaca por su simplicidad y enfoque directo en la experiencia de juego. Son de interés:
+
+* Interfaz minimalista.
+* Claridad en la selección de dificultad.
+* Experiencia rápida sin elementos distractores.
 
 ---
 
 ### 6.4 PvP Digital
 
-El modo jugador contra jugador en entornos digitales suele incorporar:
+El modo jugador contra jugador en entornos digitales requiere mecanismos que garanticen equidad, sincronización y control centralizado.
 
-* Mismo escenario para ambos jugadores.
-* Validación en servidor.
-* Determinación de ganador por tiempo o puntaje.
-* Sistemas anti-trampa.
+**Plataformas de ajedrez online**
 
-Ejemplos:
+Se caracterizan por la validación server-side y sincronización precisa de partidas. Resultan relevantes:
 
-* Plataformas de ajedrez online.
-* Juegos de trivia en tiempo real.
+* Control central del estado de la partida.
+* Prevención de trampas mediante validación en servidor.
+* Determinación clara del ganador por tiempo o resultado.
+
+**Juegos de trivia en tiempo real**
+
+Destacan por su dinámica competitiva inmediata. Son de interés:
+
+* Competencia basada en velocidad y precisión.
+* Retroalimentación instantánea.
+* Experiencia dinámica y directa.
+
+---
+
+El análisis de plataformas consolidadas evidencia que la combinación de progresión estructurada, competencia organizada y experiencia intuitiva constituye un factor determinante en la retención y el compromiso de los usuarios.
+
+CEREBRO se posiciona como un aporte relevante al integrar de manera coherente:
+
+* Gamificación basada en métricas objetivas de desempeño.
+* Competencia estructurada mediante PvP y torneos.
+* Juego base sólido con validación centralizada.
+* Experiencia consistente entre entornos web y móvil.
+* Arquitectura tecnológica moderna basada en contenedores.
+
+A diferencia de las plataformas analizadas, que suelen especializarse en uno de estos componentes, CEREBRO propone una integración integral de progresión, competencia y solidez arquitectónica dentro del ámbito de los juegos de desafío mental, configurándose como una contribución innovadora en este contexto.
 
 ---
 
