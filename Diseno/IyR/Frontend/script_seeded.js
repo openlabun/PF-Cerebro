@@ -30,8 +30,6 @@ const THEME_KEY = "sudoku-theme";
 // ===== DOM references =====
 const boardEl = document.getElementById("board");
 const signBoardEl = document.getElementById("sign-board");
-const chessSignBoardEl = document.getElementById("chess-sign-board");
-const checkersSignBoardEl = document.getElementById("checkers-sign-board");
 const homeLogo = document.getElementById("home-logo");
 const openGuideBtns = document.querySelectorAll(".open-guide");
 const guideModal = document.getElementById("guide-modal");
@@ -48,12 +46,23 @@ const themeBtn = document.getElementById("theme-toggle");
 const playNowBtn = document.getElementById("play-now");
 const tabInicioBtn = document.getElementById("tab-inicio");
 const tabJugarBtn = document.getElementById("tab-jugar");
+const tabTorneosBtn = document.getElementById("tab-torneos");
+const tabPvpBtn = document.getElementById("tab-pvp");
 const tabPerfilBtn = document.getElementById("tab-perfil");
+const goToSudokuBtn = document.getElementById("go-to-sudoku");
+const goToTorneosBtn = document.getElementById("go-to-torneos");
+const goToPvpBtn = document.getElementById("go-to-pvp");
+const openAuthBtn = document.getElementById("open-auth");
 const openProfileBtn = document.getElementById("open-profile");
+const backHomeFromLoginBtn = document.getElementById("back-home-from-login");
 const backHomeBtn = document.getElementById("back-home");
 const backHomeFromProfileBtn = document.getElementById("back-home-from-profile");
+const backHomeGenericBtns = document.querySelectorAll(".back-home-generic");
 const inicioTab = document.getElementById("inicio-tab");
 const juegoTab = document.getElementById("juego-tab");
+const torneosTab = document.getElementById("torneos-tab");
+const pvpTab = document.getElementById("pvp-tab");
+const loginTab = document.getElementById("login-tab");
 const perfilTab = document.getElementById("perfil-tab");
 const difficultySelect = document.getElementById("difficulty-select");
 const difficultyLabel = document.getElementById("difficulty-label");
@@ -79,6 +88,16 @@ const streakMonthLabelEl = document.getElementById("streak-month-label");
 const modeCardBtns = document.querySelectorAll(".mode-card");
 const modeDetailTitle = document.getElementById("mode-detail-title");
 const modeDetailList = document.getElementById("mode-detail-list");
+const loginForm = document.getElementById("login-form");
+const registerForm = document.getElementById("register-form");
+const showLoginFormBtn = document.getElementById("show-login-form");
+const showRegisterFormBtn = document.getElementById("show-register-form");
+const switchToRegisterBtn = document.getElementById("switch-to-register");
+const switchToLoginBtn = document.getElementById("switch-to-login");
+const registerPassword = document.getElementById("register-password");
+const registerPasswordConfirm = document.getElementById("register-password-confirm");
+const passwordMatchIcon = document.getElementById("password-match-icon");
+const passwordMatchText = document.getElementById("password-match-text");
 
 // ===== Runtime state =====
 let noteMode = false; // 
@@ -150,17 +169,17 @@ const profileModeStats = {
     "Precisión promedio: 92%",
     "Dificultad favorita: Intermedio",
   ],
-  ajedrez: [
-    "Partidas jugadas: 18",
-    "ELO actual: 1035",
-    "Victorias: 11 · Derrotas: 7",
-    "Apertura favorita: Italiana",
+  torneos: [
+    "Torneos jugados: 12",
+    "Top 3 alcanzado: 5 veces",
+    "Mejor posición: #2",
+    "Puntaje promedio: 1,240",
   ],
-  damas: [
-    "Partidas jugadas: 27",
-    "Victorias: 16 · Derrotas: 11",
-    "Racha máxima: 5 victorias",
-    "Tasa de capturas: 78%",
+  pvp: [
+    "Partidas PvP: 33",
+    "Victorias: 20 · Derrotas: 13",
+    "Racha máxima: 6 victorias",
+    "Precisión en duelos: 90%",
   ],
 };
 
@@ -440,19 +459,35 @@ function initProfileUi() {
 
 // ===== Sudoku game logic =====
 function setTab(mode) {
+  const isHome = mode === "inicio";
   const isGame = mode === "juego";
   const isProfile = mode === "perfil";
-  const isHome = !isGame && !isProfile;
+  const isTorneos = mode === "torneos";
+  const isPvp = mode === "pvp";
+  const isLogin = mode === "login";
 
   inicioTab.classList.toggle("hidden", !isHome);
   juegoTab.classList.toggle("hidden", !isGame);
   perfilTab.classList.toggle("hidden", !isProfile);
+  torneosTab.classList.toggle("hidden", !isTorneos);
+  pvpTab.classList.toggle("hidden", !isPvp);
+  loginTab.classList.toggle("hidden", !isLogin);
 
   tabInicioBtn.classList.toggle("active", isHome);
   tabJugarBtn.classList.toggle("active", isGame);
   tabPerfilBtn.classList.toggle("active", isProfile);
+  tabTorneosBtn.classList.toggle("active", isTorneos);
+  tabPvpBtn.classList.toggle("active", isPvp);
 
-  if (isGame || isProfile) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (!isHome) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setAuthView(view) {
+  const showLogin = view === "login";
+  loginForm?.classList.toggle("hidden", !showLogin);
+  registerForm?.classList.toggle("hidden", showLogin);
+  showLoginFormBtn?.classList.toggle("active", showLogin);
+  showRegisterFormBtn?.classList.toggle("active", !showLogin);
 }
 
 function applyTheme(theme) {
@@ -717,48 +752,6 @@ function createSignBoard() {
   }
 }
 
-function createChessSignBoard() {
-  if (!chessSignBoardEl) return;
-  const blackBack = ["♜", "♞", "♝", "♛", "♚", "♝", "♞", "♜"];
-  const whiteBack = ["♖", "♘", "♗", "♕", "♔", "♗", "♘", "♖"];
-
-  chessSignBoardEl.innerHTML = "";
-  for (let i = 0; i < 64; i += 1) {
-    const row = Math.floor(i / 8);
-    const col = i % 8;
-    const cell = document.createElement("div");
-    cell.className = "sign-cell chess-cell";
-
-    cell.classList.add((row + col) % 2 === 0 ? "light" : "dark");
-    if (row === 0) cell.textContent = blackBack[col];
-    else if (row === 1) cell.textContent = "♟";
-    else if (row === 6) cell.textContent = "♙";
-    else if (row === 7) cell.textContent = whiteBack[col];
-
-    chessSignBoardEl.appendChild(cell);
-  }
-}
-
-function createCheckersSignBoard() {
-  if (!checkersSignBoardEl) return;
-  checkersSignBoardEl.innerHTML = "";
-  for (let i = 0; i < 64; i += 1) {
-    const row = Math.floor(i / 8);
-    const col = i % 8;
-    const cell = document.createElement("div");
-    cell.className = "sign-cell chess-cell checkers-cell";
-
-    const darkSquare = (row + col) % 2 !== 0;
-    cell.classList.add(darkSquare ? "dark" : "light");
-
-    if (darkSquare && row <= 2) cell.textContent = "●";
-    else if (darkSquare && row >= 5) cell.textContent = "○";
-
-    checkersSignBoardEl.appendChild(cell);
-  }
-}
-
-
 function closeGuideModal() {
   guideModal.classList.add("hidden");
   guideModal.setAttribute("aria-hidden", "true");
@@ -776,24 +769,20 @@ function openGuide(guide) {
         "El objetivo es completar el tablero correctamente.",
       ],
     },
-    ajedrez: {
-      title: "Cómo jugar Ajedrez",
+    torneos: {
+      title: "Cómo jugar Torneos",
       items: [
-        "Cada jugador inicia con 16 piezas.",
-        "El objetivo es dar jaque mate al rey rival.",
-        "Cada tipo de pieza tiene un movimiento específico.",
-        "No puedes dejar a tu rey en jaque.",
-        "Si no hay movimientos legales y no hay jaque, es tablas.",
+        "Los torneos se juegan por rondas con sudokus de dificultad progresiva.",
+        "Tu puntaje combina tiempo de resolución y precisión final.",
+        "Puedes ver tu posición en la clasificación en tiempo real.",
       ],
     },
-    damas: {
-      title: "Cómo jugar Damas",
+    pvp: {
+      title: "Cómo jugar PvP",
       items: [
-        "Se juega sobre un tablero de 8x8 usando las casillas oscuras.",
-        "Cada jugador mueve piezas en diagonal hacia adelante.",
-        "Capturas una pieza rival saltando sobre ella.",
-        "Si llegas al extremo opuesto, tu pieza se convierte en reina.",
-        "Gana quien deja al rival sin movimientos o sin piezas.",
+        "Te emparejamos con un jugador de nivel similar.",
+        "Ambos juegan el mismo tablero al mismo tiempo.",
+        "Gana quien complete correctamente en menor tiempo.",
       ],
     },
   };
@@ -947,6 +936,9 @@ function setupControls() {
   });
 
   playNowBtn.addEventListener("click", () => setTab("juego"));
+  goToSudokuBtn?.addEventListener("click", () => setTab("juego"));
+  goToTorneosBtn?.addEventListener("click", () => setTab("torneos"));
+  goToPvpBtn?.addEventListener("click", () => setTab("pvp"));
 
   openGuideBtns.forEach((btn) => {
     btn.addEventListener("click", () => openGuide(btn.dataset.guide));
@@ -963,19 +955,72 @@ function setupControls() {
   });
 
   homeLogo.addEventListener("click", () => setTab("inicio"));
+  openAuthBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setTab("login");
+  });
   openProfileBtn.addEventListener("click", () => setTab("perfil"));
   tabJugarBtn.addEventListener("click", () => setTab("juego"));
+  tabTorneosBtn.addEventListener("click", () => setTab("torneos"));
+  tabPvpBtn.addEventListener("click", () => setTab("pvp"));
   tabInicioBtn.addEventListener("click", () => setTab("inicio"));
   tabPerfilBtn.addEventListener("click", () => setTab("perfil"));
   backHomeBtn.addEventListener("click", () => setTab("inicio"));
   backHomeFromProfileBtn.addEventListener("click", () => setTab("inicio"));
+  backHomeFromLoginBtn?.addEventListener("click", () => setTab("inicio"));
+  backHomeGenericBtns.forEach((btn) => btn.addEventListener("click", () => setTab("inicio")));
+
+  showLoginFormBtn?.addEventListener("click", () => setAuthView("login"));
+  showRegisterFormBtn?.addEventListener("click", () => setAuthView("register"));
+  switchToRegisterBtn?.addEventListener("click", () => setAuthView("register"));
+  switchToLoginBtn?.addEventListener("click", () => setAuthView("login"));
+
+  loginForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    setStatus("Inicio de sesión enviado. Próximamente conectaremos backend.");
+    setTab("inicio");
+  });
+
+  registerForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    setStatus("Registro enviado. Próximamente conectaremos esta vista con backend.");
+    setTab("inicio");
+  });
+
+  const syncPasswordValidation = () => {
+    const pass = registerPassword?.value || "";
+    const confirm = registerPasswordConfirm?.value || "";
+
+    if (!pass && !confirm) {
+      passwordMatchIcon.textContent = "•";
+      passwordMatchText.textContent = "Escribe y confirma tu contraseña.";
+      return;
+    }
+
+    if (pass.length < 8) {
+      passwordMatchIcon.textContent = "⚠";
+      passwordMatchText.textContent = "La contraseña debe tener al menos 8 caracteres.";
+      return;
+    }
+
+    if (pass !== confirm) {
+      passwordMatchIcon.textContent = "✕";
+      passwordMatchText.textContent = "Las contraseñas no coinciden.";
+      return;
+    }
+
+    passwordMatchIcon.textContent = "✓";
+    passwordMatchText.textContent = "Contraseñas válidas y coincidentes.";
+  };
+
+  registerPassword?.addEventListener("input", syncPasswordValidation);
+  registerPasswordConfirm?.addEventListener("input", syncPasswordValidation);
+  setAuthView("login");
 }
 
 // ===== App bootstrap =====
 initTheme();
 createSignBoard();
-createChessSignBoard();
-createCheckersSignBoard();
 createKeypad();
 initializeDifficultyOptions();
 setupControls();
