@@ -27,4 +27,4 @@ jobs:
                       git pull origin release
                       git status
                       docker compose down
-                      docker compose build --no-cache -d
+                      docker compose up --build -d
