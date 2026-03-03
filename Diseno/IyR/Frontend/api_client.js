@@ -1,5 +1,5 @@
 const DEFAULT_CONFIG = Object.freeze({
-  API_BASE_URL: "http://localhost:3000/api",
+  API_BASE_URL: "/api",
   AUTH_STORAGE_KEY: "cerebro_auth_session",
 });
 
@@ -46,7 +46,9 @@ function getPayloadErrorMessage(payload, status) {
   const rawMessage = payload.message;
 
   if (Array.isArray(rawMessage)) {
-    const normalized = rawMessage.map((item) => String(item).trim()).filter(Boolean);
+    const normalized = rawMessage
+      .map((item) => String(item).trim())
+      .filter(Boolean);
     if (normalized.length) return normalized.join(". ");
   }
 

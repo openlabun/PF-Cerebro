@@ -3,7 +3,7 @@
   var apiBaseUrl =
     typeof runtimeBaseUrl === "string" && runtimeBaseUrl.trim() !== ""
       ? runtimeBaseUrl.trim().replace(/\/+$/, "")
-      : "http://localhost:3000/api";
+      : "/api";
 
   globalObject.CEREBRO_CONFIG = Object.freeze({
     API_BASE_URL: apiBaseUrl,
