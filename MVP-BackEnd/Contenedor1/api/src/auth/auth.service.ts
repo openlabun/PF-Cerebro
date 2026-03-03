@@ -1,25 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { RobleService } from '../roble/roble.service';
 import { RobleLoginResponse } from '../roble/roble.types';
-import { PersonalTrackingBootstrapService } from '../personal-tracking/bootstrap/personal-tracking-bootstrap.service';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly robleService: RobleService,
-    private readonly ptBootstrap: PersonalTrackingBootstrapService,
-  ) {}
+  constructor(private readonly robleService: RobleService) {}
 
   async login(email: string, password: string): Promise<RobleLoginResponse> {
-    const loginData = await this.robleService.login(email, password);
-
-    //Aquí conectaremos bootstrap de PersonalTracking (AAron)
-    await this.ptBootstrap.ensureInitialized(
-      loginData.accessToken,
-      loginData.user.id,
-    );
-
-    return loginData;
+    return this.robleService.login(email, password);
   }
 
   async refresh(refreshToken: string) {
@@ -32,6 +23,18 @@ export class AuthService {
 
   async signupDirect(payload: unknown) {
     return this.robleService.signupDirect(payload);
+  }
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    return this.robleService.verifyEmail(dto);
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    return this.robleService.forgotPassword(dto);
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    return this.robleService.resetPassword(dto);
   }
 
   async logout(accessToken: string) {

@@ -10,6 +10,7 @@ import {
   esMovimientoValido,
   toggleNota,
 } from "https://esm.sh/@uninorte/cerebro-sudoku@1.1.0";
+import { apiClient, authStorage } from "./api_client.js";
 
 // ===== Difficulty settings (UI labels) =====
 const difficultyLevels = [
@@ -30,8 +31,6 @@ const THEME_KEY = "sudoku-theme";
 // ===== DOM references =====
 const boardEl = document.getElementById("board");
 const signBoardEl = document.getElementById("sign-board");
-const chessSignBoardEl = document.getElementById("chess-sign-board");
-const checkersSignBoardEl = document.getElementById("checkers-sign-board");
 const homeLogo = document.getElementById("home-logo");
 const openGuideBtns = document.querySelectorAll(".open-guide");
 const guideModal = document.getElementById("guide-modal");
@@ -48,12 +47,23 @@ const themeBtn = document.getElementById("theme-toggle");
 const playNowBtn = document.getElementById("play-now");
 const tabInicioBtn = document.getElementById("tab-inicio");
 const tabJugarBtn = document.getElementById("tab-jugar");
+const tabTorneosBtn = document.getElementById("tab-torneos");
+const tabPvpBtn = document.getElementById("tab-pvp");
 const tabPerfilBtn = document.getElementById("tab-perfil");
+const goToSudokuBtn = document.getElementById("go-to-sudoku");
+const goToTorneosBtn = document.getElementById("go-to-torneos");
+const goToPvpBtn = document.getElementById("go-to-pvp");
+const openAuthBtn = document.getElementById("open-auth");
 const openProfileBtn = document.getElementById("open-profile");
+const backHomeFromLoginBtn = document.getElementById("back-home-from-login");
 const backHomeBtn = document.getElementById("back-home");
 const backHomeFromProfileBtn = document.getElementById("back-home-from-profile");
+const backHomeGenericBtns = document.querySelectorAll(".back-home-generic");
 const inicioTab = document.getElementById("inicio-tab");
 const juegoTab = document.getElementById("juego-tab");
+const torneosTab = document.getElementById("torneos-tab");
+const pvpTab = document.getElementById("pvp-tab");
+const loginTab = document.getElementById("login-tab");
 const perfilTab = document.getElementById("perfil-tab");
 const difficultySelect = document.getElementById("difficulty-select");
 const difficultyLabel = document.getElementById("difficulty-label");
@@ -79,6 +89,39 @@ const streakMonthLabelEl = document.getElementById("streak-month-label");
 const modeCardBtns = document.querySelectorAll(".mode-card");
 const modeDetailTitle = document.getElementById("mode-detail-title");
 const modeDetailList = document.getElementById("mode-detail-list");
+const loginForm = document.getElementById("login-form");
+const registerForm = document.getElementById("register-form");
+const verifyForm = document.getElementById("verify-form");
+const forgotForm = document.getElementById("forgot-form");
+const resetForm = document.getElementById("reset-form");
+const showLoginFormBtn = document.getElementById("show-login-form");
+const showRegisterFormBtn = document.getElementById("show-register-form");
+const switchToRegisterBtn = document.getElementById("switch-to-register");
+const switchToForgotBtn = document.getElementById("switch-to-forgot");
+const switchToVerifyBtn = document.getElementById("switch-to-verify");
+const switchToResetBtn = document.getElementById("switch-to-reset");
+const switchToLoginBtn = document.getElementById("switch-to-login");
+const switchToForgotFromResetBtn = document.getElementById("switch-to-forgot-from-reset");
+const switchToLoginFromForgotBtn = document.getElementById("switch-to-login-from-forgot");
+const switchToLoginFromResetBtn = document.getElementById("switch-to-login-from-reset");
+const switchToLoginFromVerifyBtn = document.getElementById("switch-to-login-from-verify");
+const registerPassword = document.getElementById("register-password");
+const registerPasswordConfirm = document.getElementById("register-password-confirm");
+const passwordMatchIcon = document.getElementById("password-match-icon");
+const passwordMatchText = document.getElementById("password-match-text");
+const loginEmailInput = document.getElementById("login-email");
+const loginPasswordInput = document.getElementById("login-password");
+const registerNameInput = document.getElementById("register-name");
+const registerEmailInput = document.getElementById("register-email");
+const verifyEmailInput = document.getElementById("verify-email");
+const verifyCodeInput = document.getElementById("verify-code");
+const forgotEmailInput = document.getElementById("forgot-email");
+const resetTokenInput = document.getElementById("reset-token");
+const resetPasswordInput = document.getElementById("reset-password");
+const resetPasswordConfirmInput = document.getElementById("reset-password-confirm");
+const authMessageEl = document.getElementById("auth-message");
+const profileNameEl = document.getElementById("profile-name");
+const profileTitleEl = document.getElementById("profile-title");
 
 // ===== Runtime state =====
 let noteMode = false; // 
@@ -92,6 +135,8 @@ let notas = null;
 
 let selectedCell = null;
 let seedActual = null;
+let authSession = null;
+let authBusy = false;
 
 // ===== Seeds de prueba por dificultad (TEMP: luego vendrán de BD) =====
 // Nota: aquí la dificultad es el label (Principiante..Profesional)
@@ -150,17 +195,17 @@ const profileModeStats = {
     "Precisión promedio: 92%",
     "Dificultad favorita: Intermedio",
   ],
-  ajedrez: [
-    "Partidas jugadas: 18",
-    "ELO actual: 1035",
-    "Victorias: 11 · Derrotas: 7",
-    "Apertura favorita: Italiana",
+  torneos: [
+    "Torneos jugados: 12",
+    "Top 3 alcanzado: 5 veces",
+    "Mejor posición: #2",
+    "Puntaje promedio: 1,240",
   ],
-  damas: [
-    "Partidas jugadas: 27",
-    "Victorias: 16 · Derrotas: 11",
-    "Racha máxima: 5 victorias",
-    "Tasa de capturas: 78%",
+  pvp: [
+    "Partidas PvP: 33",
+    "Victorias: 20 · Derrotas: 13",
+    "Racha máxima: 6 victorias",
+    "Precisión en duelos: 90%",
   ],
 };
 
@@ -440,19 +485,257 @@ function initProfileUi() {
 
 // ===== Sudoku game logic =====
 function setTab(mode) {
+  const isHome = mode === "inicio";
   const isGame = mode === "juego";
   const isProfile = mode === "perfil";
-  const isHome = !isGame && !isProfile;
+  const isTorneos = mode === "torneos";
+  const isPvp = mode === "pvp";
+  const isLogin = mode === "login";
 
   inicioTab.classList.toggle("hidden", !isHome);
   juegoTab.classList.toggle("hidden", !isGame);
   perfilTab.classList.toggle("hidden", !isProfile);
+  torneosTab.classList.toggle("hidden", !isTorneos);
+  pvpTab.classList.toggle("hidden", !isPvp);
+  loginTab.classList.toggle("hidden", !isLogin);
 
   tabInicioBtn.classList.toggle("active", isHome);
   tabJugarBtn.classList.toggle("active", isGame);
   tabPerfilBtn.classList.toggle("active", isProfile);
+  tabTorneosBtn.classList.toggle("active", isTorneos);
+  tabPvpBtn.classList.toggle("active", isPvp);
 
-  if (isGame || isProfile) window.scrollTo({ top: 0, behavior: "smooth" });
+  if (!isHome) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function setAuthView(view) {
+  const showLogin = view === "login";
+  const showRegister = view === "register";
+  const showVerify = view === "verify";
+  const showForgot = view === "forgot";
+  const showReset = view === "reset";
+
+  loginForm?.classList.toggle("hidden", !showLogin);
+  registerForm?.classList.toggle("hidden", !showRegister);
+  verifyForm?.classList.toggle("hidden", !showVerify);
+  forgotForm?.classList.toggle("hidden", !showForgot);
+  resetForm?.classList.toggle("hidden", !showReset);
+  showLoginFormBtn?.classList.toggle("active", showLogin);
+  showRegisterFormBtn?.classList.toggle("active", showRegister);
+}
+
+const DEFAULT_PROFILE_NAME = profileNameEl?.textContent?.trim() || "Invitado#0001";
+const DEFAULT_PROFILE_TITLE =
+  profileTitleEl?.textContent?.trim() || 'Titulo: "El dios de los numeros"';
+
+function isAuthenticated() {
+  return Boolean(authSession?.accessToken);
+}
+
+function getErrorMessage(error, fallbackMessage) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallbackMessage;
+}
+
+function setAuthMessage(message = "", tone = "info") {
+  if (!authMessageEl) return;
+
+  authMessageEl.textContent = message;
+  authMessageEl.classList.remove("ok", "error");
+
+  if (!message) return;
+  if (tone === "ok") authMessageEl.classList.add("ok");
+  if (tone === "error") authMessageEl.classList.add("error");
+}
+
+function getProfileDisplayName(user) {
+  if (!user) return DEFAULT_PROFILE_NAME;
+  if (user.name) return user.name;
+  if (user.email) return user.email.split("@")[0];
+
+  const rawId = user.id || user.sub;
+  if (!rawId) return DEFAULT_PROFILE_NAME;
+
+  const id = String(rawId);
+  return `Jugador#${id.slice(-4)}`;
+}
+
+function syncProfileIdentity() {
+  if (!profileNameEl || !profileTitleEl) return;
+
+  if (!isAuthenticated()) {
+    profileNameEl.textContent = DEFAULT_PROFILE_NAME;
+    profileTitleEl.textContent = DEFAULT_PROFILE_TITLE;
+    return;
+  }
+
+  const user = authSession?.user || {};
+  profileNameEl.textContent = getProfileDisplayName(user);
+  profileTitleEl.textContent = user.email
+    ? `Correo: ${user.email}`
+    : "Sesion activa";
+}
+
+function syncAuthUi() {
+  if (openAuthBtn) {
+    openAuthBtn.textContent = isAuthenticated() ? "Cerrar sesion" : "Iniciar sesion";
+    openAuthBtn.disabled = authBusy;
+  }
+
+  if (openProfileBtn) openProfileBtn.disabled = authBusy;
+  if (tabPerfilBtn) tabPerfilBtn.disabled = authBusy;
+  if (showLoginFormBtn) showLoginFormBtn.disabled = authBusy;
+  if (showRegisterFormBtn) showRegisterFormBtn.disabled = authBusy;
+  if (switchToForgotBtn) switchToForgotBtn.disabled = authBusy;
+  if (switchToVerifyBtn) switchToVerifyBtn.disabled = authBusy;
+  if (switchToResetBtn) switchToResetBtn.disabled = authBusy;
+  if (switchToForgotFromResetBtn) switchToForgotFromResetBtn.disabled = authBusy;
+  if (switchToLoginFromForgotBtn) switchToLoginFromForgotBtn.disabled = authBusy;
+  if (switchToLoginFromResetBtn) switchToLoginFromResetBtn.disabled = authBusy;
+  if (switchToLoginFromVerifyBtn) switchToLoginFromVerifyBtn.disabled = authBusy;
+}
+
+function setAuthBusyState(isBusy) {
+  authBusy = isBusy;
+  syncAuthUi();
+}
+
+function saveAuthSession(session) {
+  authSession = session || null;
+
+  if (authSession) authStorage.setSession(authSession);
+  else authStorage.clearSession();
+
+  syncAuthUi();
+  syncProfileIdentity();
+}
+
+async function hydrateSession(session) {
+  if (!session?.accessToken) {
+    throw new Error("Session without access token");
+  }
+
+  const verification = await apiClient.verifyToken(session.accessToken);
+  const verifiedUser = verification?.user || {};
+  const sessionUser = session.user || {};
+
+  const user = {
+    ...sessionUser,
+    id: sessionUser.id || verifiedUser.sub,
+    sub: verifiedUser.sub || sessionUser.sub || sessionUser.id,
+    email: verifiedUser.email || sessionUser.email || "",
+    name:
+      sessionUser.name ||
+      (verifiedUser.email ? String(verifiedUser.email).split("@")[0] : ""),
+  };
+
+  return {
+    ...session,
+    user,
+  };
+}
+
+async function tryRefreshSession(session) {
+  if (!session?.refreshToken) {
+    throw new Error("Missing refresh token");
+  }
+
+  const refreshed = await apiClient.refresh(session.refreshToken);
+
+  if (!refreshed?.accessToken) {
+    throw new Error("Refresh response without access token");
+  }
+
+  return hydrateSession({
+    ...session,
+    accessToken: refreshed.accessToken,
+  });
+}
+
+async function restoreAuthSession() {
+  const stored = authStorage.getSession();
+  if (!stored?.accessToken) {
+    saveAuthSession(null);
+    return;
+  }
+
+  setAuthBusyState(true);
+  saveAuthSession(stored);
+
+  try {
+    const hydrated = await hydrateSession(stored);
+    saveAuthSession(hydrated);
+  } catch {
+    try {
+      const refreshed = await tryRefreshSession(stored);
+      saveAuthSession(refreshed);
+    } catch {
+      saveAuthSession(null);
+      setStatus("Tu sesion expiro. Inicia sesion nuevamente.");
+      setAuthMessage("Tu sesion expiro. Inicia sesion nuevamente.", "error");
+    }
+  } finally {
+    setAuthBusyState(false);
+  }
+}
+
+async function logoutCurrentSession() {
+  if (!isAuthenticated()) {
+    saveAuthSession(null);
+    return;
+  }
+
+  setAuthBusyState(true);
+
+  try {
+    await apiClient.logout(authSession.accessToken);
+  } catch (error) {
+    console.warn("No se pudo notificar el logout al backend.", error);
+  } finally {
+    saveAuthSession(null);
+    setAuthView("login");
+    setAuthMessage("Sesion cerrada.", "ok");
+    setStatus("Sesion cerrada.");
+    setTab("inicio");
+    setAuthBusyState(false);
+  }
+}
+
+function openLoginTab(message = "", tone = "info") {
+  setAuthView("login");
+  setAuthMessage(message, tone);
+  setTab("login");
+}
+
+function openVerifyTab(email = "", message = "", tone = "info") {
+  setAuthView("verify");
+  if (verifyEmailInput && email) verifyEmailInput.value = email;
+  if (verifyCodeInput) verifyCodeInput.value = "";
+  setAuthMessage(message, tone);
+  setTab("login");
+}
+
+function openForgotTab(email = "", message = "", tone = "info") {
+  setAuthView("forgot");
+  if (forgotEmailInput && email) forgotEmailInput.value = email;
+  setAuthMessage(message, tone);
+  setTab("login");
+}
+
+function openResetTab(token = "", message = "", tone = "info") {
+  setAuthView("reset");
+  if (resetTokenInput && token) resetTokenInput.value = token;
+  if (resetPasswordInput) resetPasswordInput.value = "";
+  if (resetPasswordConfirmInput) resetPasswordConfirmInput.value = "";
+  setAuthMessage(message, tone);
+  setTab("login");
+}
+
+function requireAuthForProfile() {
+  if (isAuthenticated()) return true;
+
+  openLoginTab("Inicia sesion para acceder a tu perfil.", "error");
+  return false;
 }
 
 function applyTheme(theme) {
@@ -717,48 +1000,6 @@ function createSignBoard() {
   }
 }
 
-function createChessSignBoard() {
-  if (!chessSignBoardEl) return;
-  const blackBack = ["♜", "♞", "♝", "♛", "♚", "♝", "♞", "♜"];
-  const whiteBack = ["♖", "♘", "♗", "♕", "♔", "♗", "♘", "♖"];
-
-  chessSignBoardEl.innerHTML = "";
-  for (let i = 0; i < 64; i += 1) {
-    const row = Math.floor(i / 8);
-    const col = i % 8;
-    const cell = document.createElement("div");
-    cell.className = "sign-cell chess-cell";
-
-    cell.classList.add((row + col) % 2 === 0 ? "light" : "dark");
-    if (row === 0) cell.textContent = blackBack[col];
-    else if (row === 1) cell.textContent = "♟";
-    else if (row === 6) cell.textContent = "♙";
-    else if (row === 7) cell.textContent = whiteBack[col];
-
-    chessSignBoardEl.appendChild(cell);
-  }
-}
-
-function createCheckersSignBoard() {
-  if (!checkersSignBoardEl) return;
-  checkersSignBoardEl.innerHTML = "";
-  for (let i = 0; i < 64; i += 1) {
-    const row = Math.floor(i / 8);
-    const col = i % 8;
-    const cell = document.createElement("div");
-    cell.className = "sign-cell chess-cell checkers-cell";
-
-    const darkSquare = (row + col) % 2 !== 0;
-    cell.classList.add(darkSquare ? "dark" : "light");
-
-    if (darkSquare && row <= 2) cell.textContent = "●";
-    else if (darkSquare && row >= 5) cell.textContent = "○";
-
-    checkersSignBoardEl.appendChild(cell);
-  }
-}
-
-
 function closeGuideModal() {
   guideModal.classList.add("hidden");
   guideModal.setAttribute("aria-hidden", "true");
@@ -776,24 +1017,20 @@ function openGuide(guide) {
         "El objetivo es completar el tablero correctamente.",
       ],
     },
-    ajedrez: {
-      title: "Cómo jugar Ajedrez",
+    torneos: {
+      title: "Cómo jugar Torneos",
       items: [
-        "Cada jugador inicia con 16 piezas.",
-        "El objetivo es dar jaque mate al rey rival.",
-        "Cada tipo de pieza tiene un movimiento específico.",
-        "No puedes dejar a tu rey en jaque.",
-        "Si no hay movimientos legales y no hay jaque, es tablas.",
+        "Los torneos se juegan por rondas con sudokus de dificultad progresiva.",
+        "Tu puntaje combina tiempo de resolución y precisión final.",
+        "Puedes ver tu posición en la clasificación en tiempo real.",
       ],
     },
-    damas: {
-      title: "Cómo jugar Damas",
+    pvp: {
+      title: "Cómo jugar PvP",
       items: [
-        "Se juega sobre un tablero de 8x8 usando las casillas oscuras.",
-        "Cada jugador mueve piezas en diagonal hacia adelante.",
-        "Capturas una pieza rival saltando sobre ella.",
-        "Si llegas al extremo opuesto, tu pieza se convierte en reina.",
-        "Gana quien deja al rival sin movimientos o sin piezas.",
+        "Te emparejamos con un jugador de nivel similar.",
+        "Ambos juegan el mismo tablero al mismo tiempo.",
+        "Gana quien complete correctamente en menor tiempo.",
       ],
     },
   };
@@ -947,6 +1184,9 @@ function setupControls() {
   });
 
   playNowBtn.addEventListener("click", () => setTab("juego"));
+  goToSudokuBtn?.addEventListener("click", () => setTab("juego"));
+  goToTorneosBtn?.addEventListener("click", () => setTab("torneos"));
+  goToPvpBtn?.addEventListener("click", () => setTab("pvp"));
 
   openGuideBtns.forEach((btn) => {
     btn.addEventListener("click", () => openGuide(btn.dataset.guide));
@@ -963,22 +1203,410 @@ function setupControls() {
   });
 
   homeLogo.addEventListener("click", () => setTab("inicio"));
-  openProfileBtn.addEventListener("click", () => setTab("perfil"));
+  openAuthBtn?.addEventListener("click", async () => {
+    if (authBusy) return;
+
+    if (!isAuthenticated()) {
+      openLoginTab();
+      return;
+    }
+
+    await logoutCurrentSession();
+  });
+  openProfileBtn.addEventListener("click", () => {
+    if (!requireAuthForProfile()) return;
+    setTab("perfil");
+  });
   tabJugarBtn.addEventListener("click", () => setTab("juego"));
+  tabTorneosBtn.addEventListener("click", () => setTab("torneos"));
+  tabPvpBtn.addEventListener("click", () => setTab("pvp"));
   tabInicioBtn.addEventListener("click", () => setTab("inicio"));
-  tabPerfilBtn.addEventListener("click", () => setTab("perfil"));
+  tabPerfilBtn.addEventListener("click", () => {
+    if (!requireAuthForProfile()) return;
+    setTab("perfil");
+  });
   backHomeBtn.addEventListener("click", () => setTab("inicio"));
   backHomeFromProfileBtn.addEventListener("click", () => setTab("inicio"));
+  backHomeFromLoginBtn?.addEventListener("click", () => setTab("inicio"));
+  backHomeGenericBtns.forEach((btn) => btn.addEventListener("click", () => setTab("inicio")));
+
+  showLoginFormBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setAuthMessage("");
+  });
+  showRegisterFormBtn?.addEventListener("click", () => {
+    setAuthView("register");
+    setAuthMessage("");
+  });
+  switchToRegisterBtn?.addEventListener("click", () => {
+    setAuthView("register");
+    setAuthMessage("");
+  });
+  switchToForgotBtn?.addEventListener("click", () => {
+    openForgotTab(
+      loginEmailInput?.value?.trim() || "",
+      "Ingresa tu correo para enviarte el token de recuperacion.",
+    );
+  });
+  switchToVerifyBtn?.addEventListener("click", () => {
+    openVerifyTab(
+      loginEmailInput?.value?.trim() || "",
+      "Ingresa el correo y el codigo que recibiste por email.",
+    );
+  });
+  switchToResetBtn?.addEventListener("click", () => {
+    openResetTab(
+      "",
+      "Ingresa el token que te llego al correo y define tu nueva contrasena.",
+    );
+  });
+  switchToLoginBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setAuthMessage("");
+  });
+  switchToLoginFromVerifyBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setAuthMessage("");
+  });
+  switchToForgotFromResetBtn?.addEventListener("click", () => {
+    openForgotTab("", "Solicita un nuevo token de recuperacion.");
+  });
+  switchToLoginFromForgotBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setAuthMessage("");
+  });
+  switchToLoginFromResetBtn?.addEventListener("click", () => {
+    setAuthView("login");
+    setAuthMessage("");
+  });
+
+  loginForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (authBusy) return;
+
+    const email = loginEmailInput?.value?.trim() || "";
+    const password = loginPasswordInput?.value || "";
+
+    if (!email || !password) {
+      setAuthMessage("Completa correo y contrasena.", "error");
+      return;
+    }
+
+    const submitButton = loginForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton?.textContent || "Entrar";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Entrando...";
+    }
+
+    setAuthBusyState(true);
+    setAuthMessage("Iniciando sesion...");
+
+    try {
+      const response = await apiClient.login({ email, password });
+
+      if (!response?.accessToken) {
+        throw new Error("Respuesta de login sin accessToken.");
+      }
+
+      const session = {
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken || "",
+        user: response.user || { email },
+      };
+
+      const hydrated = await hydrateSession(session);
+      saveAuthSession(hydrated);
+
+      loginForm.reset();
+      setAuthMessage("Sesion iniciada correctamente.", "ok");
+      setStatus("Sesion iniciada correctamente.", true);
+      setTab("inicio");
+    } catch (error) {
+      setAuthMessage(
+        getErrorMessage(error, "No fue posible iniciar sesion."),
+        "error",
+      );
+    } finally {
+      setAuthBusyState(false);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+      }
+    }
+  });
+
+  registerForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (authBusy) return;
+
+    const name = registerNameInput?.value?.trim() || "";
+    const email = registerEmailInput?.value?.trim() || "";
+    const password = registerPassword?.value || "";
+    const confirmPassword = registerPasswordConfirm?.value || "";
+
+    if (!name || !email || !password || !confirmPassword) {
+      setAuthMessage("Completa todos los campos del registro.", "error");
+      return;
+    }
+
+    if (password.length < 8) {
+      setAuthMessage("La contrasena debe tener al menos 8 caracteres.", "error");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setAuthMessage("Las contrasenas no coinciden.", "error");
+      return;
+    }
+
+    const submitButton = registerForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton?.textContent || "Crear cuenta";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Creando...";
+    }
+
+    setAuthBusyState(true);
+    setAuthMessage("Creando cuenta...");
+
+    try {
+      const response = await apiClient.signup({
+        name,
+        email,
+        password,
+      });
+
+      registerForm.reset();
+
+      if (response?.accessToken) {
+        const session = {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken || "",
+          user: response.user || { name, email },
+        };
+
+        const hydrated = await hydrateSession(session);
+        saveAuthSession(hydrated);
+        setAuthMessage("Cuenta creada e inicio de sesion exitoso.", "ok");
+        setStatus("Cuenta creada e inicio de sesion exitoso.", true);
+        setTab("inicio");
+      } else {
+        openVerifyTab(
+          email,
+          "Cuenta creada. Revisa tu correo e ingresa el codigo para verificarla.",
+          "ok",
+        );
+        setStatus("Cuenta creada. Verifica tu correo para activar la cuenta.", true);
+      }
+    } catch (error) {
+      setAuthMessage(
+        getErrorMessage(error, "No fue posible crear la cuenta."),
+        "error",
+      );
+    } finally {
+      setAuthBusyState(false);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+      }
+    }
+  });
+
+  verifyForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (authBusy) return;
+
+    const email = verifyEmailInput?.value?.trim() || "";
+    const code = verifyCodeInput?.value?.trim() || "";
+
+    if (!email || !code) {
+      setAuthMessage("Completa correo y codigo de verificacion.", "error");
+      return;
+    }
+
+    const submitButton = verifyForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton?.textContent || "Verificar cuenta";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Verificando...";
+    }
+
+    setAuthBusyState(true);
+    setAuthMessage("Verificando codigo...");
+
+    try {
+      await apiClient.verifyEmail({ email, code });
+      setAuthView("login");
+      if (loginEmailInput) loginEmailInput.value = email;
+      if (verifyCodeInput) verifyCodeInput.value = "";
+      setAuthMessage("Correo verificado. Ahora inicia sesion.", "ok");
+      setStatus("Correo verificado. Ya puedes iniciar sesion.", true);
+    } catch (error) {
+      setAuthMessage(
+        getErrorMessage(error, "No fue posible verificar el correo."),
+        "error",
+      );
+    } finally {
+      setAuthBusyState(false);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+      }
+    }
+  });
+
+  forgotForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (authBusy) return;
+
+    const email = forgotEmailInput?.value?.trim() || "";
+
+    if (!email) {
+      setAuthMessage("Completa el correo para recuperar la contrasena.", "error");
+      return;
+    }
+
+    const submitButton = forgotForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton?.textContent || "Enviar correo de recuperacion";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Enviando...";
+    }
+
+    setAuthBusyState(true);
+    setAuthMessage("Solicitando correo de recuperacion...");
+
+    try {
+      await apiClient.forgotPassword({ email });
+      openResetTab(
+        "",
+        "Correo enviado. Revisa tu bandeja y pega el token para restablecer tu contrasena.",
+        "ok",
+      );
+      setStatus("Correo de recuperacion enviado.", true);
+    } catch (error) {
+      setAuthMessage(
+        getErrorMessage(error, "No fue posible iniciar la recuperacion de contrasena."),
+        "error",
+      );
+    } finally {
+      setAuthBusyState(false);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+      }
+    }
+  });
+
+  resetForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (authBusy) return;
+
+    const token = resetTokenInput?.value?.trim() || "";
+    const newPassword = resetPasswordInput?.value || "";
+    const confirmPassword = resetPasswordConfirmInput?.value || "";
+    const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/;
+
+    if (!token || !newPassword || !confirmPassword) {
+      setAuthMessage("Completa token y ambos campos de contrasena.", "error");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setAuthMessage("Las contrasenas no coinciden.", "error");
+      return;
+    }
+
+    if (!passwordPolicy.test(newPassword)) {
+      setAuthMessage(
+        "La nueva contrasena debe tener minimo 8 caracteres, mayuscula, minuscula, numero y simbolo (!, @, #, $, _, -).",
+        "error",
+      );
+      return;
+    }
+
+    const submitButton = resetForm.querySelector('button[type="submit"]');
+    const originalLabel = submitButton?.textContent || "Restablecer contrasena";
+
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Restableciendo...";
+    }
+
+    setAuthBusyState(true);
+    setAuthMessage("Restableciendo contrasena...");
+
+    try {
+      await apiClient.resetPassword({ token, newPassword });
+      resetForm.reset();
+      setAuthView("login");
+      setAuthMessage("Contrasena actualizada. Inicia sesion con tu nueva clave.", "ok");
+      setStatus("Contrasena restablecida correctamente.", true);
+    } catch (error) {
+      setAuthMessage(
+        getErrorMessage(error, "No fue posible restablecer la contrasena."),
+        "error",
+      );
+    } finally {
+      setAuthBusyState(false);
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = originalLabel;
+      }
+    }
+  });
+
+  const syncPasswordValidation = () => {
+    const pass = registerPassword?.value || "";
+    const confirm = registerPasswordConfirm?.value || "";
+
+    if (!pass && !confirm) {
+      passwordMatchIcon.textContent = "•";
+      passwordMatchText.textContent = "Escribe y confirma tu contraseña.";
+      return;
+    }
+
+    if (pass.length < 8) {
+      passwordMatchIcon.textContent = "⚠";
+      passwordMatchText.textContent = "La contraseña debe tener al menos 8 caracteres.";
+      return;
+    }
+
+    if (pass !== confirm) {
+      passwordMatchIcon.textContent = "✕";
+      passwordMatchText.textContent = "Las contraseñas no coinciden.";
+      return;
+    }
+
+    passwordMatchIcon.textContent = "✓";
+    passwordMatchText.textContent = "Contraseñas válidas y coincidentes.";
+  };
+
+  registerPassword?.addEventListener("input", syncPasswordValidation);
+  registerPasswordConfirm?.addEventListener("input", syncPasswordValidation);
+  setAuthView("login");
+  setAuthMessage("");
+  syncAuthUi();
+  syncProfileIdentity();
 }
 
 // ===== App bootstrap =====
-initTheme();
-createSignBoard();
-createChessSignBoard();
-createCheckersSignBoard();
-createKeypad();
-initializeDifficultyOptions();
-setupControls();
-initProfileUi();
-loadDifficulty(currentDifficulty.key);
-setTab("inicio");
+async function bootstrapApp() {
+  initTheme();
+  createSignBoard();
+  createKeypad();
+  initializeDifficultyOptions();
+  setupControls();
+  initProfileUi();
+  loadDifficulty(currentDifficulty.key);
+  setTab("inicio");
+  await restoreAuthSession();
+}
+
+bootstrapApp();
+

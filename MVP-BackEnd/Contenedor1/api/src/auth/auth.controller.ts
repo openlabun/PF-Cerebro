@@ -3,7 +3,6 @@ import {
   Controller,
   Post,
   Get,
-  Headers,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -16,6 +15,9 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailDto } from './dto/verify-email.dto';
 
 @ApiTags('Autenticación')
 @Controller('auth')
@@ -40,6 +42,21 @@ export class AuthController {
   @Post('signup-direct')
   signupDirect(@Body() dto: SignupDto) {
     return this.service.signupDirect(dto);
+  }
+
+  @Post('verify-email')
+  verifyEmail(@Body() dto: VerifyEmailDto) {
+    return this.service.verifyEmail(dto);
+  }
+
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.service.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.service.resetPassword(dto);
   }
 
   @UseGuards(RobleAuthGuard)

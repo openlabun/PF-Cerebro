@@ -30,9 +30,13 @@ export class GameStatsService {
         derrotas: Number(stats[0].derrotas),
         empates: Number(stats[0].empates),
       };
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new HttpException(
-        'Error al consultar estadísticas',
+        'Error al consultar estadisticas',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -71,7 +75,7 @@ export class GameStatsService {
     }
 
     throw new HttpException(
-      'No se pudo crear estadísticas',
+      'No se pudo crear estadisticas',
       HttpStatus.BAD_REQUEST,
     );
   }
@@ -83,16 +87,33 @@ export class GameStatsService {
     accessToken: string,
   ): Promise<GameStat> {
     try {
+      const stats = await this.createIfNotExists(
+        usuarioId,
+        juegoId,
+        accessToken,
+      );
+
+      if (!stats._id) {
+        throw new HttpException(
+          'No se encontro el identificador de estadisticas',
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       return await this.robleService.update<GameStat>(
         accessToken,
         'EstadisticasJuegoUsuario',
         '_id',
-        (await this.getStats(usuarioId, juegoId, accessToken))!._id!,
+        stats._id,
         updates,
       );
-    } catch {
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
       throw new HttpException(
-        'Error al actualizar estadísticas',
+        'Error al actualizar estadisticas',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

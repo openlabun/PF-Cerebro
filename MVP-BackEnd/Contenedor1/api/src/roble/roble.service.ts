@@ -1,6 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
+import { isAxiosError } from 'axios';
 import { firstValueFrom } from 'rxjs';
 import type {
   RobleInsertResponse,
@@ -24,7 +30,43 @@ export class RobleService {
     this.dbBase = this.config.getOrThrow<string>('ROBLE_DB_BASE');
   }
 
-  // Verificación de token en ROBLE
+  private throwRobleRequestError(
+    error: unknown,
+    fallbackMessage: string,
+  ): never {
+    if (isAxiosError(error)) {
+      const statusCode = error.response?.status ?? HttpStatus.BAD_GATEWAY;
+      const responseData = error.response?.data;
+
+      let message: unknown = fallbackMessage;
+      if (
+        responseData &&
+        typeof responseData === 'object' &&
+        'message' in responseData
+      ) {
+        message = (responseData as { message: unknown }).message;
+      } else if (error.message) {
+        message = error.message;
+      }
+
+      throw new HttpException(
+        {
+          statusCode,
+          message,
+        },
+        statusCode,
+      );
+    }
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.BAD_GATEWAY,
+        message: fallbackMessage,
+      },
+      HttpStatus.BAD_GATEWAY,
+    );
+  }
+
   async verifyToken(accessToken: string): Promise<RobleVerifyTokenResponse> {
     try {
       const url = `${this.authBase}/${this.dbName}/verify-token`;
@@ -34,106 +76,167 @@ export class RobleService {
           headers: { Authorization: `Bearer ${accessToken}` },
         }),
       );
-      console.log('Respuesta verifyToken:', response.data);
       return response.data;
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
   }
 
-  //Operacione en la base de datos de ROBLE
   async insert<T extends object>(
     accessToken: string,
     tableName: string,
     records: T[],
   ): Promise<RobleInsertResponse<T>> {
-    const url = `${this.dbBase}/${this.dbName}/insert`;
+    try {
+      const url = `${this.dbBase}/${this.dbName}/insert`;
 
-    const response = await firstValueFrom(
-      this.http.post<RobleInsertResponse<T>>(
-        url,
-        { tableName, records },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      ),
-    );
+      const response = await firstValueFrom(
+        this.http.post<RobleInsertResponse<T>>(
+          url,
+          { tableName, records },
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        ),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al insertar datos en ROBLE');
+    }
   }
 
-  // Autenticación en ROBLE
   async login(email: string, password: string): Promise<RobleLoginResponse> {
-    const url = `${this.authBase}/${this.dbName}/login`;
+    try {
+      const url = `${this.authBase}/${this.dbName}/login`;
 
-    const response = await firstValueFrom(
-      this.http.post<RobleLoginResponse>(url, { email, password }),
-    );
+      const response = await firstValueFrom(
+        this.http.post<RobleLoginResponse>(url, { email, password }),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error de autenticacion en ROBLE');
+    }
   }
 
-  // Refrescar token en ROBLE
   async refreshToken(refreshToken: string): Promise<RobleRefreshResponse> {
-    const url = `${this.authBase}/${this.dbName}/refresh-token`;
+    try {
+      const url = `${this.authBase}/${this.dbName}/refresh-token`;
 
-    const response = await firstValueFrom(
-      this.http.post<RobleRefreshResponse>(url, { refreshToken }),
-    );
+      const response = await firstValueFrom(
+        this.http.post<RobleRefreshResponse>(url, { refreshToken }),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al refrescar token en ROBLE');
+    }
   }
 
-  // Registro de usuario en ROBLE
   async signup(payload: unknown): Promise<unknown> {
-    const url = `${this.authBase}/${this.dbName}/signup`;
+    try {
+      const url = `${this.authBase}/${this.dbName}/signup`;
 
-    const response = await firstValueFrom(this.http.post(url, payload));
+      const response = await firstValueFrom(this.http.post(url, payload));
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error en registro de usuario');
+    }
   }
 
-  // Registro directo de usuario en ROBLE (sin verificación de email)
   async signupDirect(payload: unknown): Promise<unknown> {
-    const url = `${this.authBase}/${this.dbName}/signup-direct`;
+    try {
+      const url = `${this.authBase}/${this.dbName}/signup-direct`;
 
-    const response = await firstValueFrom(this.http.post(url, payload));
+      const response = await firstValueFrom(this.http.post(url, payload));
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(
+        error,
+        'Error en registro directo de usuario',
+      );
+    }
   }
 
-  // Cierre de sesión en ROBLE
+  async verifyEmail(payload: unknown): Promise<unknown> {
+    try {
+      const url = `${this.authBase}/${this.dbName}/verify-email`;
+
+      const response = await firstValueFrom(this.http.post(url, payload));
+
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error en verificacion de correo');
+    }
+  }
+
+  async forgotPassword(payload: unknown): Promise<unknown> {
+    try {
+      const url = `${this.authBase}/${this.dbName}/forgot-password`;
+
+      const response = await firstValueFrom(this.http.post(url, payload));
+
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(
+        error,
+        'Error al solicitar recuperacion de contrasena',
+      );
+    }
+  }
+
+  async resetPassword(payload: unknown): Promise<unknown> {
+    try {
+      const url = `${this.authBase}/${this.dbName}/reset-password`;
+
+      const response = await firstValueFrom(this.http.post(url, payload));
+
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al restablecer contrasena');
+    }
+  }
+
   async logout(accessToken: string): Promise<unknown> {
-    const url = `${this.authBase}/${this.dbName}/logout`;
+    try {
+      const url = `${this.authBase}/${this.dbName}/logout`;
 
-    const response = await firstValueFrom(
-      this.http.post(
-        url,
-        {},
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      ),
-    );
+      const response = await firstValueFrom(
+        this.http.post(
+          url,
+          {},
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        ),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al cerrar sesion en ROBLE');
+    }
   }
 
-  // Lectura de datos en ROBLE
   async read<T>(
     accessToken: string,
     tableName: string,
     filters?: Record<string, string | number>,
   ): Promise<T[]> {
-    const url = `${this.dbBase}/${this.dbName}/read`;
+    try {
+      const url = `${this.dbBase}/${this.dbName}/read`;
 
-    const response = await firstValueFrom(
-      this.http.get<T[]>(url, {
-        headers: { Authorization: `Bearer ${accessToken}` },
-        params: { tableName, ...(filters ?? {}) },
-      }),
-    );
+      const response = await firstValueFrom(
+        this.http.get<T[]>(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          params: { tableName, ...(filters ?? {}) },
+        }),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al leer datos en ROBLE');
+    }
   }
 
-  // Actualización de datos en ROBLE
   async update<T>(
     accessToken: string,
     tableName: string,
@@ -141,21 +244,25 @@ export class RobleService {
     idValue: string,
     updates: Record<string, unknown>,
   ): Promise<T> {
-    const url = `${this.dbBase}/${this.dbName}/update`;
+    try {
+      const url = `${this.dbBase}/${this.dbName}/update`;
 
-    const response = await firstValueFrom(
-      this.http.put<T>(
-        url,
-        {
-          tableName,
-          idColumn,
-          idValue,
-          updates,
-        },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
-      ),
-    );
+      const response = await firstValueFrom(
+        this.http.put<T>(
+          url,
+          {
+            tableName,
+            idColumn,
+            idValue,
+            updates,
+          },
+          { headers: { Authorization: `Bearer ${accessToken}` } },
+        ),
+      );
 
-    return response.data;
+      return response.data;
+    } catch (error) {
+      this.throwRobleRequestError(error, 'Error al actualizar datos en ROBLE');
+    }
   }
 }

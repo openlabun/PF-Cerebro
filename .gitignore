@@ -1,0 +1,19 @@
+# Dependencies
+**/node_modules/
+
+# Build outputs
+**/dist/
+**/build/
+**/coverage/
+coverage/
+
+# Logs
+*.log
+
+# Environment local overrides
+**/.env.local
+**/.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db

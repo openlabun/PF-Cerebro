@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-RUN npm install
+RUN npm ci
 
 COPY . .
 
@@ -19,7 +19,7 @@ WORKDIR /app
 
 COPY package.json package-lock.json* ./
 
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 
