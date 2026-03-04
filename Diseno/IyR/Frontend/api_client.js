@@ -208,6 +208,24 @@ const apiClient = {
       token: accessToken,
     });
   },
+
+    getMyGameStats(accessToken, juegoId) {
+    return request("game-stats/me", {
+      method: "POST",
+      token: accessToken,
+      body: { juegoId },
+    });
+  },
+
+  createGameSession(accessToken, payload) {
+    // Registrar resultado de una partida jugada
+    // POST /game-sessions  body: { juegoId, puntaje, resultado, cambioElo, ... }
+    return request("game-sessions", {
+      method: "POST",
+      token: accessToken,
+      body: payload,
+    });
+  },
 };
 
 export { apiClient, authStorage, request };

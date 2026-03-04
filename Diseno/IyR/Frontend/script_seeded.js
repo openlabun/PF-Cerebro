@@ -195,7 +195,7 @@ const seedsPorDificultad = {
 };
 
 let huecosActual = 40;
-
+const GAME_ID_SUDOKU = "uVsB-k2rjora"; // id de juego SUDOKU
 
 const profileModeStats = {
   sudoku: [
@@ -412,17 +412,53 @@ function renderStreakCalendar() {
   }
 }
 
-function renderModeDetail(mode) {
-  const selectedMode = profileModeStats[mode] ? mode : "sudoku";
-  modeCardBtns.forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.mode === selectedMode);
+async function loadSudokuStatsIntoProfile() {
+  if (!isAuthenticated()) return;
+
+  try {
+    const stats = await apiClient.getMyGameStats(authSession.accessToken, GAME_ID_SUDOKU);
+
+    if (!stats || typeof stats !== "object") {
+      console.warn("[stats] respuesta inválida de getMyGameStats");
+      return;
+    }
+    profileModeStats.sudoku = [
+      `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
+      `Elo: ${stats.elo ?? 0}`,
+      `Victorias: ${stats.victorias ?? 0} · Derrotas: ${stats.derrotas ?? 0} · Empates: ${stats.empates ?? 0}`,
+      stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
+    ];
+  } catch (e) {
+    console.warn("Fallo cargando stats sudoku:", e);
+  }
+}
+
+async function showModeDetail(modeKey) {
+
+  // Marcar visualmente el modo activo (Sudoku/Torneos/PvP)
+  modeCardBtns?.forEach((card) => {
+    card.classList.toggle("active", card.dataset.mode === modeKey);
   });
-  modeDetailTitle.textContent = selectedMode[0].toUpperCase() + selectedMode.slice(1);
+  
+  if (modeKey === "sudoku") {
+    await loadSudokuStatsIntoProfile();
+  }
+
+  const stats = profileModeStats[modeKey];
+  if (!stats || !modeDetailTitle || !modeDetailList) return;
+
+  const titleMap = {
+    sudoku: "Sudoku",
+    torneos: "Torneos",
+    pvp: "PvP",
+  };
+
+  modeDetailTitle.textContent = `Estadísticas · ${titleMap[modeKey]}`;
   modeDetailList.innerHTML = "";
-  profileModeStats[selectedMode].forEach((stat) => {
-    const item = document.createElement("li");
-    item.textContent = stat;
-    modeDetailList.appendChild(item);
+  stats.forEach((line) => {
+    const li = document.createElement("li");
+    li.textContent = line;
+    modeDetailList.appendChild(li);
   });
 }
 
@@ -435,7 +471,7 @@ function initProfileUi() {
   setProfileFrame("frame-royal");
   setAvatarPickerTab("avatar");
   renderFrameOptions();
-  renderModeDetail("sudoku");
+  showModeDetail("sudoku");
 
   pickerTabBtns.forEach((btn) => {
     btn.addEventListener("click", () => setAvatarPickerTab(btn.dataset.pickerTab));
@@ -467,8 +503,10 @@ function initProfileUi() {
     });
   });
 
-  modeCardBtns.forEach((btn) => {
-    btn.addEventListener("click", () => renderModeDetail(btn.dataset.mode));
+  modeCardBtns?.forEach((card) => {
+    card.addEventListener("click", async () => {
+      await showModeDetail(card.dataset.mode);
+    });
   });
 
   closePickerBtns.forEach((btn) => {
@@ -659,6 +697,11 @@ function saveAuthSession(session) {
 
   syncAuthUi();
   syncProfileIdentity();
+  
+  // Si ya está autenticado, refresca stats del modo actual (o sudoku por defecto)
+  if (isAuthenticated()) {
+    showModeDetail("sudoku");
+  }
 }
 
 async function hydrateSession(session) {
@@ -1675,6 +1718,7 @@ async function bootstrapApp() {
   loadDifficulty(currentDifficulty.key);
   setTab("inicio");
   await restoreAuthSession();
+  await showModeDetail("sudoku");
 }
 
 bootstrapApp();
