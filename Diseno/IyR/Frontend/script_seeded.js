@@ -439,7 +439,7 @@ async function showModeDetail(modeKey) {
   modeCardBtns?.forEach((card) => {
     card.classList.toggle("active", card.dataset.mode === modeKey);
   });
-  
+
   if (modeKey === "sudoku") {
     await loadSudokuStatsIntoProfile();
   }
@@ -657,9 +657,20 @@ function syncProfileIdentity() {
 
   const user = authSession?.user || {};
   profileNameEl.textContent = getProfileDisplayName(user);
-  profileTitleEl.textContent = user.email
-    ? `Correo: ${user.email}`
-    : "Sesion activa";
+
+  //validar si hay titulo activo en user, si no en authSession.profile, si no null
+  const tituloTexto =
+    user.tituloActivoTexto ??
+    authSession?.profile?.tituloActivoTexto ??
+    null;
+
+  if (tituloTexto) {
+    profileTitleEl.textContent = `Título: ${tituloTexto}`;
+  } else if (user.email) {
+    profileTitleEl.textContent = `Correo: ${user.email}`;
+  } else {
+    profileTitleEl.textContent = "Sesión activa";
+  }
 
   // NUEVO
   syncProfileProgress(user);

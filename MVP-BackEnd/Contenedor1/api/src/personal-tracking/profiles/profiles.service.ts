@@ -2,10 +2,15 @@ import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
+import { TitlesService } from '../tittles/tittles.service';
+import { Title } from '../tittles/interfaces/title.interface';
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly robleService: RobleService) {}
+  constructor(
+    private readonly robleService: RobleService,
+    private readonly titlesService: TitlesService,
+  ) {}
 
   private normalizarPerfil(perfil: Perfil): Perfil {
     return {
@@ -16,6 +21,30 @@ export class ProfilesService {
       rachaMaxima: Number(perfil.rachaMaxima),
       salvadoresRacha: Number(perfil.salvadoresRacha),
     };
+  }
+
+  // NUEVO: hidratar título (ID -> texto)
+  private async hidratarTituloActivo(
+    perfil: Perfil,
+    accessToken: string,
+  ): Promise<Perfil> {
+    const tituloId = perfil.tituloActivo ?? null;
+    if (!tituloId) {
+      return { ...perfil, tituloActivoTexto: null };
+    }
+
+    try {
+      const title: Title | null = await this.titlesService.getById(accessToken, tituloId);
+
+      const texto =(title as any)?.nombre ?? null;
+
+      return { ...perfil, tituloActivoTexto: texto };
+    } catch (e) {
+      // return { ...perfil, tituloActivoTexto: null };
+
+      // fallar fuerte, re-lanza:
+      throw e;
+    }
   }
 
   public async getProfile(
@@ -33,8 +62,9 @@ export class ProfilesService {
         return null;
       }
 
-      const resp: Perfil = this.normalizarPerfil(perfiles[0]);
-      return resp;
+      const base: Perfil = this.normalizarPerfil(perfiles[0]);
+      const hydrated: Perfil = await this.hidratarTituloActivo(base, accessToken);
+      return hydrated;
     } catch {
       throw new HttpException(
         'Error al consultar perfil',
@@ -67,7 +97,8 @@ export class ProfilesService {
 
       if (resp.inserted && resp.inserted.length > 0) {
         const created: Perfil = this.normalizarPerfil(resp.inserted[0]);
-        return created;
+        const hydrated: Perfil = await this.hidratarTituloActivo(created, accessToken);
+        return hydrated;
       }
 
       throw new HttpException(
@@ -119,12 +150,16 @@ export class ProfilesService {
           rachaActual: Number(perfil.rachaActual),
           rachaMaxima: Number(perfil.rachaMaxima),
           salvadoresRacha: Number(perfil.salvadoresRacha),
-          tituloActivoId: perfil.tituloActivo ?? null,
+
+          // OJO: aquí tenías "tituloActivoId" pero el campo se llama "tituloActivo"
+          // Si ROBLE realmente usa "tituloActivoId" déjalo, pero en tu interfaz es tituloActivo.
+          tituloActivo: perfil.tituloActivo ?? null,
         },
       );
 
       const resp: Perfil = this.normalizarPerfil(updated);
-      return resp;
+      const hydrated: Perfil = await this.hidratarTituloActivo(resp, accessToken);
+      return hydrated;
     } catch {
       throw new HttpException(
         'Error al actualizar experiencia en ROBLE',
