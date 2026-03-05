@@ -222,6 +222,7 @@ Componentes principales:
 * Sistema de autenticación.
 * Servicios de ranking y métricas.
 * Pipeline de integración continua.
+* Módulo de administración y observabilidad para salud de plataforma.
 
 Características clave:
 

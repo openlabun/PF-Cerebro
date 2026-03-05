@@ -32,3 +32,17 @@ services:
     depends_on:
       - cerebro-api
     restart: unless-stopped
+
+  contenedor-admin:
+    container_name: cerebro-contenedor-admin
+    build:
+      context: "./MVP-BackEnd/ContenedorAdmin"
+      dockerfile: Dockerfile
+    environment:
+      CONTENEDOR1_BASE_URL: "http://cerebro-api:3000/api"
+      PORT: "3001"
+    ports:
+      - "5052:3001"
+    depends_on:
+      - cerebro-api
+    restart: unless-stopped

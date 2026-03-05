@@ -1,0 +1,11 @@
+{
+  "name": "cerebro-contenedor-admin",
+  "version": "0.1.0",
+  "description": "Contenedor de administración y observabilidad para CEREBRO",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  }
+}
