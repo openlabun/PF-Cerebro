@@ -584,7 +584,6 @@ async function loadSudokuStatsIntoProfile() {
     profileModeStats.sudoku = [
       `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
       `Elo: ${stats.elo ?? 0}`,
-      `Victorias: ${stats.victorias ?? 0} · Derrotas: ${stats.derrotas ?? 0} · Empates: ${stats.empates ?? 0}`,
       stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
     ];
   } catch (e) {
