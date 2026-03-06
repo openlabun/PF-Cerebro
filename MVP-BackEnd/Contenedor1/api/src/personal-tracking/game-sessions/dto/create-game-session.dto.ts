@@ -1,18 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import { IsIn, IsNumber, IsString } from 'class-validator';
 
 export class CreateGameSessionDto {
-  @ApiProperty()
-  usuarioId!: string;
 
   @ApiProperty()
+  @IsString()
   juegoId!: string;
 
   @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
   puntaje!: number;
 
-  @ApiProperty()
-  resultado!: string; // victoria | derrota | empate
+  @ApiProperty({ enum: ['victoria', 'derrota', 'empate'] })
+  @IsString()
+  @IsIn(['victoria', 'derrota', 'empate'])
+  resultado!: string;
 
   @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
   cambioElo!: number;
 }

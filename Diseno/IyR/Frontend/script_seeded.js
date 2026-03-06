@@ -972,16 +972,33 @@ function calculateSudokuScore() {
   return Math.max(0, 1000 - penalty);
 }
 
-function finishSudokuWithScore() {
+async function finishSudokuWithScore() {
   if (roundCompleted) return;
   roundCompleted = true;
 
   const score = calculateSudokuScore();
+
   setStatus(
     `¡Sudoku completado! Puntaje final: ${score} (tiempo: ${seconds}s, pistas: ${hintsUsed}).`,
     true,
   );
+
   if (timerInterval) clearInterval(timerInterval);
+
+  try {
+    const accessToken = authStorage.getAccessToken();
+
+    if (accessToken) {
+      await apiClient.createGameSession(accessToken, {
+        juegoId: GAME_ID_SUDOKU,
+        puntaje: score,
+        resultado: "victoria",
+        cambioElo: 10,
+      });
+    }
+  } catch (error) {
+    console.error("No se pudo registrar la partida:", error);
+  }
 
   showSudokuCompletionPopup(score);
 }

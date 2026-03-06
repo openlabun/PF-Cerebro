@@ -16,11 +16,11 @@ export class GameSessionsController {
     @Body() dto: CreateGameSessionDto,
     @Req() req: robleAuthGuard.RobleRequest,
   ) {
-    const usuarioId = String(req.robleUser.sub);
+    const usuarioID = String(req.robleUser.sub);
     const accessToken = req.accessToken;
-
+    console.log('BODY RECIBIDO:', dto);
     return this.service.createSession(
-      usuarioId,
+      usuarioID,
       dto.juegoId,
       dto.puntaje,
       dto.resultado,

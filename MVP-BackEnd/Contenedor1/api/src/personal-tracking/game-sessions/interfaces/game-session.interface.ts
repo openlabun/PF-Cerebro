@@ -1,6 +1,6 @@
 export interface GameSession {
   _id?: string;
-  usuarioId: string;
+  usuarioID: string;
   juegoId: string;
   puntaje: number;
   resultado: string; // victoria | derrota | empate

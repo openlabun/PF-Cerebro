@@ -218,14 +218,21 @@ const apiClient = {
   },
 
   createGameSession(accessToken, payload) {
-    // Registrar resultado de una partida jugada
-    // POST /game-sessions  body: { juegoId, puntaje, resultado, cambioElo, ... }
     return request("game-sessions", {
       method: "POST",
       token: accessToken,
       body: payload,
     });
   },
+
+  updateMyGameStats(accessToken, payload) {
+    return request("game-stats/me", {
+      method: "PATCH",
+      token: accessToken,
+      body: payload,
+    });
+  },
+
 };
 
 export { apiClient, authStorage, request };
