@@ -31,7 +31,10 @@ export class PvpController {
   }
 
   @Post('match')
-  async createMatch(@Req() req: RobleRequest, @Body() dto: CreateMatchDto) {
+  async createMatch(
+    @Req() req: RobleRequest,
+    @Body() dto: CreateMatchDto,
+  ): Promise<unknown> {
     const usuarioId = this.extractUserId(req.accessToken);
     return this.matchService.createMatch(dto.torneoId, usuarioId, req.accessToken, dto.tokenC1);
   }
@@ -41,7 +44,7 @@ export class PvpController {
     @Req() req: RobleRequest,
     @Param('id') id: string,
     @Body() dto: JoinMatchDto,
-  ) {
+  ): Promise<unknown> {
     const usuarioId = this.extractUserId(req.accessToken);
     return this.matchService.joinMatch(id, usuarioId, req.accessToken, dto.tokenC1);
   }
@@ -51,7 +54,7 @@ export class PvpController {
     @Req() req: RobleRequest,
     @Param('id') id: string,
     @Body() dto: MakeMoveDto,
-  ) {
+  ): Promise<unknown> {
     const usuarioId = this.extractUserId(req.accessToken);
     return this.matchService.makeMove(
       id,
@@ -64,12 +67,19 @@ export class PvpController {
   }
 
   @Get('match/:id')
-  async getMatch(@Req() req: RobleRequest, @Param('id') id: string) {
-    return this.matchService.getMatch(id, req.accessToken);
+  async getMatch(
+    @Req() req: RobleRequest,
+    @Param('id') id: string,
+  ): Promise<unknown> {
+    const usuarioId = this.extractUserId(req.accessToken);
+    return this.matchService.getMatch(id, usuarioId, req.accessToken);
   }
 
   @Post('match/:id/forfeit')
-  async forfeit(@Req() req: RobleRequest, @Param('id') id: string) {
+  async forfeit(
+    @Req() req: RobleRequest,
+    @Param('id') id: string,
+  ): Promise<unknown> {
     const usuarioId = this.extractUserId(req.accessToken);
     return this.matchService.forfeit(id, usuarioId, req.accessToken);
   }

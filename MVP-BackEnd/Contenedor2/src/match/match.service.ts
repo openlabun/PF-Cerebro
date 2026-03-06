@@ -14,10 +14,10 @@ import { WebhookService } from '../webhook/webhook.service';
 import { RankingService } from '../ranking/ranking.service';
 import { getUserIdFromAccessToken } from '../common/utils/jwt.utils';
 
-// Sentinel row values for non-move events in MovimientosPvP
-const ROW_JOIN = -1;
-const ROW_FORFEIT = -2;
-const ROW_FINISHED = -3;
+// Compatibilidad con registros historicos que usaban sentinels en MovimientosPvP.
+const LEGACY_ROW_JOIN = -1;
+const LEGACY_ROW_FORFEIT = -2;
+const LEGACY_ROW_FINISHED = -3;
 
 interface MatchRecord {
   _id?: string;
@@ -37,13 +37,25 @@ interface MatchRecord {
 
 interface MovimientoRecord {
   _id?: string;
-  matchId: string;
+  matchId: string | number;
   usuarioId: string;
   row: number;
   col: number;
   value: number;
   esCorrecta: boolean;
   timestamp: string;
+}
+
+interface PlayerProgress {
+  playerId: string;
+  score: number;
+  mistakes: number;
+  correctCells: number;
+  emptyCells: number;
+  finished: boolean;
+  finishedAt: string | null;
+  durationMs: number | null;
+  boardState: number[][];
 }
 
 interface MatchState {
@@ -58,6 +70,27 @@ interface MatchState {
   puntaje2: number;
   ganadorId: string | null;
   fechaCreacion: string;
+  fechaInicio: string | null;
+  fechaFin: string | null;
+  player1: PlayerProgress;
+  player2: PlayerProgress | null;
+}
+
+interface PublicPlayerSummary {
+  playerId: string;
+  score: number;
+  mistakes: number;
+  correctCells: number;
+  emptyCells: number;
+  finished: boolean;
+  finishedAt: string | null;
+  durationMs: number | null;
+}
+
+interface LegacyInferredState {
+  jugador2Id: string | null;
+  estado: MatchState['estado'];
+  ganadorId: string | null;
   fechaInicio: string | null;
   fechaFin: string | null;
 }
@@ -82,6 +115,158 @@ export class MatchService {
   private stripSolution(state: MatchState) {
     const { solution, ...rest } = state;
     return rest;
+  }
+
+  private toPublicPlayerSummary(player: PlayerProgress): PublicPlayerSummary {
+    return {
+      playerId: player.playerId,
+      score: player.score,
+      mistakes: player.mistakes,
+      correctCells: player.correctCells,
+      emptyCells: player.emptyCells,
+      finished: player.finished,
+      finishedAt: player.finishedAt,
+      durationMs: player.durationMs,
+    };
+  }
+
+  private sanitizeMatchForUser(state: MatchState, usuarioId: string) {
+    const safe = this.stripSolution(state);
+    const isPlayer1 = state.jugador1Id === usuarioId;
+    const isPlayer2 = state.jugador2Id === usuarioId;
+    if (!isPlayer1 && !isPlayer2) {
+      throw new ForbiddenException('No eres jugador de este match');
+    }
+
+    const myGame = isPlayer1 ? state.player1 : state.player2!;
+    const opponentGame = isPlayer1 ? state.player2 : state.player1;
+
+    return {
+      _id: safe._id,
+      torneoId: safe.torneoId,
+      jugador1Id: safe.jugador1Id,
+      jugador2Id: safe.jugador2Id,
+      estado: safe.estado,
+      seed: safe.seed,
+      puntaje1: safe.puntaje1,
+      puntaje2: safe.puntaje2,
+      ganadorId: safe.ganadorId,
+      fechaCreacion: safe.fechaCreacion,
+      fechaInicio: safe.fechaInicio,
+      fechaFin: safe.fechaFin,
+      myGame,
+      opponent: opponentGame ? this.toPublicPlayerSummary(opponentGame) : null,
+    };
+  }
+
+  private cloneBoard(board: number[][]): number[][] {
+    return board.map((row) => [...row]);
+  }
+
+  private parseDateMs(isoDate: string | null): number | null {
+    if (!isoDate) return null;
+    const ms = new Date(isoDate).getTime();
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  private inferLegacyState(
+    base: MatchRecord,
+    moves: MovimientoRecord[],
+  ): LegacyInferredState {
+    let jugador2Id = base.jugador2Id;
+    let estado = (base.estado as MatchState['estado']) ?? 'WAITING';
+    let ganadorId = base.ganadorId;
+    let fechaInicio = base.fechaInicio;
+    let fechaFin = base.fechaFin;
+
+    for (const mov of moves) {
+      const row = Number(mov.row);
+      if (row === LEGACY_ROW_JOIN && !jugador2Id) {
+        jugador2Id = mov.usuarioId;
+        if (!fechaInicio) fechaInicio = mov.timestamp;
+        if (estado === 'WAITING') estado = 'ACTIVE';
+      }
+      if (row === LEGACY_ROW_FORFEIT) {
+        if (jugador2Id) {
+          ganadorId =
+            mov.usuarioId === base.jugador1Id ? jugador2Id : base.jugador1Id;
+        }
+        estado = 'FORFEIT';
+        if (!fechaFin) fechaFin = mov.timestamp;
+      }
+      if (row === LEGACY_ROW_FINISHED) {
+        estado = 'FINISHED';
+        if (!ganadorId) ganadorId = mov.usuarioId;
+        if (!fechaFin) fechaFin = mov.timestamp;
+      }
+    }
+
+    return { jugador2Id, estado, ganadorId, fechaInicio, fechaFin };
+  }
+
+  private calculatePlayerProgress(
+    playerId: string,
+    baseBoard: number[][],
+    solution: number[][],
+    allMoves: MovimientoRecord[],
+    startedAt: string,
+  ): PlayerProgress {
+    const boardState = this.cloneBoard(baseBoard);
+    const emptyCells = baseBoard.flat().filter((c) => c === 0).length;
+    let score = 0;
+    let mistakes = 0;
+    let correctCells = 0;
+    let finished = false;
+    let finishedAt: string | null = null;
+
+    const moves = allMoves
+      .filter((m) => m.usuarioId === playerId)
+      .sort(
+        (a, b) =>
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+
+    for (const mov of moves) {
+      const row = Number(mov.row);
+      const col = Number(mov.col);
+      const value = Number(mov.value);
+
+      if (row < 0 || row > 8 || col < 0 || col > 8) continue;
+      if (value < 1 || value > 9) continue;
+      if (baseBoard[row][col] !== 0) continue;
+      if (boardState[row][col] !== 0) continue;
+
+      const isCorrect = solution[row][col] === value;
+      if (isCorrect) {
+        boardState[row][col] = value;
+        correctCells += 1;
+        score += 1;
+        if (!finished && correctCells === emptyCells) {
+          finished = true;
+          finishedAt = mov.timestamp;
+        }
+      } else {
+        mistakes += 1;
+        score -= 1;
+      }
+    }
+
+    const startedMs = this.parseDateMs(startedAt);
+    const finishedMs = this.parseDateMs(finishedAt);
+    const durationMs =
+      startedMs !== null && finishedMs !== null ? finishedMs - startedMs : null;
+
+    return {
+      playerId,
+      score,
+      mistakes,
+      correctCells,
+      emptyCells,
+      finished,
+      finishedAt,
+      durationMs,
+      boardState,
+    };
   }
 
   private async rebuildState(
@@ -110,52 +295,46 @@ export class MatchService {
         new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
     );
 
+    const legacy = this.inferLegacyState(base, movimientos);
+
+    const { board } = this.sudokuService.generateBoard(Number(base.seed));
+    const startedAt = legacy.fechaInicio ?? base.fechaCreacion;
+    const player1 = this.calculatePlayerProgress(
+      base.jugador1Id,
+      board,
+      base.solution,
+      movimientos,
+      startedAt,
+    );
+    const player2 = legacy.jugador2Id
+      ? this.calculatePlayerProgress(
+          legacy.jugador2Id,
+          board,
+          base.solution,
+          movimientos,
+          startedAt,
+        )
+      : null;
+
     const state: MatchState = {
       _id: base._id!,
       torneoId: base.torneoId,
       jugador1Id: base.jugador1Id,
-      jugador2Id: null,
-      estado: 'WAITING',
+      jugador2Id: legacy.jugador2Id,
+      estado: legacy.estado,
       seed: Number(base.seed),
       solution: base.solution,
-      puntaje1: 0,
-      puntaje2: 0,
+      puntaje1: player1.score,
+      puntaje2: player2?.score ?? 0,
       ganadorId: null,
       fechaCreacion: base.fechaCreacion,
-      fechaInicio: null,
-      fechaFin: null,
+      fechaInicio: legacy.fechaInicio,
+      fechaFin: legacy.fechaFin,
+      player1,
+      player2,
     };
 
-    for (const mov of movimientos) {
-      const row = Number(mov.row);
-      if (row === ROW_JOIN) {
-        state.jugador2Id = mov.usuarioId;
-        state.estado = 'ACTIVE';
-        state.fechaInicio = mov.timestamp;
-      } else if (row === ROW_FORFEIT) {
-        state.estado = 'FORFEIT';
-        // The forfeiter is mov.usuarioId; the winner is the other player
-        state.ganadorId =
-          mov.usuarioId === state.jugador1Id
-            ? state.jugador2Id
-            : state.jugador1Id;
-        state.fechaFin = mov.timestamp;
-      } else if (row === ROW_FINISHED) {
-        state.estado = 'FINISHED';
-        state.ganadorId =
-          state.puntaje1 > state.puntaje2
-            ? state.jugador1Id
-            : state.puntaje2 > state.puntaje1
-              ? state.jugador2Id
-              : mov.usuarioId;
-        state.fechaFin = mov.timestamp;
-      } else if (row >= 0) {
-        if (String(mov.esCorrecta) === 'true') {
-          if (mov.usuarioId === state.jugador1Id) state.puntaje1 += 1;
-          else state.puntaje2 += 1;
-        }
-      }
-    }
+    state.ganadorId = legacy.ganadorId;
 
     return state;
   }
@@ -275,17 +454,11 @@ export class MatchService {
 
     await this.verifyParticipante(state.torneoId, tokenC1);
 
-    await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
-      {
-        matchId,
-        usuarioId,
-        row: ROW_JOIN,
-        col: 0,
-        value: 0,
-        esCorrecta: false,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
+    await this.roble.update<MatchRecord>(token, 'Matches', '_id', matchId, {
+      jugador2Id: usuarioId,
+      estado: 'ACTIVE',
+      fechaInicio: new Date().toISOString(),
+    });
 
     this.webhookService
       .emit(
@@ -318,6 +491,23 @@ export class MatchService {
     if (state.jugador1Id !== usuarioId && state.jugador2Id !== usuarioId) {
       throw new ForbiddenException('No eres jugador de este match');
     }
+    if (!state.jugador2Id) {
+      throw new BadRequestException('El match no tiene segundo jugador');
+    }
+
+    const playerBefore =
+      usuarioId === state.jugador1Id ? state.player1 : state.player2!;
+    if (playerBefore.finished) {
+      throw new BadRequestException('Ya terminaste tu partida');
+    }
+
+    const { board } = this.sudokuService.generateBoard(state.seed);
+    if (board[row][col] !== 0) {
+      throw new BadRequestException('No puedes modificar una celda fija');
+    }
+    if (playerBefore.boardState[row][col] !== 0) {
+      throw new BadRequestException('Esa celda ya fue resuelta por ti');
+    }
 
     const esCorrecta = this.sudokuService.validateMove(
       state.solution,
@@ -328,7 +518,7 @@ export class MatchService {
 
     await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
       {
-        matchId,
+        matchId: state._id,
         usuarioId,
         row,
         col,
@@ -338,48 +528,62 @@ export class MatchService {
       },
     ]);
 
-    const isJugador1 = state.jugador1Id === usuarioId;
-    const puntaje1 = state.puntaje1 + (esCorrecta && isJugador1 ? 1 : 0);
-    const puntaje2 = state.puntaje2 + (esCorrecta && !isJugador1 ? 1 : 0);
+    const updated = await this.rebuildState(matchId, token);
+    const playerAfter =
+      usuarioId === updated.jugador1Id ? updated.player1 : updated.player2!;
+    const playerFinishedNow = !playerBefore.finished && playerAfter.finished;
 
-    const jugador2Id = state.jugador2Id!;
-    const oponenteId = isJugador1 ? jugador2Id : state.jugador1Id;
-    const puntajeOponente = isJugador1 ? puntaje1 : puntaje2;
+    if (playerFinishedNow) {
+      this.webhookService
+        .emit(
+          'player.finished',
+          [updated.jugador1Id, updated.jugador2Id!],
+          {
+            matchId,
+            playerId: usuarioId,
+            score: playerAfter.score,
+            mistakes: playerAfter.mistakes,
+            durationMs: playerAfter.durationMs,
+            finishedAt: playerAfter.finishedAt,
+          },
+          token,
+        )
+        .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
+    }
 
-    this.webhookService
-      .emit(
-        'opponent.moved',
-        [oponenteId],
-        { matchId, row, col, value, esCorrecta, puntajeOponente },
-        token,
-      )
-      .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
+    if (
+      updated.estado === 'ACTIVE' &&
+      updated.player2 &&
+      updated.player1.finished &&
+      updated.player2.finished
+    ) {
+      const p1 = updated.player1;
+      const p2 = updated.player2;
 
-    const { board } = this.sudokuService.generateBoard(state.seed);
-    const celdasVacias = board.flat().filter((c) => c === 0).length;
-
-    if (puntaje1 + puntaje2 >= celdasVacias) {
-      const ganadorId =
-        puntaje1 > puntaje2
-          ? state.jugador1Id
-          : puntaje2 > puntaje1
-            ? jugador2Id
-            : usuarioId;
-
-      await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
-        {
-          matchId,
-          usuarioId: ganadorId,
-          row: ROW_FINISHED,
-          col: 0,
-          value: 0,
-          esCorrecta: false,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+      let ganadorId: string;
+      if (p1.score !== p2.score) {
+        ganadorId = p1.score > p2.score ? updated.jugador1Id : updated.jugador2Id!;
+      } else {
+        const p1Time = p1.durationMs ?? Number.MAX_SAFE_INTEGER;
+        const p2Time = p2.durationMs ?? Number.MAX_SAFE_INTEGER;
+        if (p1Time !== p2Time) {
+          ganadorId = p1Time < p2Time ? updated.jugador1Id : updated.jugador2Id!;
+        } else {
+          ganadorId = updated.jugador1Id;
+        }
+      }
 
       const perdedorId =
-        ganadorId === state.jugador1Id ? jugador2Id : state.jugador1Id;
+        ganadorId === updated.jugador1Id ? updated.jugador2Id! : updated.jugador1Id;
+
+      await this.roble.update<MatchRecord>(token, 'Matches', '_id', matchId, {
+        estado: 'FINISHED',
+        ganadorId,
+        fechaFin: new Date().toISOString(),
+        puntaje1: p1.score,
+        puntaje2: p2.score,
+      });
+
       const eloResult = await this.rankingService.updateElo(
         ganadorId,
         perdedorId,
@@ -389,13 +593,17 @@ export class MatchService {
       this.webhookService
         .emit(
           'match.finished',
-          [state.jugador1Id, jugador2Id],
+          [updated.jugador1Id, updated.jugador2Id!],
           {
             matchId,
             ganadorId,
             puntajeFinal: {
-              [state.jugador1Id]: puntaje1,
-              [jugador2Id]: puntaje2,
+              [updated.jugador1Id]: p1.score,
+              [updated.jugador2Id!]: p2.score,
+            },
+            duracionMs: {
+              [updated.jugador1Id]: p1.durationMs,
+              [updated.jugador2Id!]: p2.durationMs,
             },
             nuevoElo: {
               [eloResult.ganador.usuarioId]: eloResult.ganador.nuevoElo,
@@ -410,17 +618,26 @@ export class MatchService {
         esCorrecta,
         matchTerminado: true,
         ganadorId,
-        puntaje1,
-        puntaje2,
+        puntaje1: p1.score,
+        puntaje2: p2.score,
+        playerFinished: playerAfter.finished,
       };
     }
 
-    return { esCorrecta, matchTerminado: false, puntaje1, puntaje2 };
+    return {
+      esCorrecta,
+      matchTerminado: false,
+      puntaje1: updated.player1.score,
+      puntaje2: updated.player2?.score ?? 0,
+      playerFinished: playerAfter.finished,
+      myScore: playerAfter.score,
+      myMistakes: playerAfter.mistakes,
+    };
   }
 
-  async getMatch(matchId: string, token: string) {
+  async getMatch(matchId: string, usuarioId: string, token: string) {
     const state = await this.rebuildState(matchId, token);
-    return this.stripSolution(state);
+    return this.sanitizeMatchForUser(state, usuarioId);
   }
 
   async forfeit(matchId: string, usuarioId: string, token: string) {
@@ -435,19 +652,29 @@ export class MatchService {
     const oponenteId =
       state.jugador1Id === usuarioId ? j2Id : state.jugador1Id;
 
-    await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
-      {
-        matchId,
-        usuarioId,
-        row: ROW_FORFEIT,
-        col: 0,
-        value: 0,
-        esCorrecta: false,
-        timestamp: new Date().toISOString(),
-      },
-    ]);
+    await this.roble.update<MatchRecord>(token, 'Matches', '_id', matchId, {
+      estado: 'FORFEIT',
+      ganadorId: oponenteId,
+      fechaFin: new Date().toISOString(),
+      puntaje1: state.player1.score,
+      puntaje2: state.player2?.score ?? 0,
+    });
 
     await this.rankingService.updateElo(oponenteId, usuarioId, token);
+
+    this.webhookService
+      .emit(
+        'player.forfeit',
+        [state.jugador1Id, j2Id],
+        {
+          matchId,
+          playerId: usuarioId,
+          ganadorId: oponenteId,
+          razon: `El jugador ${usuarioId} abandono la partida`,
+        },
+        token,
+      )
+      .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
 
     this.webhookService
       .emit(
@@ -455,6 +682,7 @@ export class MatchService {
         [state.jugador1Id, j2Id],
         {
           matchId,
+          playerId: usuarioId,
           ganadorId: oponenteId,
           razon: `El jugador ${usuarioId} abandono la partida`,
         },

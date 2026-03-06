@@ -10,7 +10,13 @@ export class SubscribeWebhookDto {
   url: string;
 
   @ApiProperty({
-    example: ['match.started', 'opponent.moved', 'match.finished', 'match.forfeit'],
+    example: [
+      'match.started',
+      'player.finished',
+      'match.finished',
+      'player.forfeit',
+      'match.forfeit',
+    ],
     description: 'Lista de eventos a los que se suscribe',
   })
   @IsArray()
