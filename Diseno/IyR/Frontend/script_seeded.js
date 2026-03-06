@@ -122,15 +122,6 @@ const resetPasswordConfirmInput = document.getElementById("reset-password-confir
 const authMessageEl = document.getElementById("auth-message");
 const profileNameEl = document.getElementById("profile-name");
 const profileTitleEl = document.getElementById("profile-title");
-const profileLevelBadgeEl = document.querySelector(
-  "#open-avatar-picker .level-badge",
-);
-const profileLevelFillEl = document.querySelector(
-  "#perfil-tab .profile-level-wrap .level-fill",
-);
-const profileLevelTextEl = document.querySelector(
-  "#perfil-tab .profile-level-wrap .level-text",
-);
 
 // ===== Runtime state =====
 let noteMode = false; // 
@@ -147,6 +138,7 @@ let seedActual = null;
 let authSession = null;
 let authBusy = false;
 let hintsUsed = 0;
+let roundCompleted = false;
 
 // ===== Seeds de prueba por dificultad (TEMP: luego vendrán de BD) =====
 // Nota: aquí la dificultad es el label (Principiante..Profesional)
@@ -196,7 +188,7 @@ const seedsPorDificultad = {
 };
 
 let huecosActual = 40;
-const GAME_ID_SUDOKU = "uVsB-k2rjora"; // id de juego SUDOKU
+
 
 const profileModeStats = {
   sudoku: [
@@ -236,28 +228,38 @@ function toYmd(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function createStreakActivityDates(year, rachaActual) {
+function createStreakActivityDates(year) {
   const dates = new Set();
   const today = new Date();
-  const count = Math.max(0, Number(rachaActual) || 0);
 
-  for (let i = 0; i < count; i += 1) {
+  // Racha actual: últimos 17 días consecutivos hasta hoy.
+  for (let i = 0; i < 17; i += 1) {
     const day = new Date(today);
     day.setDate(today.getDate() - i);
     if (day.getFullYear() === year) dates.add(toYmd(day));
   }
 
+  // Días adicionales de actividad en meses anteriores del mismo año.
+  [
+    `${year}-01-04`,
+    `${year}-01-05`,
+    `${year}-01-12`,
+    `${year}-01-22`,
+    `${year}-02-02`,
+    `${year}-02-10`,
+    `${year}-03-08`,
+    `${year}-03-14`,
+    `${year}-04-03`,
+    `${year}-05-18`,
+    `${year}-06-02`,
+    `${year}-07-09`,
+  ].forEach((d) => dates.add(d));
+
   return [...dates].sort();
 }
 
+const streakActivityDates = createStreakActivityDates(CURRENT_YEAR);
 let currentStreakMonth = new Date(CURRENT_YEAR, new Date().getMonth(), 1);
-
-const streakActivityDates = createStreakActivityDates(
-  currentStreakMonth.getFullYear(),
-  currentStreakMonth.getMonth(),
-  authSession?.user?.rachaActual ?? authSession?.profile?.rachaActual ?? 0
-);
-
 let activeBadgeSlot = null;
 let activeFrame = "frame-royal";
 
@@ -426,9 +428,9 @@ async function loadSudokuStatsIntoProfile() {
     profileModeStats.sudoku = [
       `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
       `Elo: ${stats.elo ?? 0}`,
-      `Victorias: ${stats.victorias ?? 0} · Derrotas: ${stats.derrotas ?? 0} · Empates: ${stats.empates ?? 0}`,
       stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
     ];
+
   } catch (e) {
     console.warn("Fallo cargando stats sudoku:", e);
   }
@@ -456,10 +458,10 @@ async function showModeDetail(modeKey) {
 
   modeDetailTitle.textContent = `Estadísticas · ${titleMap[modeKey]}`;
   modeDetailList.innerHTML = "";
-  stats.forEach((line) => {
-    const li = document.createElement("li");
-    li.textContent = line;
-    modeDetailList.appendChild(li);
+  profileModeStats[selectedMode].forEach((stat) => {
+    const item = document.createElement("li");
+    item.textContent = stat;
+    modeDetailList.appendChild(item);
   });
 }
 
@@ -472,7 +474,7 @@ function initProfileUi() {
   setProfileFrame("frame-royal");
   setAvatarPickerTab("avatar");
   renderFrameOptions();
-  showModeDetail("sudoku");
+  renderModeDetail("sudoku");
 
   pickerTabBtns.forEach((btn) => {
     btn.addEventListener("click", () => setAvatarPickerTab(btn.dataset.pickerTab));
@@ -504,10 +506,8 @@ function initProfileUi() {
     });
   });
 
-  modeCardBtns?.forEach((card) => {
-    card.addEventListener("click", async () => {
-      await showModeDetail(card.dataset.mode);
-    });
+  modeCardBtns.forEach((btn) => {
+    btn.addEventListener("click", () => renderModeDetail(btn.dataset.mode));
   });
 
   closePickerBtns.forEach((btn) => {
@@ -598,83 +598,20 @@ function getProfileDisplayName(user) {
   return `Jugador#${id.slice(-4)}`;
 }
 
-// ===== Helpers nuevos: XP -> siguiente nivel =====
-function xpParaSiguienteNivel(nivel) {
-  const lvl = Number(nivel);
-  if (lvl >= 1 && lvl <= 10) return lvl * 100;
-  if (lvl >= 11 && lvl <= 30) return lvl * 150;
-  if (lvl >= 31 && lvl <= 50) return lvl * 250;
-  return lvl + 250;
-}
-
-// ===== Helper nuevo: pinta nivel/racha/barra usando datos de profiles/me =====
-function syncProfileProgress(user) {
-  if (!profileLevelBadgeEl && !profileLevelFillEl && !profileLevelTextEl) {
-    return;
-  }
-
-  if (!isAuthenticated()) {
-    if (streakCountEl) streakCountEl.textContent = "0";
-    if (profileLevelBadgeEl) profileLevelBadgeEl.textContent = "47";
-    if (profileLevelFillEl) profileLevelFillEl.style.width = "68%";
-    if (profileLevelTextEl)
-      profileLevelTextEl.textContent = "Nivel 47 · 680 / 1000 XP";
-    return;
-  }
-
-  const nivel = Number(user?.nivel ?? 0);
-  const experiencia = Number(user?.experiencia ?? 0);
-  const rachaActual = Number(user?.rachaActual ?? 0);
-
-  if (streakCountEl && Number.isFinite(rachaActual)) {
-    streakCountEl.textContent = String(rachaActual);
-  }
-
-  if (!Number.isFinite(nivel) || nivel <= 0) {
-    return;
-  }
-
-  const xpNext = xpParaSiguienteNivel(nivel);
-  const safeXpNext = Number.isFinite(xpNext) && xpNext > 0 ? xpNext : 1000;
-  const safeXp = Number.isFinite(experiencia) && experiencia >= 0 ? experiencia : 0;
-  const pct = Math.max(0, Math.min(100, (safeXp / safeXpNext) * 100));
-
-  if (profileLevelBadgeEl) profileLevelBadgeEl.textContent = String(nivel);
-  if (profileLevelFillEl) profileLevelFillEl.style.width = `${pct}%`;
-  if (profileLevelTextEl) {
-    profileLevelTextEl.textContent = `Nivel ${nivel} · ${safeXp} / ${safeXpNext} XP`;
-  }
-}
-
 function syncProfileIdentity() {
   if (!profileNameEl || !profileTitleEl) return;
 
   if (!isAuthenticated()) {
     profileNameEl.textContent = DEFAULT_PROFILE_NAME;
     profileTitleEl.textContent = DEFAULT_PROFILE_TITLE;
-    syncProfileProgress(null);
     return;
   }
 
   const user = authSession?.user || {};
   profileNameEl.textContent = getProfileDisplayName(user);
-
-  //validar si hay titulo activo en user, si no en authSession.profile, si no null
-  const tituloTexto =
-    user.tituloActivoTexto ??
-    authSession?.profile?.tituloActivoTexto ??
-    null;
-
-  if (tituloTexto) {
-    profileTitleEl.textContent = `Título: ${tituloTexto}`;
-  } else if (user.email) {
-    profileTitleEl.textContent = `Correo: ${user.email}`;
-  } else {
-    profileTitleEl.textContent = "Sesión activa";
-  }
-
-  // NUEVO
-  syncProfileProgress(user);
+  profileTitleEl.textContent = user.email
+    ? `Correo: ${user.email}`
+    : "Sesion activa";
 }
 
 function syncAuthUi() {
@@ -709,11 +646,6 @@ function saveAuthSession(session) {
 
   syncAuthUi();
   syncProfileIdentity();
-  
-  // Si ya está autenticado, refresca stats del modo actual (o sudoku por defecto)
-  if (isAuthenticated()) {
-    showModeDetail("sudoku");
-  }
 }
 
 async function hydrateSession(session) {
@@ -735,29 +667,11 @@ async function hydrateSession(session) {
       (verifiedUser.email ? String(verifiedUser.email).split("@")[0] : ""),
   };
 
-  const hydrated = {
+  return {
     ...session,
     user,
   };
-
-  // NUEVO: traer nivel/racha/experiencia desde profiles/me
-  try {
-    const perfil = await apiClient.getMyProfile(hydrated.accessToken);
-
-    if (perfil) {
-      hydrated.user = {
-        ...(hydrated.user || {}),
-        ...perfil,
-      };
-      hydrated.profile = perfil;
-    }
-  } catch (error) {
-    console.warn("No se pudo cargar el perfil del usuario.", error);
-  }
-
-  return hydrated;
 }
-
 
 async function tryRefreshSession(session) {
   if (!session?.refreshToken) {
@@ -915,6 +829,48 @@ function setStatus(message, ok = false) {
 }
 
 
+function showSudokuCompletionPopup(score) {
+  const existing = document.getElementById("sudoku-completion-popup");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "sudoku-completion-popup";
+  overlay.setAttribute("role", "alertdialog");
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.65)";
+  overlay.style.display = "grid";
+  overlay.style.placeItems = "center";
+  overlay.style.zIndex = "9999";
+
+  const card = document.createElement("div");
+  card.style.width = "min(92vw, 420px)";
+  card.style.padding = "1.1rem 1rem";
+  card.style.borderRadius = "14px";
+  card.style.background = "#111827";
+  card.style.color = "#f9fafb";
+  card.style.textAlign = "center";
+  card.style.boxShadow = "0 10px 35px rgba(0,0,0,0.35)";
+
+  const title = document.createElement("h3");
+  title.textContent = "¡Sudoku completado!";
+  title.style.margin = "0 0 .35rem";
+
+  const text = document.createElement("p");
+  text.textContent = `Puntaje: ${score}. Reiniciando tablero...`;
+  text.style.margin = "0";
+
+  card.appendChild(title);
+  card.appendChild(text);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    overlay.remove();
+    loadDifficulty(currentDifficulty.key);
+  }, 2200);
+}
+
 function calculateSudokuScore() {
   const TIME_PENALTY_PER_SECOND = 2;
   const HINT_PENALTY = 75;
@@ -924,12 +880,17 @@ function calculateSudokuScore() {
 }
 
 function finishSudokuWithScore() {
+  if (roundCompleted) return;
+  roundCompleted = true;
+
   const score = calculateSudokuScore();
   setStatus(
     `¡Sudoku completado! Puntaje final: ${score} (tiempo: ${seconds}s, pistas: ${hintsUsed}).`,
     true,
   );
   if (timerInterval) clearInterval(timerInterval);
+
+  showSudokuCompletionPopup(score);
 }
 
 function buildSudokuBoard(seed, huecos) {
@@ -951,6 +912,7 @@ function buildSudokuBoard(seed, huecos) {
   // 5) UI
   createBoard();
   hintsUsed = 0;
+  roundCompleted = false;
   setStatus(`Selecciona una celda para comenzar. Puntaje inicial: 1000.`);
   updateProgress();
   startTimer(true);
@@ -1747,8 +1709,6 @@ async function bootstrapApp() {
   loadDifficulty(currentDifficulty.key);
   setTab("inicio");
   await restoreAuthSession();
-  await showModeDetail("sudoku");
 }
 
 bootstrapApp();
-
