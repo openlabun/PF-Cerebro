@@ -2047,7 +2047,7 @@ async function bootstrapApp() {
   syncSudokuStatsUi();
   initProfileUi();
   loadDifficulty(currentDifficulty.key);
-  setTab("inicio");
+  setTab("juego");
   await restoreAuthSession();
   await showModeDetail("sudoku");
 }
