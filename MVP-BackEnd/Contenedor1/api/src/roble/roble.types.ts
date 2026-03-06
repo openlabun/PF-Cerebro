@@ -1,4 +1,5 @@
 export interface RobleInsertResponse<T> {
+  data: any;
   inserted: T[];
   skipped: {
     index: number;

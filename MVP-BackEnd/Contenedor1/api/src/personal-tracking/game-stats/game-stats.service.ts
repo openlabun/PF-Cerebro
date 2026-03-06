@@ -1,6 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import type { GameStat } from './interfaces/game-stat.interface';
+import { UpdateGameStatsDto } from './dto/update-game-stats.dto';
 
 @Injectable()
 export class GameStatsService {
@@ -117,5 +118,35 @@ export class GameStatsService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
+  }
+
+  async recordCompletedMatch(
+    usuarioId: string,
+    body: UpdateGameStatsDto,
+    accessToken: string,
+  ): Promise<GameStat> {
+    const currentStats = await this.createIfNotExists(
+      usuarioId,
+      body.juegoId,
+      accessToken,
+    );
+
+    const cambioElo = Number(body.cambioElo ?? 0);
+    const resultado = body.resultado;
+
+    const updates: Partial<GameStat> = {
+      partidasJugadas: Number(currentStats.partidasJugadas || 0) + 1,
+      elo: Number(currentStats.elo || 0) + cambioElo,
+    };
+
+    if (resultado === 'victoria') {
+      updates.victorias = Number(currentStats.victorias || 0) + 1;
+    } else if (resultado === 'derrota') {
+      updates.derrotas = Number(currentStats.derrotas || 0) + 1;
+    } else if (resultado === 'empate') {
+      updates.empates = Number(currentStats.empates || 0) + 1;
+    }
+
+    return this.updateStats(usuarioId, body.juegoId, updates, accessToken);
   }
 }
