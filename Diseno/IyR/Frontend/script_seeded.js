@@ -146,6 +146,7 @@ let selectedCell = null;
 let seedActual = null;
 let authSession = null;
 let authBusy = false;
+let hintsUsed = 0;
 
 // ===== Seeds de prueba por dificultad (TEMP: luego vendrán de BD) =====
 // Nota: aquí la dificultad es el label (Principiante..Profesional)
@@ -914,6 +915,23 @@ function setStatus(message, ok = false) {
 }
 
 
+function calculateSudokuScore() {
+  const TIME_PENALTY_PER_SECOND = 2;
+  const HINT_PENALTY = 75;
+
+  const penalty = seconds * TIME_PENALTY_PER_SECOND + hintsUsed * HINT_PENALTY;
+  return Math.max(0, 1000 - penalty);
+}
+
+function finishSudokuWithScore() {
+  const score = calculateSudokuScore();
+  setStatus(
+    `¡Sudoku completado! Puntaje final: ${score} (tiempo: ${seconds}s, pistas: ${hintsUsed}).`,
+    true,
+  );
+  if (timerInterval) clearInterval(timerInterval);
+}
+
 function buildSudokuBoard(seed, huecos) {
   seedActual = seed;
   huecosActual = Number.isInteger(huecos) ? huecos : 40;
@@ -932,7 +950,8 @@ function buildSudokuBoard(seed, huecos) {
 
   // 5) UI
   createBoard();
-  setStatus(`Selecciona una celda para comenzar.`);
+  hintsUsed = 0;
+  setStatus(`Selecciona una celda para comenzar. Puntaje inicial: 1000.`);
   updateProgress();
   startTimer(true);
 }
@@ -987,8 +1006,7 @@ function fillSelected(value) {
   }
 
   if (estaResuelto(tableroActual)) {
-    setStatus("¡Sudoku completado correctamente!", true);
-    if (timerInterval) clearInterval(timerInterval);
+    finishSudokuWithScore();
     return;
   }
 
@@ -1242,6 +1260,7 @@ function setupControls() {
     }
 
     // Aplicar pista y refrescar UI
+    hintsUsed += 1;
     const { row, col, valor } = resultado;
     tableroActual[row][col] = valor;
 
@@ -1252,10 +1271,9 @@ function setupControls() {
     updateProgress();
 
     if (estaResuelto(tableroActual)) {
-      setStatus("¡Excelente! Completaste el Sudoku correctamente.", true);
-      if (timerInterval) clearInterval(timerInterval);
+      finishSudokuWithScore();
     } else {
-      setStatus("Pista aplicada. ¡Sigue así!");
+      setStatus(`Pista aplicada. Pistas usadas: ${hintsUsed}.`);
     }
   });
 
