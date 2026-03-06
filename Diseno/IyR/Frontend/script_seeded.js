@@ -415,48 +415,12 @@ function renderStreakCalendar() {
   }
 }
 
-async function loadSudokuStatsIntoProfile() {
-  if (!isAuthenticated()) return;
-
-  try {
-    const stats = await apiClient.getMyGameStats(authSession.accessToken, GAME_ID_SUDOKU);
-
-    if (!stats || typeof stats !== "object") {
-      console.warn("[stats] respuesta inválida de getMyGameStats");
-      return;
-    }
-    profileModeStats.sudoku = [
-      `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
-      `Elo: ${stats.elo ?? 0}`,
-      stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
-    ];
-
-  } catch (e) {
-    console.warn("Fallo cargando stats sudoku:", e);
-  }
-}
-
-async function showModeDetail(modeKey) {
-
-  // Marcar visualmente el modo activo (Sudoku/Torneos/PvP)
-  modeCardBtns?.forEach((card) => {
-    card.classList.toggle("active", card.dataset.mode === modeKey);
+function renderModeDetail(mode) {
+  const selectedMode = profileModeStats[mode] ? mode : "sudoku";
+  modeCardBtns.forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === selectedMode);
   });
-
-  if (modeKey === "sudoku") {
-    await loadSudokuStatsIntoProfile();
-  }
-
-  const stats = profileModeStats[modeKey];
-  if (!stats || !modeDetailTitle || !modeDetailList) return;
-
-  const titleMap = {
-    sudoku: "Sudoku",
-    torneos: "Torneos",
-    pvp: "PvP",
-  };
-
-  modeDetailTitle.textContent = `Estadísticas · ${titleMap[modeKey]}`;
+  modeDetailTitle.textContent = selectedMode[0].toUpperCase() + selectedMode.slice(1);
   modeDetailList.innerHTML = "";
   profileModeStats[selectedMode].forEach((stat) => {
     const item = document.createElement("li");
