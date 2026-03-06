@@ -138,6 +138,7 @@ let seedActual = null;
 let authSession = null;
 let authBusy = false;
 let hintsUsed = 0;
+let roundCompleted = false;
 
 // ===== Seeds de prueba por dificultad (TEMP: luego vendrán de BD) =====
 // Nota: aquí la dificultad es el label (Principiante..Profesional)
@@ -792,6 +793,48 @@ function setStatus(message, ok = false) {
 }
 
 
+function showSudokuCompletionPopup(score) {
+  const existing = document.getElementById("sudoku-completion-popup");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "sudoku-completion-popup";
+  overlay.setAttribute("role", "alertdialog");
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.65)";
+  overlay.style.display = "grid";
+  overlay.style.placeItems = "center";
+  overlay.style.zIndex = "9999";
+
+  const card = document.createElement("div");
+  card.style.width = "min(92vw, 420px)";
+  card.style.padding = "1.1rem 1rem";
+  card.style.borderRadius = "14px";
+  card.style.background = "#111827";
+  card.style.color = "#f9fafb";
+  card.style.textAlign = "center";
+  card.style.boxShadow = "0 10px 35px rgba(0,0,0,0.35)";
+
+  const title = document.createElement("h3");
+  title.textContent = "¡Sudoku completado!";
+  title.style.margin = "0 0 .35rem";
+
+  const text = document.createElement("p");
+  text.textContent = `Puntaje: ${score}. Reiniciando tablero...`;
+  text.style.margin = "0";
+
+  card.appendChild(title);
+  card.appendChild(text);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
+
+  setTimeout(() => {
+    overlay.remove();
+    loadDifficulty(currentDifficulty.key);
+  }, 2200);
+}
+
 function calculateSudokuScore() {
   const TIME_PENALTY_PER_SECOND = 2;
   const HINT_PENALTY = 75;
@@ -801,12 +844,17 @@ function calculateSudokuScore() {
 }
 
 function finishSudokuWithScore() {
+  if (roundCompleted) return;
+  roundCompleted = true;
+
   const score = calculateSudokuScore();
   setStatus(
     `¡Sudoku completado! Puntaje final: ${score} (tiempo: ${seconds}s, pistas: ${hintsUsed}).`,
     true,
   );
   if (timerInterval) clearInterval(timerInterval);
+
+  showSudokuCompletionPopup(score);
 }
 
 function buildSudokuBoard(seed, huecos) {
@@ -828,6 +876,7 @@ function buildSudokuBoard(seed, huecos) {
   // 5) UI
   createBoard();
   hintsUsed = 0;
+  roundCompleted = false;
   setStatus(`Selecciona una celda para comenzar. Puntaje inicial: 1000.`);
   updateProgress();
   startTimer(true);
@@ -1627,4 +1676,3 @@ async function bootstrapApp() {
 }
 
 bootstrapApp();
-
