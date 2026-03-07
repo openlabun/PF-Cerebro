@@ -13,9 +13,9 @@ export class CreateGameSessionDto {
   @IsNumber()
   puntaje!: number;
 
-  @ApiProperty({ enum: ['victoria', 'derrota', 'empate'] })
+  @ApiProperty({ enum: ['victoria', 'derrota', 'empate','singlePlayer'] })
   @IsString()
-  @IsIn(['victoria', 'derrota', 'empate'])
+  @IsIn(['victoria', 'derrota', 'empate', 'singlePlayer'])
   resultado!: string;
 
   @ApiProperty()

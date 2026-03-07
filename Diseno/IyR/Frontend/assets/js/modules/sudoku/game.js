@@ -262,7 +262,7 @@ export function createSudokuModule({
         await apiClient.createGameSession(accessToken, {
           juegoId: GAME_ID_SUDOKU,
           puntaje: score,
-          resultado: "victoria",
+          resultado: "singlePlayer",
           cambioElo: score > 700 ? 15 : score > 400 ? 10 : 5,
         });
         await apiClient.addExperience(accessToken, Math.floor(score / 4));
