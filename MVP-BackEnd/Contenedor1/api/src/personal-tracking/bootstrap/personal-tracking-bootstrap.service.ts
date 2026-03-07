@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import type {
   PerfilRow,
@@ -8,74 +8,112 @@ import type {
 
 @Injectable()
 export class PersonalTrackingBootstrapService {
+  private readonly logger = new Logger(PersonalTrackingBootstrapService.name);
+
   constructor(private readonly robleService: RobleService) {}
+
+  private isInvalidUserId(userId: string): boolean {
+    const normalized = String(userId ?? '').trim();
+    return !normalized || normalized === 'undefined' || normalized === 'null';
+  }
 
   public async ensureInitialized(
     accessToken: string,
     userId: string,
   ): Promise<void> {
-    // Verifiamoc si ya existe perfil
-    const profiles: PerfilRow[] = await this.robleService.read<PerfilRow>(
-      accessToken,
-      'Perfil',
-      { usuarioId: userId },
-    );
-
-    const existingProfile: PerfilRow | undefined = profiles[0];
-
-    if (existingProfile) {
-      // Si ya hay perfil, asumimos que el usuario ya fue inicializado
-      return;
+    if (this.isInvalidUserId(userId)) {
+      this.logger.error(
+        `ensureInitialized abortado: userId invalido (${String(userId)})`,
+      );
+      throw new HttpException(
+        'No se pudo inicializar perfil por usuarioId invalido',
+        HttpStatus.BAD_REQUEST,
+      );
     }
 
-    // Ceramo el perfil
-    await this.robleService.insert<Omit<PerfilRow, '_id'>>(
-      accessToken,
-      'Perfil',
-      [
-        {
-          usuarioId: userId,
-          nivel: 1,
-          experiencia: 0,
-          rachaActual: 0,
-          rachaMaxima: 0,
-          salvadoresRacha: 0,
-          tituloActivo: null,
-        },
-      ],
-    );
+    let stage = 'read-profile';
+    try {
+      this.logger.log(`ensureInitialized iniciado para usuarioId=${userId}`);
 
-    // Tramoe todos los juegos existentes
-    const juegos: JuegoRow[] = await this.robleService.read<JuegoRow>(
-      accessToken,
-      'Juego',
-      undefined,
-    );
+      const profiles: PerfilRow[] = await this.robleService.read<PerfilRow>(
+        accessToken,
+        'Perfil',
+        { usuarioId: userId },
+      );
+      const existingProfile: PerfilRow | undefined = profiles[0];
 
-    if (!juegos || juegos.length === 0) {
-      // No hay juegos todavía entonce solo creamos perfil y salimos
-      return;
+      if (existingProfile) {
+        this.logger.log(
+          `Perfil ya existe para usuarioId=${userId}. No se crea bootstrap.`,
+        );
+        return;
+      }
+
+      stage = 'insert-profile';
+      this.logger.warn(
+        `Perfil no existe para usuarioId=${userId}. Se creara registro base.`,
+      );
+      await this.robleService.insert<Omit<PerfilRow, '_id'>>(
+        accessToken,
+        'Perfil',
+        [
+          {
+            usuarioId: userId,
+            nivel: 1,
+            experiencia: 0,
+            rachaActual: 0,
+            rachaMaxima: 0,
+            salvadoresRacha: 0,
+            tituloActivo: null,
+          },
+        ],
+      );
+
+      stage = 'read-games';
+      const juegos: JuegoRow[] = await this.robleService.read<JuegoRow>(
+        accessToken,
+        'Juego',
+        undefined,
+      );
+
+      if (!juegos || juegos.length === 0) {
+        this.logger.log(
+          `No hay juegos para inicializar stats. usuarioId=${userId}`,
+        );
+        return;
+      }
+
+      stage = 'insert-game-stats';
+      const statsRecords: Array<Omit<EstadisticasJuegoUsuarioRow, '_id'>> =
+        juegos.map((juego) => {
+          return {
+            usuarioId: userId,
+            juegoId: juego._id,
+            elo: 0,
+            partidasJugadas: 0,
+            victorias: 0,
+            derrotas: 0,
+            empates: 0,
+            ligaId: null,
+          };
+        });
+
+      await this.robleService.insert<Omit<EstadisticasJuegoUsuarioRow, '_id'>>(
+        accessToken,
+        'EstadisticasJuegoUsuario',
+        statsRecords,
+      );
+
+      this.logger.log(
+        `Bootstrap completo para usuarioId=${userId}. stats=${statsRecords.length}`,
+      );
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(
+        `Fallo ensureInitialized en etapa=${stage} usuarioId=${userId}: ${message}`,
+      );
+      throw error;
     }
-
-    // Creamos stats iniciales para cada juego
-    const statsRecords: Array<Omit<EstadisticasJuegoUsuarioRow, '_id'>> =
-      juegos.map((juego) => {
-        return {
-          usuarioId: userId,
-          juegoId: juego._id,
-          elo: 1000,
-          partidasJugadas: 0,
-          victorias: 0,
-          derrotas: 0,
-          empates: 0,
-          ligaId: null,
-        };
-      });
-
-    await this.robleService.insert<Omit<EstadisticasJuegoUsuarioRow, '_id'>>(
-      accessToken,
-      'EstadisticasJuegoUsuario',
-      statsRecords,
-    );
   }
 }
