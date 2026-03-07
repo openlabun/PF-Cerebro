@@ -742,11 +742,21 @@ function setProfileFrame(frameKey) {
     renderFrameOptions();
 
     try {
-      const response = await apiClient.increaseStreak(accessToken, currentUserId);
+      const response = await apiClient.increaseStreak(accessToken);
       const remote = Number(response?.rachaActual);
       if (Number.isFinite(remote)) serverStreak = remote;
+
+      // Confirma el valor persistido en backend para evitar UI optimista inconsistente.
+      const refreshedProfile = await apiClient.getMyProfile(accessToken);
+      const persisted = Number(refreshedProfile?.rachaActual);
+      if (Number.isFinite(persisted)) serverStreak = persisted;
     } catch (error) {
-      console.warn("No se pudo aumentar la racha en backend:", error);
+      console.warn("No se pudo aumentar la racha en backend:", {
+        currentUserId,
+        status: error?.status,
+        payload: error?.payload,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
 
     syncCalendarFromServerStreak();
