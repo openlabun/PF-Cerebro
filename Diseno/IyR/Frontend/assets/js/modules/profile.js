@@ -4,10 +4,9 @@ const CURRENT_YEAR = new Date().getFullYear();
 
 const DEFAULT_PROFILE_MODE_STATS = {
   sudoku: [
-    "Partidas jugadas: 42",
-    "Mejor tiempo: 03:52",
-    "Precision promedio: 92%",
-    "Dificultad favorita: Intermedio",
+    "Partidas jugadas: -",
+    "Elo: -",
+    "Liga: -",
   ],
   torneos: [
     "Torneos jugados: 12",
