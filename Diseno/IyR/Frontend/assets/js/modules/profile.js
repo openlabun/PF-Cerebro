@@ -1,5 +1,4 @@
 ﻿const GAME_ID_SUDOKU = "uVsB-k2rjora";
-const STREAK_STORAGE_PREFIX = "cerebro_streak_activity";
 const PROFILE_BADGES_STORAGE_PREFIX = "cerebro_profile_badges";
 const PROFILE_SCORE_STORAGE_PREFIX = "cerebro_profile_sudoku_score";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -85,30 +84,8 @@ function normalizeStreakDates(rawDates) {
   return [...new Set(cleaned)].sort((a, b) => a.localeCompare(b));
 }
 
-function getStreakStorageKey(userId) {
-  return `${STREAK_STORAGE_PREFIX}:${String(userId || "guest")}`;
-}
-
 function getProfileStorageKey(prefix, userId) {
   return `${prefix}:${String(userId || "guest")}`;
-}
-
-function readStreakDates(storageKey) {
-  try {
-    const raw = localStorage.getItem(storageKey);
-    if (!raw) return [];
-    return normalizeStreakDates(JSON.parse(raw));
-  } catch {
-    return [];
-  }
-}
-
-function writeStreakDates(storageKey, dates) {
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(normalizeStreakDates(dates)));
-  } catch {
-    // noop
-  }
 }
 
 export function createProfileModule({ apiClient }) {
@@ -149,7 +126,6 @@ export function createProfileModule({ apiClient }) {
   };
 
   let streakActivityDates = [];
-  let streakStorageKey = getStreakStorageKey("guest");
   let currentUserId = null;
   let serverStreak = 0;
   let isProfileAuthenticated = false;
@@ -163,25 +139,8 @@ export function createProfileModule({ apiClient }) {
   let achievementCatalogByKey = new Map();
   let bestSudokuScore = 0;
 
-  function getCurrentStreak(activityDates) {
-    if (!activityDates.length) return 0;
-    const activitySet = new Set(activityDates);
-    const cursor = new Date();
-    let streak = 0;
-
-    while (activitySet.has(toYmd(cursor))) {
-      streak += 1;
-      cursor.setDate(cursor.getDate() - 1);
-    }
-
-    return streak;
-  }
-
   function getEffectiveStreak() {
     if (!isProfileAuthenticated) return 0;
-    if (streakActivityDates.length > 0) {
-      return getCurrentStreak(streakActivityDates);
-    }
     const safeServerStreak = Number(serverStreak);
     if (!Number.isFinite(safeServerStreak) || safeServerStreak < 0) return 0;
     return Math.floor(safeServerStreak);
@@ -224,25 +183,27 @@ export function createProfileModule({ apiClient }) {
 
   function loadStreakDatesForUser(userId) {
     currentUserId = userId ? String(userId) : null;
-    streakStorageKey = getStreakStorageKey(currentUserId || "guest");
-    if (!currentUserId) {
-      streakActivityDates = [];
-      return;
+    streakActivityDates = [];
+  }
+
+  function buildSyntheticStreakDates(streakValue) {
+    const safeStreak = Math.max(0, Math.floor(Number(streakValue) || 0));
+    if (safeStreak <= 0) return [];
+
+    const dates = [];
+    const cursor = new Date();
+
+    for (let i = 0; i < safeStreak; i += 1) {
+      dates.push(toYmd(cursor));
+      cursor.setDate(cursor.getDate() - 1);
     }
-    streakActivityDates = readStreakDates(streakStorageKey);
+
+    return normalizeStreakDates(dates);
   }
 
-  function saveStreakDates() {
-    writeStreakDates(streakStorageKey, streakActivityDates);
-  }
-
-  function addActivityDate(dateYmd) {
-    if (!isValidYmd(dateYmd)) return false;
-    if (streakActivityDates.includes(dateYmd)) return false;
-
-    streakActivityDates = normalizeStreakDates([...streakActivityDates, dateYmd]);
-    saveStreakDates();
-    return true;
+  function syncCalendarFromServerStreak() {
+    streakActivityDates = buildSyntheticStreakDates(serverStreak);
+    renderStreakCalendar();
   }
 
   function normalizeBadgeKeys(rawKeys) {
@@ -604,6 +565,7 @@ function setProfileFrame(frameKey) {
 
     if (!isAuthenticated) {
       serverStreak = 0;
+      syncCalendarFromServerStreak();
       if (profileLevelBadgeEl) profileLevelBadgeEl.textContent = "47";
       if (profileLevelFillEl) profileLevelFillEl.style.width = "68%";
       if (profileLevelTextEl) profileLevelTextEl.textContent = "Nivel 47 · 680 / 1000 XP";
@@ -616,6 +578,7 @@ function setProfileFrame(frameKey) {
     const rachaActual = Number(user?.rachaActual ?? 0);
 
     serverStreak = Number.isFinite(rachaActual) ? rachaActual : 0;
+    syncCalendarFromServerStreak();
     refreshStreakUi();
 
     if (!Number.isFinite(nivel) || nivel <= 0) return;
@@ -647,7 +610,6 @@ function setProfileFrame(frameKey) {
 
     if (!isAuthenticated) {
       currentUserId = null;
-      streakStorageKey = getStreakStorageKey("guest");
       streakActivityDates = [];
       loadBadgeStateForUser("guest");
       applyUnlockedBadges([]);
@@ -691,7 +653,11 @@ function setProfileFrame(frameKey) {
         apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU),
       ]);
 
-      if (perfil?.usuarioId && !currentUserId) {
+      if (perfil && typeof perfil === "object") {
+        syncProfileProgress(perfil, true);
+      }
+
+      if (perfil?.usuarioId && String(perfil.usuarioId) !== currentUserId) {
         loadStreakDatesForUser(perfil.usuarioId);
         loadBadgeStateForUser(perfil.usuarioId);
       }
@@ -773,20 +739,6 @@ function setProfileFrame(frameKey) {
     const newlyUnlockedKeys = [...unlockedBadgeKeys].filter((key) => !previousUnlocked.has(key));
     const newlyUnlockedAchievements = toAchievementPopupItems(newlyUnlockedKeys);
 
-    const today = toYmd(new Date());
-    const added = addActivityDate(today);
-
-    if (!added) {
-      refreshStreakUi();
-      return {
-        recorded: false,
-        reason: "already-recorded",
-        newlyUnlockedAchievements,
-      };
-    }
-
-    refreshStreakUi();
-    renderStreakCalendar();
     renderFrameOptions();
 
     try {
@@ -797,6 +749,7 @@ function setProfileFrame(frameKey) {
       console.warn("No se pudo aumentar la racha en backend:", error);
     }
 
+    syncCalendarFromServerStreak();
     refreshStreakUi();
     renderFrameOptions();
     return { recorded: true, newlyUnlockedAchievements };
