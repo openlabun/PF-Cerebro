@@ -572,16 +572,18 @@ async function loadSudokuStatsIntoProfile() {
   if (!isAuthenticated()) return;
 
   try {
+    const perfil = await apiClient.getMyProfile(authSession.accessToken);
     const stats = await apiClient.getMyGameStats(authSession.accessToken, GAME_ID_SUDOKU);
 
+    
     if (!stats || typeof stats !== "object") {
       console.warn("[stats] respuesta inválida de getMyGameStats");
       return;
     }
+    syncProfileProgress(perfil);
     profileModeStats.sudoku = [
       `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
       `Elo: ${stats.elo ?? 0}`,
-      `Victorias: ${stats.victorias ?? 0} · Derrotas: ${stats.derrotas ?? 0} · Empates: ${stats.empates ?? 0}`,
       stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
     ];
   } catch (e) {
@@ -596,9 +598,11 @@ async function showModeDetail(modeKey) {
     card.classList.toggle("active", card.dataset.mode === modeKey);
   });
 
+  /*
   if (modeKey === "sudoku") {
     await loadSudokuStatsIntoProfile();
   }
+  */
 
   const stats = profileModeStats[modeKey];
   if (!stats || !modeDetailTitle || !modeDetailList) return;
@@ -675,14 +679,17 @@ function initProfileUi() {
 
 
 // ===== Sudoku game logic =====
-function setTab(mode) {
+async function setTab(mode) {
   const isHome = mode === "inicio";
   const isGame = mode === "juego";
   const isProfile = mode === "perfil";
   const isTorneos = mode === "torneos";
   const isPvp = mode === "pvp";
   const isLogin = mode === "login";
-
+  if(mode === "perfil"){
+    await loadSudokuStatsIntoProfile();
+    await showModeDetail("sudoku");
+  }
   inicioTab.classList.toggle("hidden", !isHome);
   juegoTab.classList.toggle("hidden", !isGame);
   perfilTab.classList.toggle("hidden", !isProfile);
@@ -1138,8 +1145,10 @@ async function finishSudokuWithScore() {
         juegoId: GAME_ID_SUDOKU,
         puntaje: score,
         resultado: "victoria",
-        cambioElo: 10,
+        cambioElo: score > 700 ? 15 : score > 400 ? 10 : 5,
       });
+      console.log("Partida registrada con puntaje:", Math.floor(score/4));
+      await apiClient.addExperience(accessToken,Math.floor(score/4));
     }
   } catch (error) {
     console.error("No se pudo registrar la partida:", error);
@@ -2047,7 +2056,7 @@ async function bootstrapApp() {
   syncSudokuStatsUi();
   initProfileUi();
   loadDifficulty(currentDifficulty.key);
-  setTab("inicio");
+  setTab("juego");
   await restoreAuthSession();
   await showModeDetail("sudoku");
 }

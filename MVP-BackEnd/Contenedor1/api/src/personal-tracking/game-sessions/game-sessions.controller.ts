@@ -18,7 +18,6 @@ export class GameSessionsController {
   ) {
     const usuarioID = String(req.robleUser.sub);
     const accessToken = req.accessToken;
-    console.log('BODY RECIBIDO:', dto);
     return this.service.createSession(
       usuarioID,
       dto.juegoId,

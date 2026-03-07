@@ -1,4 +1,4 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
@@ -7,7 +7,9 @@ import { Title } from '../tittles/interfaces/title.interface';
 
 @Injectable()
 export class ProfilesService {
+  private readonly logger = new Logger(ProfilesService.name);
   constructor(
+    
     private readonly robleService: RobleService,
     private readonly titlesService: TitlesService,
   ) {}

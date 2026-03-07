@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Post, Req, UseGuards, Logger } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -7,13 +7,16 @@ import {
   ApiProperty,
 } from '@nestjs/swagger';
 import * as RobleAuthGuard from '../../common/guards/roble-auth.guard';
-
+import {Type} from 'class-transformer';
+import { IsNumber } from 'class-validator';
 import { ProfilesService } from './profiles.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
 
 class AddExperienceSelfDto {
   @ApiProperty()
+  @Type(() => Number)
+  @IsNumber()
   experiencia!: number;
 }
 
@@ -71,7 +74,6 @@ export class ProfilesController {
   ): Promise<Perfil> {
     const usuarioId: string = String(req.robleUser.sub);
     const accessToken: string = req.accessToken;
-
     const resp: Perfil = await this.profilesService.addExperience(
       usuarioId,
       body.experiencia,

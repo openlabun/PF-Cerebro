@@ -201,6 +201,14 @@ const apiClient = {
       token: accessToken,
     });
   },
+  
+  addExperience(accessToken, experiencia) {
+    return request("profiles/add-experience", {
+      method: "POST",
+      token: accessToken,
+      body: { experiencia },
+    });
+  },
 
   getTorneos(accessToken) {
     return request("torneos", {
