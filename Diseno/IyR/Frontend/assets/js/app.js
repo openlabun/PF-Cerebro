@@ -155,6 +155,11 @@ async function bootstrapApp() {
     apiClient,
     authStorage,
     getAccessToken: () => authModule?.getAccessToken?.() || authStorage.getAccessToken(),
+    onSudokuCompleted: async () => {
+      const session = authModule?.getSession?.() || null;
+      const accessToken = authModule?.getAccessToken?.() || null;
+      await profileModule?.registerSudokuActivity(session, accessToken);
+    },
   });
 
   profileModule = createProfileModule({ apiClient });

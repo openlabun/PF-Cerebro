@@ -33,7 +33,12 @@ import {
   openGuide,
 } from "./ui.js";
 
-export function createSudokuModule({ apiClient, authStorage, getAccessToken }) {
+export function createSudokuModule({
+  apiClient,
+  authStorage,
+  getAccessToken,
+  onSudokuCompleted,
+}) {
   const boardEl = document.getElementById("board");
   const signBoardEl = document.getElementById("sign-board");
   const keypadEl = document.getElementById("keypad");
@@ -264,6 +269,12 @@ export function createSudokuModule({ apiClient, authStorage, getAccessToken }) {
       }
     } catch (error) {
       console.error("No se pudo registrar la partida:", error);
+    }
+
+    try {
+      await onSudokuCompleted?.();
+    } catch (error) {
+      console.warn("No se pudo sincronizar la racha tras completar el sudoku:", error);
     }
 
     showSudokuCompletionPopup(score, () => loadDifficulty(state.currentDifficulty.key));

@@ -1,4 +1,6 @@
-const GAME_ID_SUDOKU = "uVsB-k2rjora";
+﻿const GAME_ID_SUDOKU = "uVsB-k2rjora";
+const STREAK_STORAGE_PREFIX = "cerebro_streak_activity";
+const CURRENT_YEAR = new Date().getFullYear();
 
 const DEFAULT_PROFILE_MODE_STATS = {
   sudoku: [
@@ -21,8 +23,20 @@ const DEFAULT_PROFILE_MODE_STATS = {
   ],
 };
 
-const avatarOptions = ["♔", "♕", "♖", "♗", "♘", "♙"];
-const badgeOptions = ["🧠", "♟️", "🎯", "⚡", "🏆", "🔥", "🛡️", "💎", "🌟", "🎲"];
+const avatarOptions = ["\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659"];
+const badgeOptions = [
+  "\uD83E\uDDE0",
+  "\u265F\uFE0F",
+  "\uD83C\uDFAF",
+  "\u26A1",
+  "\uD83C\uDFC6",
+  "\uD83D\uDD25",
+  "\uD83D\uDEE1\uFE0F",
+  "\uD83D\uDC8E",
+  "\uD83C\uDF1F",
+  "\uD83C\uDFB2",
+];
+
 const frameOptions = [
   { key: "frame-royal", label: "Real", minStreak: 0 },
   { key: "frame-arcane", label: "Arcano", minStreak: 0 },
@@ -31,38 +45,47 @@ const frameOptions = [
   { key: "frame-ice", label: "Hielo", minStreak: 0 },
   { key: "frame-inferno", label: "Inferno", minStreak: 11 },
 ];
-const CURRENT_YEAR = new Date().getFullYear();
 
 function toYmd(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function createStreakActivityDates(year) {
-  const dates = new Set();
-  const today = new Date();
+function isValidYmd(value) {
+  if (typeof value !== "string") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00`);
+  return !Number.isNaN(parsed.getTime()) && toYmd(parsed) === value;
+}
 
-  for (let i = 0; i < 17; i += 1) {
-    const day = new Date(today);
-    day.setDate(today.getDate() - i);
-    if (day.getFullYear() === year) dates.add(toYmd(day));
+function normalizeStreakDates(rawDates) {
+  if (!Array.isArray(rawDates)) return [];
+  const cleaned = rawDates
+    .map((item) => String(item || "").trim())
+    .filter((item) => isValidYmd(item));
+
+  return [...new Set(cleaned)].sort((a, b) => a.localeCompare(b));
+}
+
+function getStreakStorageKey(userId) {
+  return `${STREAK_STORAGE_PREFIX}:${String(userId || "guest")}`;
+}
+
+function readStreakDates(storageKey) {
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return [];
+    return normalizeStreakDates(JSON.parse(raw));
+  } catch {
+    return [];
   }
+}
 
-  [
-    `${year}-01-04`,
-    `${year}-01-05`,
-    `${year}-01-12`,
-    `${year}-01-22`,
-    `${year}-02-02`,
-    `${year}-02-10`,
-    `${year}-03-08`,
-    `${year}-03-14`,
-    `${year}-04-03`,
-    `${year}-05-18`,
-    `${year}-06-02`,
-    `${year}-07-09`,
-  ].forEach((d) => dates.add(d));
-
-  return [...dates].sort();
+function writeStreakDates(storageKey, dates) {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(normalizeStreakDates(dates)));
+  } catch {
+    // noop
+  }
 }
 
 export function createProfileModule({ apiClient }) {
@@ -102,14 +125,14 @@ export function createProfileModule({ apiClient }) {
     pvp: [...DEFAULT_PROFILE_MODE_STATS.pvp],
   };
 
-  const streakActivityDates = createStreakActivityDates(CURRENT_YEAR);
+  let streakActivityDates = [];
+  let streakStorageKey = getStreakStorageKey("guest");
+  let currentUserId = null;
+  let serverStreak = 0;
+  let isProfileAuthenticated = false;
   let currentStreakMonth = new Date(CURRENT_YEAR, new Date().getMonth(), 1);
   let activeBadgeSlot = null;
   let activeFrame = "frame-royal";
-
-  function setProfileAvatar(symbol) {
-    if (profileAvatarEl) profileAvatarEl.textContent = symbol;
-  }
 
   function getCurrentStreak(activityDates) {
     if (!activityDates.length) return 0;
@@ -125,14 +148,26 @@ export function createProfileModule({ apiClient }) {
     return streak;
   }
 
-  function isFrameUnlocked(frame) {
-    return getCurrentStreak(streakActivityDates) >= frame.minStreak;
+  function getEffectiveStreak() {
+    if (!isProfileAuthenticated) return 0;
+    if (streakActivityDates.length > 0) {
+      return getCurrentStreak(streakActivityDates);
+    }
+    const safeServerStreak = Number(serverStreak);
+    if (!Number.isFinite(safeServerStreak) || safeServerStreak < 0) return 0;
+    return Math.floor(safeServerStreak);
   }
 
   function refreshStreakUi() {
-    if (streakCountEl) {
-      streakCountEl.textContent = String(getCurrentStreak(streakActivityDates));
-    }
+    if (streakCountEl) streakCountEl.textContent = String(getEffectiveStreak());
+  }
+
+  function setProfileAvatar(symbol) {
+    if (profileAvatarEl) profileAvatarEl.textContent = symbol;
+  }
+
+  function isFrameUnlocked(frame) {
+    return getEffectiveStreak() >= frame.minStreak;
   }
 
   function openPicker(modalEl) {
@@ -145,6 +180,40 @@ export function createProfileModule({ apiClient }) {
     if (!modalEl) return;
     modalEl.classList.add("hidden");
     modalEl.setAttribute("aria-hidden", "true");
+  }
+
+  function resolveSessionUserId(session) {
+    const user = session?.user || {};
+    return (
+      user.usuarioId ||
+      session?.profile?.usuarioId ||
+      user.id ||
+      user.sub ||
+      null
+    );
+  }
+
+  function loadStreakDatesForUser(userId) {
+    currentUserId = userId ? String(userId) : null;
+    streakStorageKey = getStreakStorageKey(currentUserId || "guest");
+    if (!currentUserId) {
+      streakActivityDates = [];
+      return;
+    }
+    streakActivityDates = readStreakDates(streakStorageKey);
+  }
+
+  function saveStreakDates() {
+    writeStreakDates(streakStorageKey, streakActivityDates);
+  }
+
+  function addActivityDate(dateYmd) {
+    if (!isValidYmd(dateYmd)) return false;
+    if (streakActivityDates.includes(dateYmd)) return false;
+
+    streakActivityDates = normalizeStreakDates([...streakActivityDates, dateYmd]);
+    saveStreakDates();
+    return true;
   }
 
   function renderAvatarOptions() {
@@ -201,7 +270,7 @@ export function createProfileModule({ apiClient }) {
 
       if (!unlocked) {
         btn.classList.add("locked");
-        btn.textContent = "🔒";
+        btn.textContent = "LOCK";
       }
 
       if (activeFrame === frame.key) btn.classList.add("active");
@@ -284,12 +353,14 @@ export function createProfileModule({ apiClient }) {
 
   function syncProfileProgress(user, isAuthenticated) {
     if (!profileLevelBadgeEl && !profileLevelFillEl && !profileLevelTextEl) return;
+    isProfileAuthenticated = Boolean(isAuthenticated);
 
     if (!isAuthenticated) {
-      if (streakCountEl) streakCountEl.textContent = "0";
+      serverStreak = 0;
       if (profileLevelBadgeEl) profileLevelBadgeEl.textContent = "47";
       if (profileLevelFillEl) profileLevelFillEl.style.width = "68%";
       if (profileLevelTextEl) profileLevelTextEl.textContent = "Nivel 47 · 680 / 1000 XP";
+      refreshStreakUi();
       return;
     }
 
@@ -297,9 +368,8 @@ export function createProfileModule({ apiClient }) {
     const experiencia = Number(user?.experiencia ?? 0);
     const rachaActual = Number(user?.rachaActual ?? 0);
 
-    if (streakCountEl && Number.isFinite(rachaActual)) {
-      streakCountEl.textContent = String(rachaActual);
-    }
+    serverStreak = Number.isFinite(rachaActual) ? rachaActual : 0;
+    refreshStreakUi();
 
     if (!Number.isFinite(nivel) || nivel <= 0) return;
 
@@ -329,14 +399,20 @@ export function createProfileModule({ apiClient }) {
     if (!profileNameEl || !profileTitleEl) return;
 
     if (!isAuthenticated) {
+      currentUserId = null;
+      streakStorageKey = getStreakStorageKey("guest");
+      streakActivityDates = [];
       profileNameEl.textContent = DEFAULT_PROFILE_NAME;
       profileTitleEl.textContent = DEFAULT_PROFILE_TITLE;
       profileModeStats.sudoku = [...DEFAULT_PROFILE_MODE_STATS.sudoku];
       syncProfileProgress(null, false);
+      renderStreakCalendar();
+      renderFrameOptions();
       return;
     }
 
     const user = session?.user || {};
+    loadStreakDatesForUser(resolveSessionUserId(session));
     profileNameEl.textContent = getProfileDisplayName(user);
 
     const tituloTexto = user.tituloActivoTexto ?? session?.profile?.tituloActivoTexto ?? null;
@@ -349,6 +425,8 @@ export function createProfileModule({ apiClient }) {
     }
 
     syncProfileProgress(user, true);
+    renderStreakCalendar();
+    renderFrameOptions();
   }
 
   async function loadSudokuStatsIntoProfile(accessToken) {
@@ -357,6 +435,10 @@ export function createProfileModule({ apiClient }) {
     try {
       const perfil = await apiClient.getMyProfile(accessToken);
       const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU);
+
+      if (perfil?.usuarioId && !currentUserId) {
+        loadStreakDatesForUser(perfil.usuarioId);
+      }
 
       if (!stats || typeof stats !== "object") {
         console.warn("[stats] respuesta invalida de getMyGameStats");
@@ -369,9 +451,46 @@ export function createProfileModule({ apiClient }) {
         `Elo: ${stats.elo ?? 0}`,
         stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
       ];
+      renderFrameOptions();
+      renderStreakCalendar();
     } catch (error) {
       console.warn("Fallo cargando stats sudoku:", error);
     }
+  }
+
+  async function registerSudokuActivity(session, accessToken) {
+    if (!accessToken) return { recorded: false, reason: "missing-token" };
+
+    const userId = resolveSessionUserId(session);
+    if (!userId) return { recorded: false, reason: "missing-user-id" };
+
+    if (String(userId) !== currentUserId) {
+      loadStreakDatesForUser(userId);
+    }
+
+    const today = toYmd(new Date());
+    const added = addActivityDate(today);
+
+    if (!added) {
+      refreshStreakUi();
+      return { recorded: false, reason: "already-recorded" };
+    }
+
+    refreshStreakUi();
+    renderStreakCalendar();
+    renderFrameOptions();
+
+    try {
+      const response = await apiClient.increaseStreak(accessToken, currentUserId);
+      const remote = Number(response?.rachaActual);
+      if (Number.isFinite(remote)) serverStreak = remote;
+    } catch (error) {
+      console.warn("No se pudo aumentar la racha en backend:", error);
+    }
+
+    refreshStreakUi();
+    renderFrameOptions();
+    return { recorded: true };
   }
 
   async function showModeDetail(modeKey) {
@@ -401,7 +520,7 @@ export function createProfileModule({ apiClient }) {
     renderAvatarOptions();
     renderBadgeOptions();
     renderStreakCalendar();
-    setProfileAvatar("♔");
+    setProfileAvatar("\u2654");
     refreshStreakUi();
     setProfileFrame("frame-royal");
     setAvatarPickerTab("avatar");
@@ -457,6 +576,7 @@ export function createProfileModule({ apiClient }) {
   return {
     init,
     loadSudokuStatsIntoProfile,
+    registerSudokuActivity,
     showModeDetail,
     syncIdentity,
   };
