@@ -272,7 +272,7 @@ export function createSudokuModule({
     }
 
     try {
-      await onSudokuCompleted?.();
+      await onSudokuCompleted?.(score);
     } catch (error) {
       console.warn("No se pudo sincronizar la racha tras completar el sudoku:", error);
     }

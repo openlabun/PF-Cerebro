@@ -395,6 +395,7 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 .badges-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 52px)); justify-content: center; gap: .55rem; }
 .badge-help { margin: 0 0 .65rem; color: var(--muted); font-size: .85rem; text-align: center; }
 .badge-slot { display: grid; place-items: center; height: 52px; width: 52px; margin: 0 auto; border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); font-size: 1.25rem; }
+.badge-slot.badge-selected { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 65%, transparent) inset; }
 
 .picker-modal { position: fixed; inset: 0; display: grid; place-items: center; z-index: 24; }
 .picker-backdrop { position: absolute; inset: 0; background: rgba(10, 18, 56, 0.45); backdrop-filter: blur(2px); }
@@ -427,6 +428,8 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 .picker-x { position: absolute; top: .6rem; right: .6rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; width: 34px; height: 34px; }
 .picker-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; }
 .picker-option { border: 1px solid var(--border); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--text); border-radius: 12px; min-height: 46px; font-size: 1.25rem; font-weight: 800; }
+.picker-option.locked { opacity: .55; filter: grayscale(.35); cursor: not-allowed; }
+.picker-option.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent) inset; }
 .frame-option { min-height: 56px; }
 .frame-royal { background: linear-gradient(145deg, #ffcc66, #7f8de6 48%, #38d1ff); }
 .frame-arcane { background: linear-gradient(145deg, #9b6bff, #3ed4ff); }

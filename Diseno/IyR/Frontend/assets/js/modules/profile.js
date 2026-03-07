@@ -1,5 +1,7 @@
 ﻿const GAME_ID_SUDOKU = "uVsB-k2rjora";
 const STREAK_STORAGE_PREFIX = "cerebro_streak_activity";
+const PROFILE_BADGES_STORAGE_PREFIX = "cerebro_profile_badges";
+const PROFILE_SCORE_STORAGE_PREFIX = "cerebro_profile_sudoku_score";
 const CURRENT_YEAR = new Date().getFullYear();
 
 const DEFAULT_PROFILE_MODE_STATS = {
@@ -23,18 +25,16 @@ const DEFAULT_PROFILE_MODE_STATS = {
 };
 
 const avatarOptions = ["\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659"];
-const badgeOptions = [
-  "\uD83E\uDDE0",
-  "\u265F\uFE0F",
-  "\uD83C\uDFAF",
-  "\u26A1",
-  "\uD83C\uDFC6",
-  "\uD83D\uDD25",
-  "\uD83D\uDEE1\uFE0F",
-  "\uD83D\uDC8E",
-  "\uD83C\uDF1F",
-  "\uD83C\uDFB2",
+const achievementBadges = [
+  { key: "first-game", label: "Primera partida", icon: "\uD83C\uDFC1" },
+  { key: "five-games", label: "5 partidas", icon: "5\uFE0F\u20E3" },
+  { key: "ten-games", label: "10 partidas", icon: "\uD83D\uDD1F" },
+  { key: "score-over-500", label: "Puntaje >500", icon: "\uD83C\uDFAF" },
 ];
+
+const achievementBadgeMap = Object.fromEntries(
+  achievementBadges.map((badge) => [badge.key, badge]),
+);
 
 const frameOptions = [
   { key: "frame-royal", label: "Real", minStreak: 0 },
@@ -67,6 +67,10 @@ function normalizeStreakDates(rawDates) {
 
 function getStreakStorageKey(userId) {
   return `${STREAK_STORAGE_PREFIX}:${String(userId || "guest")}`;
+}
+
+function getProfileStorageKey(prefix, userId) {
+  return `${prefix}:${String(userId || "guest")}`;
 }
 
 function readStreakDates(storageKey) {
@@ -132,6 +136,12 @@ export function createProfileModule({ apiClient }) {
   let currentStreakMonth = new Date(CURRENT_YEAR, new Date().getMonth(), 1);
   let activeBadgeSlot = null;
   let activeFrame = "frame-royal";
+  let badgeSelectionStorageKey = getProfileStorageKey(PROFILE_BADGES_STORAGE_PREFIX, "guest");
+  let scoreStorageKey = getProfileStorageKey(PROFILE_SCORE_STORAGE_PREFIX, "guest");
+  let selectedBadgeKeys = [];
+  let unlockedBadgeKeys = new Set();
+  let achievementCatalogByKey = new Map();
+  let bestSudokuScore = 0;
 
   function getCurrentStreak(activityDates) {
     if (!activityDates.length) return 0;
@@ -215,6 +225,194 @@ export function createProfileModule({ apiClient }) {
     return true;
   }
 
+  function normalizeBadgeKeys(rawKeys) {
+    if (!Array.isArray(rawKeys)) return [];
+    const cleaned = rawKeys
+      .map((item) => String(item || "").trim())
+      .filter((item) => achievementBadgeMap[item]);
+    return [...new Set(cleaned)];
+  }
+
+  function readStoredBadgeSelection() {
+    try {
+      const raw = localStorage.getItem(badgeSelectionStorageKey);
+      if (!raw) return [];
+      return normalizeBadgeKeys(JSON.parse(raw));
+    } catch {
+      return [];
+    }
+  }
+
+  function writeStoredBadgeSelection() {
+    try {
+      localStorage.setItem(badgeSelectionStorageKey, JSON.stringify(selectedBadgeKeys));
+    } catch {
+      // noop
+    }
+  }
+
+  function readStoredBestScore() {
+    try {
+      const raw = localStorage.getItem(scoreStorageKey);
+      const parsed = Number(raw);
+      if (!Number.isFinite(parsed) || parsed < 0) return 0;
+      return Math.floor(parsed);
+    } catch {
+      return 0;
+    }
+  }
+
+  function writeStoredBestScore() {
+    try {
+      localStorage.setItem(scoreStorageKey, String(bestSudokuScore));
+    } catch {
+      // noop
+    }
+  }
+
+  function loadBadgeStateForUser(userId) {
+    const scopedUserId = String(userId || "guest");
+    badgeSelectionStorageKey = getProfileStorageKey(PROFILE_BADGES_STORAGE_PREFIX, scopedUserId);
+    scoreStorageKey = getProfileStorageKey(PROFILE_SCORE_STORAGE_PREFIX, scopedUserId);
+    selectedBadgeKeys = readStoredBadgeSelection();
+    bestSudokuScore = readStoredBestScore();
+  }
+
+  function setBestSudokuScore(nextScore) {
+    const numericScore = Number(nextScore);
+    if (!Number.isFinite(numericScore) || numericScore < 0) return;
+    const safeScore = Math.floor(numericScore);
+    if (safeScore <= bestSudokuScore) return;
+    bestSudokuScore = safeScore;
+    writeStoredBestScore();
+  }
+
+  function renderSelectedBadges() {
+    badgeSlotBtns.forEach((slot, index) => {
+      const badgeKey = selectedBadgeKeys[index];
+      const badge = badgeKey ? achievementBadgeMap[badgeKey] : null;
+      slot.textContent = badge ? badge.icon : "";
+      slot.title = badge ? badge.label : "Slot vacio";
+      slot.classList.toggle("badge-selected", Boolean(badge));
+    });
+  }
+
+  function normalizeAchievementName(value) {
+    return String(value || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  }
+
+  function mapAchievementNameToBadgeKey(name) {
+    const normalized = normalizeAchievementName(name);
+    if (!normalized) return null;
+    if (normalized.includes("primera") && normalized.includes("partida")) return "first-game";
+    if (normalized.includes("5") && normalized.includes("partida")) return "five-games";
+    if (normalized.includes("10") && normalized.includes("partida")) return "ten-games";
+    if (normalized.includes("500") && normalized.includes("puntaje")) return "score-over-500";
+    return null;
+  }
+
+  function getUnlockedKeysByRules(partidasJugadas) {
+    const gamesPlayed = Number(partidasJugadas ?? 0);
+    const unlocked = [];
+    if (gamesPlayed >= 1) unlocked.push("first-game");
+    if (gamesPlayed >= 5) unlocked.push("five-games");
+    if (gamesPlayed >= 10) unlocked.push("ten-games");
+    if (bestSudokuScore > 500) unlocked.push("score-over-500");
+    return unlocked;
+  }
+
+  function applyUnlockedBadges(unlockedKeys) {
+    unlockedBadgeKeys = new Set(normalizeBadgeKeys(unlockedKeys));
+    selectedBadgeKeys = selectedBadgeKeys.filter((key) => unlockedBadgeKeys.has(key));
+
+    achievementBadges.forEach((badge) => {
+      if (!unlockedBadgeKeys.has(badge.key)) return;
+      if (selectedBadgeKeys.includes(badge.key)) return;
+      if (selectedBadgeKeys.length >= badgeSlotBtns.length) return;
+      selectedBadgeKeys.push(badge.key);
+    });
+
+    writeStoredBadgeSelection();
+    renderSelectedBadges();
+    renderBadgeOptions();
+  }
+
+  function setBadgeInSlot(slotIndex, badgeKey) {
+    if (!Number.isInteger(slotIndex) || slotIndex < 0) return;
+    if (!achievementBadgeMap[badgeKey] || !unlockedBadgeKeys.has(badgeKey)) return;
+
+    const deduped = selectedBadgeKeys.filter((key) => key !== badgeKey);
+    while (deduped.length <= slotIndex) deduped.push(null);
+    deduped[slotIndex] = badgeKey;
+    selectedBadgeKeys = deduped.filter(Boolean).slice(0, badgeSlotBtns.length);
+    writeStoredBadgeSelection();
+    renderSelectedBadges();
+    renderBadgeOptions();
+  }
+
+  async function syncRemoteAchievementCatalog(accessToken) {
+    if (!accessToken) return;
+
+    try {
+      const catalog = await apiClient.getAchievements(accessToken);
+      achievementCatalogByKey = new Map();
+      if (!Array.isArray(catalog)) return;
+
+      catalog.forEach((item) => {
+        const key = mapAchievementNameToBadgeKey(item?.nombre);
+        if (!key || !item?._id) return;
+        achievementCatalogByKey.set(key, String(item._id));
+      });
+    } catch (error) {
+      console.warn("No se pudo cargar el catalogo de logros:", error);
+    }
+  }
+
+  async function getUnlockedKeysFromRemote(accessToken) {
+    if (!accessToken) return [];
+
+    try {
+      if (achievementCatalogByKey.size === 0) {
+        await syncRemoteAchievementCatalog(accessToken);
+      }
+
+      const myAchievements = await apiClient.getMyAchievements(accessToken);
+      if (!Array.isArray(myAchievements)) return [];
+
+      const byId = new Map();
+      achievementCatalogByKey.forEach((logroId, key) => {
+        byId.set(logroId, key);
+      });
+
+      return myAchievements
+        .map((item) => byId.get(String(item?.logroId || "")))
+        .filter(Boolean);
+    } catch (error) {
+      console.warn("No se pudieron consultar los logros del usuario:", error);
+      return [];
+    }
+  }
+
+  async function unlockRemoteAchievements(accessToken, unlockedKeys) {
+    if (!accessToken) return;
+    if (achievementCatalogByKey.size === 0) return;
+
+    const unlockPromises = normalizeBadgeKeys(unlockedKeys)
+      .map((badgeKey) => achievementCatalogByKey.get(badgeKey))
+      .filter(Boolean)
+      .map((logroId) =>
+        apiClient.unlockAchievement(accessToken, logroId).catch((error) => {
+          console.warn(`No se pudo desbloquear logro remoto ${logroId}:`, error);
+        }),
+      );
+
+    await Promise.all(unlockPromises);
+  }
+
   function renderAvatarOptions() {
     if (!avatarOptionsEl) return;
     avatarOptionsEl.innerHTML = "";
@@ -234,13 +432,20 @@ export function createProfileModule({ apiClient }) {
   function renderBadgeOptions() {
     if (!badgeOptionsEl) return;
     badgeOptionsEl.innerHTML = "";
-    badgeOptions.forEach((symbol) => {
+    achievementBadges.forEach((badge) => {
+      const unlocked = unlockedBadgeKeys.has(badge.key);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "picker-option";
-      btn.textContent = symbol;
+      btn.textContent = badge.icon;
+      btn.title = unlocked ? badge.label : `${badge.label} (bloqueado)`;
+      if (!unlocked) btn.classList.add("locked");
+      if (selectedBadgeKeys.includes(badge.key)) btn.classList.add("active");
+
       btn.addEventListener("click", () => {
-        if (activeBadgeSlot) activeBadgeSlot.textContent = symbol;
+        if (!unlocked || !activeBadgeSlot) return;
+        const slotIndex = Number(activeBadgeSlot.dataset.badgeSlot);
+        setBadgeInSlot(slotIndex, badge.key);
         closePicker(badgeModal);
       });
       badgeOptionsEl.appendChild(btn);
@@ -409,6 +614,9 @@ function setProfileFrame(frameKey) {
       currentUserId = null;
       streakStorageKey = getStreakStorageKey("guest");
       streakActivityDates = [];
+      loadBadgeStateForUser("guest");
+      applyUnlockedBadges([]);
+      achievementCatalogByKey = new Map();
       profileNameEl.textContent = DEFAULT_PROFILE_NAME;
       profileTitleEl.textContent = DEFAULT_PROFILE_TITLE;
       profileModeStats.sudoku = [...DEFAULT_PROFILE_MODE_STATS.sudoku];
@@ -419,7 +627,10 @@ function setProfileFrame(frameKey) {
     }
 
     const user = session?.user || {};
-    loadStreakDatesForUser(resolveSessionUserId(session));
+    const sessionUserId = resolveSessionUserId(session);
+    loadStreakDatesForUser(sessionUserId);
+    loadBadgeStateForUser(sessionUserId);
+    applyUnlockedBadges(selectedBadgeKeys);
     profileNameEl.textContent = getProfileDisplayName(user);
 
     const tituloTexto = user.tituloActivoTexto ?? session?.profile?.tituloActivoTexto ?? null;
@@ -440,11 +651,14 @@ function setProfileFrame(frameKey) {
     if (!accessToken) return;
 
     try {
-      const perfil = await apiClient.getMyProfile(accessToken);
-      const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU);
+      const [perfil, stats] = await Promise.all([
+        apiClient.getMyProfile(accessToken),
+        apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU),
+      ]);
 
       if (perfil?.usuarioId && !currentUserId) {
         loadStreakDatesForUser(perfil.usuarioId);
+        loadBadgeStateForUser(perfil.usuarioId);
       }
 
       if (!stats || typeof stats !== "object") {
@@ -462,6 +676,12 @@ function setProfileFrame(frameKey) {
         stats.elo >= 301 && stats.elo <= 400 ? `Liga: Platino` : 
         `Liga: -`,
       ];
+
+      const unlockedByRules = getUnlockedKeysByRules(stats.partidasJugadas);
+      await syncRemoteAchievementCatalog(accessToken);
+      await unlockRemoteAchievements(accessToken, unlockedByRules);
+      const unlockedFromRemote = await getUnlockedKeysFromRemote(accessToken);
+      applyUnlockedBadges([...unlockedByRules, ...unlockedFromRemote]);
 
       // Selección del marco según la liga
       if (stats.elo >= 0 && stats.elo <= 100) {
@@ -483,7 +703,7 @@ function setProfileFrame(frameKey) {
     }
   }
 
-  async function registerSudokuActivity(session, accessToken) {
+  async function registerSudokuActivity(session, accessToken, options = {}) {
     if (!accessToken) return { recorded: false, reason: "missing-token" };
 
     const userId = resolveSessionUserId(session);
@@ -491,7 +711,13 @@ function setProfileFrame(frameKey) {
 
     if (String(userId) !== currentUserId) {
       loadStreakDatesForUser(userId);
+      loadBadgeStateForUser(userId);
     }
+
+    setBestSudokuScore(options.score);
+    const nextUnlocked = new Set(unlockedBadgeKeys);
+    if (bestSudokuScore > 500) nextUnlocked.add("score-over-500");
+    applyUnlockedBadges([...nextUnlocked]);
 
     const today = toYmd(new Date());
     const added = addActivityDate(today);
@@ -577,6 +803,7 @@ function setProfileFrame(frameKey) {
 
     badgeSlotBtns.forEach((slot) => {
       slot.addEventListener("click", () => {
+        if (!isProfileAuthenticated) return;
         activeBadgeSlot = slot;
         openPicker(badgeModal);
       });

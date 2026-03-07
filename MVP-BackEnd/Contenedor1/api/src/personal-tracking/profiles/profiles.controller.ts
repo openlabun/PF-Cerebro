@@ -12,6 +12,7 @@ import { IsNumber } from 'class-validator';
 import { ProfilesService } from './profiles.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
+import { PersonalTrackingBootstrapService } from '../bootstrap/personal-tracking-bootstrap.service';
 
 class AddExperienceSelfDto {
   @ApiProperty()
@@ -25,7 +26,10 @@ class AddExperienceSelfDto {
 @UseGuards(RobleAuthGuard.RobleAuthGuard)
 @Controller('profiles')
 export class ProfilesController {
-  constructor(private readonly profilesService: ProfilesService) {}
+  constructor(
+    private readonly profilesService: ProfilesService,
+    private readonly bootstrapService: PersonalTrackingBootstrapService,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -55,6 +59,7 @@ export class ProfilesController {
   ): Promise<Perfil | null> {
     const usuarioId: string = String(req.robleUser.sub);
     const accessToken: string = req.accessToken;
+    await this.bootstrapService.ensureInitialized(accessToken, usuarioId);
 
     const resp: Perfil | null = await this.profilesService.getProfile(
       usuarioId,
@@ -74,6 +79,7 @@ export class ProfilesController {
   ): Promise<Perfil> {
     const usuarioId: string = String(req.robleUser.sub);
     const accessToken: string = req.accessToken;
+    await this.bootstrapService.ensureInitialized(accessToken, usuarioId);
     const resp: Perfil = await this.profilesService.addExperience(
       usuarioId,
       body.experiencia,

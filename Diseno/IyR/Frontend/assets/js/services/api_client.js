@@ -225,6 +225,28 @@ const apiClient = {
     });
   },
 
+  getAchievements(accessToken) {
+    return request("achievements", {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
+  getMyAchievements(accessToken) {
+    return request("achievements/me", {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
+  unlockAchievement(accessToken, logroId) {
+    return request("achievements/unlock", {
+      method: "POST",
+      token: accessToken,
+      body: { logroId },
+    });
+  },
+
   createGameSession(accessToken, payload) {
     return request("game-sessions", {
       method: "POST",
