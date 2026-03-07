@@ -248,14 +248,22 @@ export function createProfileModule({ apiClient }) {
     });
   }
 
-  function setProfileFrame(frameKey) {
-    const selected = frameOptions.find((frame) => frame.key === frameKey) || frameOptions[0];
-    if (!isFrameUnlocked(selected) || !openAvatarPickerBtn) return;
+function setProfileFrame(frameKey) {
+  // Filtrar los marcos de liga según la liga actual del jugador
+  const currentLeagueFrameKey = frameKey=== "frame-bronze" ? "frame-bronze" :
+                               frameKey=== "frame-silver" ? "frame-silver" :
+                               frameKey=== "frame-gold" ? "frame-gold" :
+                               frameKey=== "frame-platinum" ? "frame-platinum" : null;
 
-    openAvatarPickerBtn.classList.remove(...frameOptions.map((frame) => frame.key));
-    openAvatarPickerBtn.classList.add(selected.key);
-    activeFrame = selected.key;
-  }
+  // Asegurarse de que el marco seleccionado es el de la liga actual o cualquier otro marco desbloqueado
+  const selected = frameOptions.find((frame) => frame.key === frameKey && (frame.key === currentLeagueFrameKey || isFrameUnlocked(frame))) || frameOptions[0];
+  selected.key = currentLeagueFrameKey || selected.key; // Priorizar el marco de liga si es aplicable
+  if (!openAvatarPickerBtn || !isFrameUnlocked(selected)) return;
+
+  openAvatarPickerBtn.classList.remove(...frameOptions.map((frame) => frame.key));
+  openAvatarPickerBtn.classList.add(selected.key);
+  activeFrame = selected.key;
+}
 
   function renderFrameOptions() {
     if (!frameOptionsEl) return;
@@ -445,12 +453,30 @@ export function createProfileModule({ apiClient }) {
         return;
       }
 
-      syncProfileProgress(perfil, true);
+      // Asignación de liga según el valor de "elo"
       profileModeStats.sudoku = [
         `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
         `Elo: ${stats.elo ?? 0}`,
-        stats.ligaId ? `Liga: ${stats.ligaId}` : "Liga: -",
+        stats.elo >= 0 && stats.elo <= 100 ? `Liga: Bronce` :
+        stats.elo >= 101 && stats.elo <= 200 ? `Liga: Plata` :
+        stats.elo >= 201 && stats.elo <= 300 ? `Liga: Oro` :
+        stats.elo >= 301 && stats.elo <= 400 ? `Liga: Platino` : 
+        `Liga: -`,
       ];
+
+      // Selección del marco según la liga
+      if (stats.elo >= 0 && stats.elo <= 100) {
+        setProfileFrame("frame-bronze"); // Bronce
+      } else if (stats.elo >= 101 && stats.elo <= 200) {
+        setProfileFrame("frame-silver"); // Plata
+      } else if (stats.elo >= 201 && stats.elo <= 300) {
+        setProfileFrame("frame-gold"); // Oro
+      } else if (stats.elo >= 301 && stats.elo <= 400) {
+        setProfileFrame("frame-platinum"); // Platino
+      } else {
+        setProfileFrame("frame-bronze"); // Valor predeterminado
+      }
+
       renderFrameOptions();
       renderStreakCalendar();
     } catch (error) {

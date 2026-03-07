@@ -433,6 +433,13 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 .frame-neon { background: linear-gradient(145deg, #00d4ff, #00ffa3); }
 .frame-ember { background: linear-gradient(145deg, #ff9966, #ff5e62); }
 .frame-ice { background: linear-gradient(145deg, #d4fcff, #8ec5fc); }
+
+/* Nuevos marcos de liga */
+.frame-bronze {background: linear-gradient(145deg, #a67c52, #c0a084);}
+.frame-silver {background: linear-gradient(145deg, #c0c0c0, #a8a8a8);}
+.frame-gold {background: linear-gradient(145deg, #ffd700, #e6b800);}
+.frame-platinum {background: linear-gradient(145deg, #e5e4e2, #c9c9c9);}
+
 .frame-inferno { background: radial-gradient(circle at 30% 25%, #ffe08a 0%, #ff9a3d 25%, #ff5e2f 55%, #5a1a00 100%); }
 .frame-option.locked { opacity: .55; filter: grayscale(.3); cursor: not-allowed; }
 .frame-option.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent) inset; }
