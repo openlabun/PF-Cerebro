@@ -241,6 +241,22 @@ const apiClient = {
     });
   },
 
+  increaseStreak(accessToken, usuarioId) {
+    return request("streaks/increase", {
+      method: "POST",
+      token: accessToken,
+      body: { usuarioId },
+    });
+  },
+
+  resetStreak(accessToken, usuarioId) {
+    return request("streaks/reset", {
+      method: "POST",
+      token: accessToken,
+      body: { usuarioId },
+    });
+  },
+
 };
 
 export { apiClient, authStorage, request };
