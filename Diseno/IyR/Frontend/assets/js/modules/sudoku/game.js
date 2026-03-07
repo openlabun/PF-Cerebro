@@ -26,6 +26,7 @@ import {
   updateProgress,
   syncSudokuStatsUi,
   showSudokuCompletionPopup,
+  showSudokuAchievementPopup,
   createSignBoard,
   createKeypad,
   initializeDifficultyOptions,
@@ -271,13 +272,18 @@ export function createSudokuModule({
       console.error("No se pudo registrar la partida:", error);
     }
 
+    let completionMeta = null;
     try {
-      await onSudokuCompleted?.(score);
+      completionMeta = await onSudokuCompleted?.(score);
     } catch (error) {
       console.warn("No se pudo sincronizar la racha tras completar el sudoku:", error);
     }
 
-    showSudokuCompletionPopup(score, () => loadDifficulty(state.currentDifficulty.key));
+    showSudokuCompletionPopup(
+      score,
+      () => loadDifficulty(state.currentDifficulty.key),
+      () => showSudokuAchievementPopup(completionMeta?.newlyUnlockedAchievements || []),
+    );
   }
 
   function fillSelected(value) {

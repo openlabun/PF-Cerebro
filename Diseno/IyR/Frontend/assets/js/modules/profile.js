@@ -26,10 +26,30 @@ const DEFAULT_PROFILE_MODE_STATS = {
 
 const avatarOptions = ["\u2654", "\u2655", "\u2656", "\u2657", "\u2658", "\u2659"];
 const achievementBadges = [
-  { key: "first-game", label: "Primera partida", icon: "\uD83C\uDFC1" },
-  { key: "five-games", label: "5 partidas", icon: "5\uFE0F\u20E3" },
-  { key: "ten-games", label: "10 partidas", icon: "\uD83D\uDD1F" },
-  { key: "score-over-500", label: "Puntaje >500", icon: "\uD83C\uDFAF" },
+  {
+    key: "first-game",
+    label: "Primera partida",
+    icon: "\uD83C\uDFC1",
+    description: "Completa tu primera partida de Sudoku.",
+  },
+  {
+    key: "five-games",
+    label: "5 partidas",
+    icon: "5\uFE0F\u20E3",
+    description: "Completa 5 partidas de Sudoku.",
+  },
+  {
+    key: "ten-games",
+    label: "10 partidas",
+    icon: "\uD83D\uDD1F",
+    description: "Completa 10 partidas de Sudoku.",
+  },
+  {
+    key: "score-over-500",
+    label: "Puntaje >500",
+    icon: "\uD83C\uDFAF",
+    description: "Alcanza un puntaje mayor a 500 en una partida.",
+  },
 ];
 
 const achievementBadgeMap = Object.fromEntries(
@@ -352,6 +372,21 @@ export function createProfileModule({ apiClient }) {
     writeStoredBadgeSelection();
     renderSelectedBadges();
     renderBadgeOptions();
+  }
+
+  function toAchievementPopupItems(keys) {
+    return normalizeBadgeKeys(keys)
+      .map((key) => {
+        const badge = achievementBadgeMap[key];
+        if (!badge) return null;
+        return {
+          key: badge.key,
+          icon: badge.icon,
+          title: badge.label,
+          description: badge.description || badge.label,
+        };
+      })
+      .filter(Boolean);
   }
 
   async function syncRemoteAchievementCatalog(accessToken) {
@@ -714,17 +749,40 @@ function setProfileFrame(frameKey) {
       loadBadgeStateForUser(userId);
     }
 
+    const previousUnlocked = new Set(unlockedBadgeKeys);
+
     setBestSudokuScore(options.score);
     const nextUnlocked = new Set(unlockedBadgeKeys);
     if (bestSudokuScore > 500) nextUnlocked.add("score-over-500");
+
+    try {
+      const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU);
+      const unlockedByRules = getUnlockedKeysByRules(stats?.partidasJugadas);
+      unlockedByRules.forEach((key) => nextUnlocked.add(key));
+
+      await syncRemoteAchievementCatalog(accessToken);
+      await unlockRemoteAchievements(accessToken, [...nextUnlocked]);
+
+      const unlockedFromRemote = await getUnlockedKeysFromRemote(accessToken);
+      unlockedFromRemote.forEach((key) => nextUnlocked.add(key));
+    } catch (error) {
+      console.warn("No se pudieron sincronizar logros de Sudoku:", error);
+    }
+
     applyUnlockedBadges([...nextUnlocked]);
+    const newlyUnlockedKeys = [...unlockedBadgeKeys].filter((key) => !previousUnlocked.has(key));
+    const newlyUnlockedAchievements = toAchievementPopupItems(newlyUnlockedKeys);
 
     const today = toYmd(new Date());
     const added = addActivityDate(today);
 
     if (!added) {
       refreshStreakUi();
-      return { recorded: false, reason: "already-recorded" };
+      return {
+        recorded: false,
+        reason: "already-recorded",
+        newlyUnlockedAchievements,
+      };
     }
 
     refreshStreakUi();
@@ -741,7 +799,7 @@ function setProfileFrame(frameKey) {
 
     refreshStreakUi();
     renderFrameOptions();
-    return { recorded: true };
+    return { recorded: true, newlyUnlockedAchievements };
   }
 
   async function showModeDetail(modeKey) {

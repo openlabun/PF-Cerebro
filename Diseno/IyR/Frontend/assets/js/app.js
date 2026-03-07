@@ -158,7 +158,7 @@ async function bootstrapApp() {
     onSudokuCompleted: async (score) => {
       const session = authModule?.getSession?.() || null;
       const accessToken = authModule?.getAccessToken?.() || null;
-      await profileModule?.registerSudokuActivity(session, accessToken, { score });
+      return profileModule?.registerSudokuActivity(session, accessToken, { score });
     },
   });
 

@@ -140,7 +140,7 @@ export function syncSudokuStatsUi(errorsCountEl, hintsUsedEl, errorCount, hintsU
   if (hintsUsedEl) hintsUsedEl.textContent = `Pistas: ${hintsUsed}`;
 }
 
-export function showSudokuCompletionPopup(score, onRestart) {
+export function showSudokuCompletionPopup(score, onRestart, onAfterClose) {
   const existing = document.getElementById("sudoku-completion-popup");
   if (existing) existing.remove();
 
@@ -179,7 +179,97 @@ export function showSudokuCompletionPopup(score, onRestart) {
   setTimeout(() => {
     overlay.remove();
     onRestart?.();
+    onAfterClose?.();
   }, 2200);
+}
+
+export function showSudokuAchievementPopup(unlockedAchievements = []) {
+  const unlocked = Array.isArray(unlockedAchievements)
+    ? unlockedAchievements.filter((item) => item?.icon && item?.description)
+    : [];
+  if (unlocked.length === 0) return;
+
+  const existing = document.getElementById("sudoku-achievement-popup");
+  if (existing) existing.remove();
+
+  const overlay = document.createElement("div");
+  overlay.id = "sudoku-achievement-popup";
+  overlay.setAttribute("role", "dialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.style.position = "fixed";
+  overlay.style.inset = "0";
+  overlay.style.background = "rgba(0,0,0,0.72)";
+  overlay.style.display = "grid";
+  overlay.style.placeItems = "center";
+  overlay.style.zIndex = "10000";
+
+  const card = document.createElement("div");
+  card.style.width = "min(92vw, 460px)";
+  card.style.padding = "1.1rem 1rem";
+  card.style.borderRadius = "14px";
+  card.style.background = "#111827";
+  card.style.color = "#f9fafb";
+  card.style.boxShadow = "0 10px 35px rgba(0,0,0,0.35)";
+
+  const title = document.createElement("h3");
+  title.textContent = unlocked.length === 1 ? "Logro desbloqueado" : "Logros desbloqueados";
+  title.style.margin = "0 0 .65rem";
+  title.style.textAlign = "center";
+
+  const list = document.createElement("div");
+  list.style.display = "grid";
+  list.style.gap = ".55rem";
+  list.style.marginBottom = ".95rem";
+
+  unlocked.forEach((item) => {
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.gap = ".55rem";
+    row.style.alignItems = "flex-start";
+
+    const icon = document.createElement("span");
+    icon.textContent = item.icon;
+    icon.style.fontSize = "1.25rem";
+    icon.style.lineHeight = "1.2";
+
+    const content = document.createElement("div");
+
+    const titleEl = document.createElement("div");
+    titleEl.textContent = String(item.title || "Nuevo logro");
+    titleEl.style.fontWeight = "700";
+    titleEl.style.fontSize = ".95rem";
+
+    const descEl = document.createElement("div");
+    descEl.textContent = String(item.description || "");
+    descEl.style.fontSize = ".86rem";
+    descEl.style.opacity = ".9";
+
+    content.appendChild(titleEl);
+    content.appendChild(descEl);
+    row.appendChild(icon);
+    row.appendChild(content);
+    list.appendChild(row);
+  });
+
+  const acceptBtn = document.createElement("button");
+  acceptBtn.type = "button";
+  acceptBtn.textContent = "Aceptar";
+  acceptBtn.style.display = "block";
+  acceptBtn.style.margin = "0 auto";
+  acceptBtn.style.border = "0";
+  acceptBtn.style.borderRadius = "12px";
+  acceptBtn.style.padding = ".72rem 1.2rem";
+  acceptBtn.style.fontWeight = "800";
+  acceptBtn.style.cursor = "pointer";
+  acceptBtn.style.background = "#6B4EE6";
+  acceptBtn.style.color = "#fff";
+  acceptBtn.addEventListener("click", () => overlay.remove());
+
+  card.appendChild(title);
+  card.appendChild(list);
+  card.appendChild(acceptBtn);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 }
 
 export function createSignBoard(signBoardEl) {
