@@ -1,4 +1,4 @@
-## Cómo correr con Docker
+﻿## Como correr con Docker
 
 ```bash
 docker compose down --remove-orphans
@@ -28,28 +28,37 @@ docker compose down
 ## Estructura actual
 
 ```text
-.
-├─ docker-compose.yml
-├─ Dockerfile
-├─ index.html
-├─ script.js
-├─ styles.css
-└─ README.md
+Frontend/
+|- assets/
+|  |- css/
+|  |  `- styles.css
+|  `- js/
+|     |- app.js
+|     |- config.js
+|     |- modules/
+|     |  |- auth.js
+|     |  |- profile.js
+|     |  `- sudoku/
+|     |     |- game.js
+|     |     |- state.js
+|     |     `- ui.js
+|     `- services/
+|        `- api_client.js
+|- Dockerfile
+|- index.html
+|- nginx.conf
+`- README.md
 ```
 
 ---
 
-## Solución de problemas rápida
+## Configuracion API
 
-- Si no carga, prueba recarga forzada (`Ctrl + F5`).
-- Verifica que el servidor esté levantado en el puerto correcto.
-- Si usas Docker, revisa logs con `docker compose logs -f`.
-- Si `localhost` falla, intenta `http://127.0.0.1:5051`.
-## Configuracion API (Fase 1)
+- URL base por defecto del backend: `/api`
+- Config runtime: `assets/js/config.js`
+- Cliente HTTP: `assets/js/services/api_client.js`
 
-- URL base por defecto del backend: `http://localhost:3000/api`
-- Archivo de configuracion runtime: `config.js`
-- Cliente HTTP reutilizable para la integracion: `api_client.js`
+Si corres el frontend sin Docker/proxy, define `window.CEREBRO_API_BASE_URL` a `http://localhost:3000/api`.
 
 ---
 
@@ -87,3 +96,12 @@ Abrir en navegador:
 - Iniciar sesion (`login`)
 - Recargar pagina y verificar persistencia de sesion
 - Cerrar sesion (`logout`)
+
+---
+
+## Solucion de problemas
+
+- Si no carga, prueba recarga forzada (`Ctrl + F5`).
+- Verifica que el servidor este levantado en el puerto correcto.
+- Si usas Docker, revisa logs con `docker compose logs -f`.
+- Si `localhost` falla, intenta `http://127.0.0.1:5051`.

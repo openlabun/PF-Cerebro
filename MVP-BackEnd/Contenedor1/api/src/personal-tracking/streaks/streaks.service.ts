@@ -17,15 +17,28 @@ export class StreaksService {
     const nuevaRachaMaxima: number =
       nuevaRacha > perfil.rachaMaxima ? nuevaRacha : perfil.rachaMaxima;
 
-    await this.robleService.update(accessToken, 'Perfil', '_id', perfil._id!, {
-      rachaActual: nuevaRacha,
-      rachaMaxima: nuevaRachaMaxima,
-    });
+    const updated = await this.robleService.update<Perfil>(
+      accessToken,
+      'Perfil',
+      'usuarioId',
+      usuarioId,
+      {
+        rachaActual: nuevaRacha,
+        rachaMaxima: nuevaRachaMaxima,
+      },
+    );
+
+    const rachaActualActualizada = Number(updated?.rachaActual);
+    const rachaMaximaActualizada = Number(updated?.rachaMaxima);
 
     return {
       message: 'Racha aumentada correctamente',
-      rachaActual: nuevaRacha,
-      rachaMaxima: nuevaRachaMaxima,
+      rachaActual: Number.isFinite(rachaActualActualizada)
+        ? rachaActualActualizada
+        : nuevaRacha,
+      rachaMaxima: Number.isFinite(rachaMaximaActualizada)
+        ? rachaMaximaActualizada
+        : nuevaRachaMaxima,
     };
   }
 
@@ -33,11 +46,17 @@ export class StreaksService {
   // RESETEAR RACHA
   // ================================
   async resetStreak(usuarioId: string, accessToken: string) {
-    const perfil = await this.getProfile(usuarioId, accessToken);
+    await this.getProfile(usuarioId, accessToken);
 
-    await this.robleService.update(accessToken, 'Perfil', '_id', perfil._id!, {
-      rachaActual: 0,
-    });
+    await this.robleService.update<Perfil>(
+      accessToken,
+      'Perfil',
+      'usuarioId',
+      usuarioId,
+      {
+        rachaActual: 0,
+      },
+    );
 
     return { message: 'Racha reseteada correctamente' };
   }
@@ -55,9 +74,15 @@ export class StreaksService {
       );
     }
 
-    await this.robleService.update(accessToken, 'Perfil', '_id', perfil._id!, {
-      salvadoresRacha: perfil.salvadoresRacha - 1,
-    });
+    await this.robleService.update<Perfil>(
+      accessToken,
+      'Perfil',
+      'usuarioId',
+      usuarioId,
+      {
+        salvadoresRacha: perfil.salvadoresRacha - 1,
+      },
+    );
 
     return { message: 'Salvador utilizado correctamente' };
   }
@@ -72,9 +97,15 @@ export class StreaksService {
   ) {
     const perfil = await this.getProfile(usuarioId, accessToken);
 
-    await this.robleService.update(accessToken, 'Perfil', '_id', perfil._id!, {
-      salvadoresRacha: perfil.salvadoresRacha + cantidad,
-    });
+    await this.robleService.update<Perfil>(
+      accessToken,
+      'Perfil',
+      'usuarioId',
+      usuarioId,
+      {
+        salvadoresRacha: perfil.salvadoresRacha + cantidad,
+      },
+    );
 
     return { message: 'Salvadores aumentados correctamente' };
   }
@@ -89,8 +120,8 @@ export class StreaksService {
       await this.robleService.update(
         accessToken,
         'Perfil',
-        '_id',
-        perfil._id!,
+        'usuarioId',
+        usuarioId,
         { rachaMaxima: perfil.rachaActual },
       );
     }

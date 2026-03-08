@@ -1,11 +1,34 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
+import { TitlesService } from '../tittles/tittles.service';
+import { Title } from '../tittles/interfaces/title.interface';
 
 @Injectable()
 export class ProfilesService {
-  constructor(private readonly robleService: RobleService) {}
+  private readonly logger = new Logger(ProfilesService.name);
+
+  constructor(
+    private readonly robleService: RobleService,
+    private readonly titlesService: TitlesService,
+  ) {}
+
+  private isInvalidUserId(usuarioId: string): boolean {
+    const normalized = String(usuarioId ?? '').trim();
+    return !normalized || normalized === 'undefined' || normalized === 'null';
+  }
+
+  private ensureValidUserId(usuarioId: string, stage: string): void {
+    if (!this.isInvalidUserId(usuarioId)) {
+      return;
+    }
+
+    this.logger.error(
+      `usuarioId invalido en ${stage}: valor=${String(usuarioId)}`,
+    );
+    throw new HttpException('usuarioId invalido', HttpStatus.BAD_REQUEST);
+  }
 
   private normalizarPerfil(perfil: Perfil): Perfil {
     return {
@@ -18,10 +41,29 @@ export class ProfilesService {
     };
   }
 
+  private async hidratarTituloActivo(
+    perfil: Perfil,
+    accessToken: string,
+  ): Promise<Perfil> {
+    const tituloId = perfil.tituloActivo ?? null;
+    if (!tituloId) {
+      return { ...perfil, tituloActivoTexto: null };
+    }
+
+    const title: Title | null = await this.titlesService.getById(
+      accessToken,
+      tituloId,
+    );
+    const texto = (title as { nombre?: string } | null)?.nombre ?? null;
+    return { ...perfil, tituloActivoTexto: texto };
+  }
+
   public async getProfile(
     usuarioId: string,
     accessToken: string,
   ): Promise<Perfil | null> {
+    this.ensureValidUserId(usuarioId, 'getProfile');
+
     try {
       const perfiles: Perfil[] = await this.robleService.read<Perfil>(
         accessToken,
@@ -30,12 +72,18 @@ export class ProfilesService {
       );
 
       if (!perfiles || perfiles.length === 0) {
+        this.logger.warn(`No existe perfil para usuarioId=${usuarioId}`);
         return null;
       }
 
-      const resp: Perfil = this.normalizarPerfil(perfiles[0]);
-      return resp;
-    } catch {
+      const base: Perfil = this.normalizarPerfil(perfiles[0]);
+      return this.hidratarTituloActivo(base, accessToken);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(
+        `Error al consultar perfil usuarioId=${usuarioId}: ${message}`,
+      );
       throw new HttpException(
         'Error al consultar perfil',
         HttpStatus.INTERNAL_SERVER_ERROR,
@@ -48,17 +96,28 @@ export class ProfilesService {
     accessToken: string,
     usuarioId: string,
   ): Promise<Perfil> {
-    const record: Perfil = {
-      usuarioId,
-      nivel: createDto.nivel ?? 1,
-      experiencia: createDto.experiencia ?? 0,
-      rachaActual: createDto.rachaActual ?? 0,
-      rachaMaxima: createDto.rachaMaxima ?? 0,
-      salvadoresRacha: createDto.salvadoresRacha ?? 0,
-      tituloActivo: createDto.tituloActivo ?? null,
-    };
+    this.ensureValidUserId(usuarioId, 'createProfile');
 
     try {
+      const existingProfile = await this.getProfile(usuarioId, accessToken);
+      if (existingProfile) {
+        this.logger.warn(
+          `createProfile llamado con perfil existente. usuarioId=${usuarioId}`,
+        );
+        return existingProfile;
+      }
+
+      const record: Perfil = {
+        usuarioId,
+        nivel: createDto.nivel ?? 1,
+        experiencia: createDto.experiencia ?? 0,
+        rachaActual: createDto.rachaActual ?? 0,
+        rachaMaxima: createDto.rachaMaxima ?? 0,
+        salvadoresRacha: createDto.salvadoresRacha ?? 0,
+        tituloActivo: createDto.tituloActivo ?? null,
+      };
+
+      this.logger.log(`Intentando crear perfil para usuarioId=${usuarioId}`);
       const resp = await this.robleService.insert<Perfil>(
         accessToken,
         'Perfil',
@@ -67,16 +126,26 @@ export class ProfilesService {
 
       if (resp.inserted && resp.inserted.length > 0) {
         const created: Perfil = this.normalizarPerfil(resp.inserted[0]);
-        return created;
+        return this.hidratarTituloActivo(created, accessToken);
       }
 
+      this.logger.error(
+        `Insercion de perfil sin resultados para usuarioId=${usuarioId}. skipped=${JSON.stringify(resp.skipped ?? [])}`,
+      );
       throw new HttpException(
         `No se pudo crear el perfil: ${JSON.stringify(resp.skipped ?? [])}`,
         HttpStatus.BAD_REQUEST,
       );
     } catch (error: unknown) {
-      const msg: string =
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      const msg =
         error instanceof Error ? error.message : 'Error al conectar con ROBLE';
+      this.logger.error(
+        `Fallo createProfile usuarioId=${usuarioId}: ${msg}`,
+      );
       throw new HttpException(msg, HttpStatus.INTERNAL_SERVER_ERROR);
     }
   }
@@ -93,6 +162,8 @@ export class ProfilesService {
     experienciaGanada: number,
     accessToken: string,
   ): Promise<Perfil> {
+    this.ensureValidUserId(usuarioId, 'addExperience');
+
     const perfil: Perfil | null = await this.getProfile(usuarioId, accessToken);
     if (!perfil) {
       throw new HttpException('Perfil no encontrado', HttpStatus.NOT_FOUND);
@@ -119,13 +190,18 @@ export class ProfilesService {
           rachaActual: Number(perfil.rachaActual),
           rachaMaxima: Number(perfil.rachaMaxima),
           salvadoresRacha: Number(perfil.salvadoresRacha),
-          tituloActivoId: perfil.tituloActivo ?? null,
+          tituloActivo: perfil.tituloActivo ?? null,
         },
       );
 
       const resp: Perfil = this.normalizarPerfil(updated);
-      return resp;
-    } catch {
+      return this.hidratarTituloActivo(resp, accessToken);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(
+        `Error al actualizar experiencia usuarioId=${usuarioId}: ${message}`,
+      );
       throw new HttpException(
         'Error al actualizar experiencia en ROBLE',
         HttpStatus.INTERNAL_SERVER_ERROR,

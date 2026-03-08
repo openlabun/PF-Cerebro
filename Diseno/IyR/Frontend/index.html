@@ -3,14 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Sudoku Proposal</title>
+    <title>Cerebro Uninorte</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%235b5eff'/%3E%3Cstop offset='1' stop-color='%237e82ff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23g)'/%3E%3Ctext x='32' y='40' font-family='Inter,Arial' font-size='28' font-weight='800' text-anchor='middle' fill='white'%3EC%3C/text%3E%3C/svg%3E"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="./assets/css/styles.css" />
   </head>
   <body>
     <header class="topbar">
@@ -214,27 +218,45 @@
           <button class="btn light" id="back-home" type="button">Volver al inicio</button>
         </div>
 
-        <div class="board-card" aria-label="Tablero sudoku">
-          <div class="board-header">
+        <div class="board-card sudoku-game-card" aria-label="Tablero sudoku">
+          <div class="sudoku-top-row">
             <div class="difficulty-wrap">
               <label for="difficulty-select">Dificultad:</label>
               <select id="difficulty-select" class="difficulty-select" aria-label="Seleccionar dificultad"></select>
               <span id="difficulty-label" class="difficulty-label">Dificultad: Intermedio</span>
             </div>
-            <span id="timer">00:00</span>
-          </div>
-          <div class="board" id="board"></div>
-          <div class="progress-wrapper" aria-label="Progreso del tablero">
-            <div class="progress-track">
-              <div id="progress-fill" class="progress-fill"></div>
+            <div class="sudoku-top-right">
+              <span id="timer" class="timer-display">00:00</span>
+              <span class="stat-chip" id="errors-count" aria-label="Errores">Errores: 0</span>
+              <span class="stat-chip" id="hints-used" aria-label="Pistas usadas">Pistas: 0</span>
+              <button class="btn ghost btn-pause" id="pause-btn" type="button">Pausar</button>
+              <button class="btn primary btn-new-game" id="new-game-btn" type="button">Nuevo Juego</button>
             </div>
-            <p id="progress-text" class="progress-text">0/0 celdas correctas (0%)</p>
           </div>
-          <p id="status" class="status"></p>
-          <div id="keypad" class="board-actions" aria-label="Teclado numerico"></div>
-          <div class="board-actions controls">
-            <button id="hint" class="chip" type="button">Pista</button>
-            <button id="clear-cell" class="chip" type="button">Borrar</button>
+          <div class="sudoku-main">
+            <div class="sudoku-grid-wrap">
+              <div class="board" id="board"></div>
+            </div>
+            <div class="sudoku-controls">
+              <div id="keypad" class="keypad-nums" aria-label="Teclado numerico"></div>
+              <div class="board-actions controls">
+                <button id="hint" class="btn-control" type="button">Pista</button>
+                <button id="clear-cell" class="btn-control" type="button">Borrar</button>
+              </div>
+              <div class="board-actions controls notes-actions">
+                <button id="toggle-notes" class="btn-control" type="button" aria-pressed="false">Notas: OFF</button>
+                <button id="toggle-highlights" class="btn-control active" type="button" aria-pressed="true">Resaltar: ON</button>
+              </div>
+            </div>
+          </div>
+          <div class="sudoku-bottom">
+            <div class="progress-wrapper" aria-label="Progreso del tablero">
+              <div class="progress-track">
+                <div id="progress-fill" class="progress-fill"></div>
+              </div>
+              <p id="progress-text" class="progress-text">0/0 celdas correctas (0%)</p>
+            </div>
+            <p id="status" class="status"></p>
           </div>
         </div>
       </section>
@@ -358,12 +380,22 @@
       </section>
     </main>
 
-    <footer>
-      <p>© 2026 Cerebro</p>
+    <footer class="app-footer">
+      <div class="app-footer-inner">
+        <span>Cerebro</span>
+        <span class="footer-sep">·</span>
+        <span>Universidad del Norte</span>
+        <span class="footer-sep">·</span>
+        <a
+          href="https://www.openlab.uninorte.edu.co"
+          target="_blank"
+          rel="noopener noreferrer"
+        >Openlab</a>
+      </div>
     </footer>
 
-    <script src="./config.js"></script>
-    <script type="module" src="./script_seeded.js"></script>
+    <script src="./assets/js/config.js"></script>
+    <script type="module" src="./assets/js/app.js"></script>
   </body>
 </html>
 

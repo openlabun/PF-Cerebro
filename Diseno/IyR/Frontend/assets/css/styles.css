@@ -42,6 +42,11 @@ nav, .topbar-actions { display: flex; gap: .6rem; }
 .nav-btn.active { background: var(--primary); color: #fff; }
 
 main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
+.app-footer { max-width: 1160px; margin: 1.25rem auto 0; padding: 1rem; color: var(--muted); }
+.app-footer-inner { border-top: 1px solid var(--border); padding-top: 1rem; display: flex; gap: .5rem; align-items: center; justify-content: center; flex-wrap: wrap; }
+.app-footer a { color: var(--primary-dark); font-weight: 800; text-decoration: none; }
+.app-footer a:hover { text-decoration: underline; }
+.footer-sep { opacity: .6; }
 .welcome-banner { margin-top: 1rem; margin-bottom: 1.25rem; }
 .games-list { display: grid; gap: 1.5rem; }
 .hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 2rem; align-items: center; padding: 1.2rem 0; }
@@ -61,6 +66,278 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 .difficulty-select { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: .35rem .5rem; font-weight: 600; }
 .difficulty-label { font-size: .82rem; color: var(--muted); }
 
+/* ===== Sudoku game card (respeta tema claro/oscuro) ===== */
+.sudoku-game-card {
+  --sudoku-primary: #6B4EE6;
+  --sudoku-primary-dark: #5a3fd4;
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.sudoku-game-card .timer-display {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.sudoku-game-card .btn-new-game {
+  background: var(--sudoku-primary);
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sudoku-game-card .btn-new-game:hover {
+  filter: brightness(1.08);
+}
+
+.sudoku-game-card .difficulty-wrap label {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.sudoku-game-card .difficulty-select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 0.4rem 0.6rem;
+  min-width: 160px;
+}
+
+.sudoku-game-card .difficulty-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.sudoku-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.sudoku-top-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stat-chip {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 88%, var(--primary) 12%);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.sudoku-game-card .btn-pause {
+  border-radius: 14px;
+  padding: 0.6rem 1.1rem;
+  font-weight: 700;
+}
+
+.sudoku-game-card.paused #board {
+  filter: blur(18px) brightness(0.8);
+  transform: scale(1.01);
+}
+
+.sudoku-game-card.paused .cell {
+  color: transparent !important;
+  text-shadow: 0 0 16px rgba(0, 0, 0, 0.65);
+}
+
+.sudoku-game-card.paused #board,
+.sudoku-game-card.paused #keypad,
+.sudoku-game-card.paused #hint,
+.sudoku-game-card.paused #clear-cell,
+.sudoku-game-card.paused #toggle-notes,
+.sudoku-game-card.paused #toggle-highlights,
+.sudoku-game-card.paused #difficulty-select,
+.sudoku-game-card.paused #new-game-btn {
+  pointer-events: none;
+}
+
+.sudoku-game-card.paused #keypad,
+.sudoku-game-card.paused #hint,
+.sudoku-game-card.paused #clear-cell,
+.sudoku-game-card.paused #toggle-notes,
+.sudoku-game-card.paused #toggle-highlights,
+.sudoku-game-card.paused #difficulty-select,
+.sudoku-game-card.paused #new-game-btn {
+  opacity: 0.55;
+}
+
+.notes-actions {
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 0.2rem;
+}
+
+.sudoku-game-card #toggle-notes.btn-control.active {
+  background: color-mix(in srgb, var(--sudoku-primary) 88%, #000 12%);
+  border-color: color-mix(in srgb, var(--sudoku-primary) 65%, var(--border));
+  color: #fff;
+}
+
+.sudoku-game-card #toggle-highlights.btn-control.active {
+  background: color-mix(in srgb, var(--primary) 88%, #000 12%);
+  border-color: color-mix(in srgb, var(--primary) 65%, var(--border));
+  color: #fff;
+}
+
+/* ===== Selection highlights ===== */
+.cell.highlight-peer {
+  background: color-mix(in srgb, var(--primary) 18%, var(--cell-bg));
+}
+
+.cell.highlight-same {
+  background: color-mix(in srgb, var(--primary) 32%, var(--cell-bg));
+  outline: 2px solid color-mix(in srgb, var(--primary) 78%, transparent);
+  outline-offset: -2px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 70%, transparent) inset,
+    0 0 0 2px color-mix(in srgb, var(--primary) 35%, transparent);
+}
+
+.cell.prefilled.highlight-peer,
+.cell.prefilled.highlight-same {
+  background: color-mix(in srgb, var(--primary) 22%, var(--cell-prefilled));
+}
+
+/* Más contraste en modo oscuro */
+:root[data-theme="dark"] .cell.highlight-peer {
+  background: color-mix(in srgb, var(--primary) 26%, var(--cell-bg));
+}
+
+:root[data-theme="dark"] .cell.highlight-same {
+  background: color-mix(in srgb, var(--primary) 44%, var(--cell-bg));
+  outline: 2px solid color-mix(in srgb, var(--primary) 92%, transparent);
+  outline-offset: -2px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 85%, transparent) inset,
+    0 0 0 2px color-mix(in srgb, var(--primary) 55%, transparent);
+}
+
+:root[data-theme="dark"] .cell.prefilled.highlight-peer,
+:root[data-theme="dark"] .cell.prefilled.highlight-same {
+  background: color-mix(in srgb, var(--primary) 32%, var(--cell-prefilled));
+}
+
+.sudoku-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  gap: 2rem;
+}
+
+.sudoku-grid-wrap {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+}
+
+.sudoku-game-card .board {
+  margin: 0;
+}
+
+.sudoku-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  justify-content: center;
+  min-width: 200px;
+}
+
+.sudoku-game-card .keypad-nums {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+  max-width: 200px;
+}
+
+.keypad-nums .num-unavailable {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sudoku-game-card .keypad-nums .chip.number,
+.sudoku-game-card .keypad-nums button {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 1.35rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="dark"] .sudoku-game-card .keypad-nums .chip.number,
+:root[data-theme="dark"] .sudoku-game-card .keypad-nums button {
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+
+.sudoku-game-card .board-actions.controls {
+  display: flex;
+  gap: 0.65rem;
+  margin-top: 0;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.sudoku-game-card .btn-control {
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 85%, var(--text) 15%);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 0.65rem 1.25rem;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.sudoku-game-card .btn-control:hover {
+  filter: brightness(1.1);
+}
+
+.sudoku-bottom .progress-wrapper {
+  margin-top: 0;
+}
+
+.sudoku-game-card .progress-track {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  border-color: var(--border);
+}
+
+.sudoku-game-card .progress-fill {
+  background: linear-gradient(90deg, var(--sudoku-primary), var(--sudoku-primary-dark));
+}
+
+.sudoku-game-card .progress-text,
+.sudoku-game-card .status {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.sudoku-game-card .status.ok {
+  color: #0e8b44;
+}
+
+/* ===== Board global (resto de la app) ===== */
 .board { display: grid; grid-template-columns: repeat(9,1fr); width: min(100%, 540px); aspect-ratio: 1 / 1; margin: 0 auto; border: 3px solid var(--subgrid-line); border-radius: 10px; overflow: hidden; }
 .cell,.sign-cell { aspect-ratio: 1 / 1; width: 100%; border: 1px solid #d6daf8; display: grid; place-items: center; font-weight: 700; color: var(--text); background: var(--cell-bg); }
 .cell { cursor: pointer; 
@@ -118,6 +395,7 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 .badges-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 52px)); justify-content: center; gap: .55rem; }
 .badge-help { margin: 0 0 .65rem; color: var(--muted); font-size: .85rem; text-align: center; }
 .badge-slot { display: grid; place-items: center; height: 52px; width: 52px; margin: 0 auto; border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--primary) 12%, var(--surface)); font-size: 1.25rem; }
+.badge-slot.badge-selected { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 65%, transparent) inset; }
 
 .picker-modal { position: fixed; inset: 0; display: grid; place-items: center; z-index: 24; }
 .picker-backdrop { position: absolute; inset: 0; background: rgba(10, 18, 56, 0.45); backdrop-filter: blur(2px); }
@@ -150,12 +428,21 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 .picker-x { position: absolute; top: .6rem; right: .6rem; border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 10px; width: 34px; height: 34px; }
 .picker-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .6rem; }
 .picker-option { border: 1px solid var(--border); background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--text); border-radius: 12px; min-height: 46px; font-size: 1.25rem; font-weight: 800; }
+.picker-option.locked { opacity: .55; filter: grayscale(.35); cursor: not-allowed; }
+.picker-option.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent) inset; }
 .frame-option { min-height: 56px; }
 .frame-royal { background: linear-gradient(145deg, #ffcc66, #7f8de6 48%, #38d1ff); }
 .frame-arcane { background: linear-gradient(145deg, #9b6bff, #3ed4ff); }
 .frame-neon { background: linear-gradient(145deg, #00d4ff, #00ffa3); }
 .frame-ember { background: linear-gradient(145deg, #ff9966, #ff5e62); }
 .frame-ice { background: linear-gradient(145deg, #d4fcff, #8ec5fc); }
+
+/* Nuevos marcos de liga */
+.frame-bronze {background: linear-gradient(145deg, #a67c52, #c0a084);}
+.frame-silver {background: linear-gradient(145deg, #c0c0c0, #a8a8a8);}
+.frame-gold {background: linear-gradient(145deg, #ffd700, #e6b800);}
+.frame-platinum {background: linear-gradient(145deg, #e5e4e2, #c9c9c9);}
+
 .frame-inferno { background: radial-gradient(circle at 30% 25%, #ffe08a 0%, #ff9a3d 25%, #ff5e2f 55%, #5a1a00 100%); }
 .frame-option.locked { opacity: .55; filter: grayscale(.3); cursor: not-allowed; }
 .frame-option.active { box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 70%, transparent) inset; }
@@ -190,6 +477,8 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
   .badges-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .picker-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .profile-grid { grid-template-columns: 1fr; }
+  .sudoku-main { flex-direction: column; align-items: center; }
+  .sudoku-top-row { flex-direction: column; }
 }
 /* ===== Notas Sudoku ===== */
 .cell.has-notes {

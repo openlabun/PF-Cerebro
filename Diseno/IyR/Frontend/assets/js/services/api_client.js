@@ -201,6 +201,14 @@ const apiClient = {
       token: accessToken,
     });
   },
+  
+  addExperience(accessToken, experiencia) {
+    return request("profiles/add-experience", {
+      method: "POST",
+      token: accessToken,
+      body: { experiencia },
+    });
+  },
 
   getTorneos(accessToken) {
     return request("torneos", {
@@ -208,6 +216,69 @@ const apiClient = {
       token: accessToken,
     });
   },
+
+  getMyGameStats(accessToken, juegoId) {
+    return request("game-stats/me", {
+      method: "POST",
+      token: accessToken,
+      body: { juegoId },
+    });
+  },
+
+  getAchievements(accessToken) {
+    return request("achievements", {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
+  getMyAchievements(accessToken) {
+    return request("achievements/me", {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
+  unlockAchievement(accessToken, logroId) {
+    return request("achievements/unlock", {
+      method: "POST",
+      token: accessToken,
+      body: { logroId },
+    });
+  },
+
+  createGameSession(accessToken, payload) {
+    return request("game-sessions", {
+      method: "POST",
+      token: accessToken,
+      body: payload,
+    });
+  },
+
+  updateMyGameStats(accessToken, payload) {
+    return request("game-stats/me", {
+      method: "PATCH",
+      token: accessToken,
+      body: payload,
+    });
+  },
+
+  increaseStreak(accessToken) {
+    return request("streaks/increase", {
+      method: "POST",
+      token: accessToken,
+      body: {},
+    });
+  },
+
+  resetStreak(accessToken) {
+    return request("streaks/reset", {
+      method: "POST",
+      token: accessToken,
+      body: {},
+    });
+  },
+
 };
 
 export { apiClient, authStorage, request };
