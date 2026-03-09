@@ -3,6 +3,11 @@ import { RobleService } from '../../roble/roble.service';
 import type { GameStat } from './interfaces/game-stat.interface';
 import { UpdateGameStatsDto } from './dto/update-game-stats.dto';
 
+type JuegoLookup = {
+  _id: string;
+  nombre?: string;
+};
+
 @Injectable()
 export class GameStatsService {
   constructor(private readonly robleService: RobleService) {}
@@ -38,6 +43,57 @@ export class GameStatsService {
 
       throw new HttpException(
         'Error al consultar estadisticas',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  async getTotalPlayedByGame(
+    juegoRef: string,
+    accessToken: string,
+  ): Promise<number> {
+    try {
+      const normalizedRef = String(juegoRef || '').trim().toLowerCase();
+      const juegos = await this.robleService.read<JuegoLookup>(
+        accessToken,
+        'Juego',
+      );
+
+      const matchingIds = new Set<string>();
+      for (const juego of juegos || []) {
+        const nombre = String(juego?.nombre || '').trim().toLowerCase();
+        const id = String(juego?._id || '').trim();
+        if (!id) continue;
+        if (
+          id === juegoRef ||
+          nombre === normalizedRef ||
+          nombre.includes(normalizedRef)
+        ) {
+          matchingIds.add(id);
+        }
+      }
+
+      if (!matchingIds.size && juegoRef) {
+        matchingIds.add(String(juegoRef).trim());
+      }
+
+      const stats = await this.robleService.read<
+        Pick<GameStat, 'juegoId' | 'partidasJugadas'>
+      >(accessToken, 'EstadisticasJuegoUsuario');
+
+      return (stats || [])
+        .filter((row) => matchingIds.has(String(row.juegoId || '').trim()))
+        .reduce(
+        (acc, row) => acc + Number(row.partidasJugadas || 0),
+        0,
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      throw new HttpException(
+        'Error al calcular total de partidas jugadas',
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

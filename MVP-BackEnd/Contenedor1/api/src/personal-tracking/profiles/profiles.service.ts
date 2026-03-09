@@ -41,6 +41,40 @@ export class ProfilesService {
     };
   }
 
+  private normalizarNombre(nombre?: string | null): string {
+    const normalized = String(nombre ?? '').trim();
+    if (!normalized || normalized === 'undefined' || normalized === 'null') {
+      return 'Usuario';
+    }
+    return normalized;
+  }
+
+  private normalizarCorreo(correo?: string | null): string {
+    const normalized = String(correo ?? '').trim().toLowerCase();
+    if (
+      !normalized ||
+      normalized === 'undefined' ||
+      normalized === 'null' ||
+      !normalized.includes('@')
+    ) {
+      return '';
+    }
+    return normalized;
+  }
+
+  private hasInvalidContactColumns(
+    skipped?: Array<{ index: number; reason: string }>,
+  ): boolean {
+    if (!skipped || skipped.length === 0) return false;
+    return skipped.some((item) => {
+      const reason = String(item?.reason ?? '').toLowerCase();
+      return (
+        reason.includes('columnas inválidas') ||
+        reason.includes('columnas invalidas')
+      ) && reason.includes('correo');
+    });
+  }
+
   private async hidratarTituloActivo(
     perfil: Perfil,
     accessToken: string,
@@ -91,6 +125,24 @@ export class ProfilesService {
     }
   }
 
+  public async countProfiles(accessToken: string): Promise<number> {
+    try {
+      const perfiles: Perfil[] = await this.robleService.read<Perfil>(
+        accessToken,
+        'Perfil',
+      );
+      return Array.isArray(perfiles) ? perfiles.length : 0;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(`Error al contar perfiles: ${message}`);
+      throw new HttpException(
+        'Error al contar perfiles',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
   public async createProfile(
     createDto: CreateProfileDto,
     accessToken: string,
@@ -109,6 +161,8 @@ export class ProfilesService {
 
       const record: Perfil = {
         usuarioId,
+        nombre: this.normalizarNombre(createDto.nombre),
+        correo: this.normalizarCorreo(createDto.correo),
         nivel: createDto.nivel ?? 1,
         experiencia: createDto.experiencia ?? 0,
         rachaActual: createDto.rachaActual ?? 0,
@@ -118,11 +172,28 @@ export class ProfilesService {
       };
 
       this.logger.log(`Intentando crear perfil para usuarioId=${usuarioId}`);
-      const resp = await this.robleService.insert<Perfil>(
+      let resp = await this.robleService.insert<Perfil>(
         accessToken,
         'Perfil',
         [record],
       );
+
+      if (
+        (!resp.inserted || resp.inserted.length === 0) &&
+        this.hasInvalidContactColumns(resp.skipped) &&
+        record.correo
+      ) {
+        this.logger.warn(
+          `Perfil sin columna correo en ROBLE. Se reintenta insercion sin ese campo. usuarioId=${usuarioId}`,
+        );
+        const fallbackRecord: Perfil = { ...record };
+        delete fallbackRecord.correo;
+        resp = await this.robleService.insert<Perfil>(
+          accessToken,
+          'Perfil',
+          [fallbackRecord],
+        );
+      }
 
       if (resp.inserted && resp.inserted.length > 0) {
         const created: Perfil = this.normalizarPerfil(resp.inserted[0]);
@@ -209,3 +280,4 @@ export class ProfilesService {
     }
   }
 }
+

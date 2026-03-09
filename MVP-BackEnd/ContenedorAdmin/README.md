@@ -51,7 +51,9 @@ http://localhost:3001/api/admin/docs
 
 - `PORT` (default: `3001`)
 - `CONTENEDOR1_BASE_URL` (default: `http://cerebro-api:3000/api`)
-- `ADMIN_API_TOKEN` (opcional)
+- `CONTENEDOR2_BASE_URL` (default: `http://contenedor2:3001`)
+- `ADMIN_API_TOKEN` (Bearer token inicial para consumir endpoints protegidos en contenedor1/2)
+- `ADMIN_REFRESH_TOKEN` (recomendado: refresca automaticamente el access token via `/api/auth/refresh`)
 
 ## Ejecución local
 

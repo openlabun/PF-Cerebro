@@ -11,7 +11,7 @@ import {
 import {
   createSudokuState,
   difficultyLevels,
-  pickSeedAndHuecosByLabel,
+  pickLocalSeedAndHuecosByLabel,
   GAME_ID_SUDOKU,
 } from "./state.js";
 import {
@@ -265,6 +265,9 @@ export function createSudokuModule({
           puntaje: score,
           resultado: "singlePlayer",
           cambioElo: score > 700 ? 15 : score > 400 ? 10 : 5,
+          tiempo: Number(state.seconds || 0),
+          seedId: state.seedRecordId || undefined,
+          seed: String(state.seedActual),
         });
         await apiClient.addExperience(accessToken, Math.floor(score / 4));
       }
@@ -375,7 +378,7 @@ export function createSudokuModule({
     );
   }
 
-  function buildSudokuBoard(seed, huecos) {
+  function buildSudokuBoard(seed, huecos, seedRecordId = null) {
     state.sudokuPaused = false;
     hideSudokuPausePopup();
     setSudokuPausedUi(pauseBtn, false);
@@ -385,7 +388,11 @@ export function createSudokuModule({
     state.hintsUsed = 0;
     syncModeButtons();
 
-    state.seedActual = seed;
+    const numericSeed = Number(seed);
+    state.seedActual = Number.isFinite(numericSeed)
+      ? numericSeed
+      : Math.floor(Math.random() * 1000000);
+    state.seedRecordId = seedRecordId ? String(seedRecordId) : null;
     state.huecosActual = Number.isInteger(huecos) ? huecos : 40;
     state.solucion = generarSolucion(state.seedActual);
     state.puzzleInicial = crearPuzzle(state.solucion, state.huecosActual, state.seedActual);
@@ -400,12 +407,30 @@ export function createSudokuModule({
     startTimer(true);
   }
 
-  function loadDifficulty(levelKey) {
+  async function loadDifficulty(levelKey) {
     const found = difficultyLevels.find((d) => d.key === levelKey) || difficultyLevels[2];
     state.currentDifficulty = found;
     if (difficultyLabel) difficultyLabel.textContent = `Dificultad: ${found.label}`;
-    const { seed, huecos } = pickSeedAndHuecosByLabel(found.label);
-    buildSudokuBoard(seed, huecos);
+
+    const accessToken = getAccessToken?.() || authStorage.getAccessToken();
+    if (!accessToken) {
+      const localSeed = pickLocalSeedAndHuecosByLabel(found.label);
+      buildSudokuBoard(localSeed.seed, localSeed.huecos, null);
+      return;
+    }
+
+    try {
+      const seedPayload = await apiClient.getSudokuSeed(accessToken, found.label);
+      const remoteSeed = Number(seedPayload.seed);
+      if (!Number.isFinite(remoteSeed)) {
+        throw new Error("La seed remota no es numerica");
+      }
+      buildSudokuBoard(remoteSeed, Number(seedPayload.huecos), seedPayload.seedId || null);
+    } catch (error) {
+      console.warn("No se pudo cargar seed desde Roble; se usara fallback local.", error);
+      const localSeed = pickLocalSeedAndHuecosByLabel(found.label);
+      buildSudokuBoard(localSeed.seed, localSeed.huecos, null);
+    }
   }
 
   function bindGuideControls() {
@@ -485,11 +510,11 @@ export function createSudokuModule({
     });
 
     difficultySelect?.addEventListener("change", (event) => {
-      loadDifficulty(event.target.value);
+      void loadDifficulty(event.target.value);
     });
 
     newGameBtn?.addEventListener("click", () => {
-      loadDifficulty(state.currentDifficulty.key);
+      void loadDifficulty(state.currentDifficulty.key);
     });
 
     pauseBtn?.addEventListener("click", () => {
@@ -523,7 +548,7 @@ export function createSudokuModule({
     bindGuideControls();
     bindSudokuControls();
     syncModeButtons();
-    loadDifficulty(state.currentDifficulty.key);
+    void loadDifficulty(state.currentDifficulty.key);
   }
 
   return {

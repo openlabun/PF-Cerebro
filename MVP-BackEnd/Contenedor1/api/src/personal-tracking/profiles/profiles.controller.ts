@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpException,
   HttpStatus,
   Logger,
@@ -75,6 +76,48 @@ export class ProfilesController {
     );
   }
 
+  private resolveNombre(req: RobleAuthGuard.RobleRequest): string {
+    const payload = (req?.robleUser ?? {}) as unknown as Record<string, unknown>;
+    const fromPayload = [payload.name, payload.nombre];
+
+    for (const candidate of fromPayload) {
+      if (typeof candidate !== 'string') {
+        continue;
+      }
+
+      const normalized = candidate.trim();
+      if (
+        normalized &&
+        normalized !== 'undefined' &&
+        normalized !== 'null'
+      ) {
+        return normalized;
+      }
+    }
+
+    if (typeof payload.email === 'string') {
+      const email = payload.email.trim();
+      if (email) {
+        return email.split('@')[0] || email;
+      }
+    }
+
+    return 'Usuario';
+  }
+
+  private resolveCorreo(req: RobleAuthGuard.RobleRequest): string {
+    const payload = (req?.robleUser ?? {}) as unknown as Record<string, unknown>;
+    if (typeof payload.email !== 'string') {
+      return '';
+    }
+
+    const email = payload.email.trim();
+    if (!email || email === 'undefined' || email === 'null') {
+      return '';
+    }
+    return email;
+  }
+
   @Post()
   @ApiOperation({
     summary: 'Crear perfil del usuario autenticado (si no existe)',
@@ -85,11 +128,13 @@ export class ProfilesController {
     @Req() req: RobleAuthGuard.RobleRequest,
   ): Promise<Perfil> {
     const usuarioId: string = this.resolveUsuarioId(req);
+    const nombre: string = this.resolveNombre(req);
+    const correo: string = this.resolveCorreo(req);
     const accessToken: string = req.accessToken;
     this.logger.log(`createProfile iniciado para usuarioId=${usuarioId}`);
 
     const resp: Perfil = await this.profilesService.createProfile(
-      dto,
+      { ...dto, nombre: dto.nombre ?? nombre, correo: dto.correo ?? correo },
       accessToken,
       usuarioId,
     );
@@ -103,9 +148,16 @@ export class ProfilesController {
     @Req() req: RobleAuthGuard.RobleRequest,
   ): Promise<Perfil | null> {
     const usuarioId: string = this.resolveUsuarioId(req);
+    const nombre: string = this.resolveNombre(req);
+    const correo: string = this.resolveCorreo(req);
     const accessToken: string = req.accessToken;
     this.logger.log(`profiles/me iniciado para usuarioId=${usuarioId}`);
-    await this.bootstrapService.ensureInitialized(accessToken, usuarioId);
+    await this.bootstrapService.ensureInitialized(
+      accessToken,
+      usuarioId,
+      nombre,
+      correo,
+    );
 
     const resp: Perfil | null = await this.profilesService.getProfile(
       usuarioId,
@@ -124,14 +176,33 @@ export class ProfilesController {
     @Req() req: RobleAuthGuard.RobleRequest,
   ): Promise<Perfil> {
     const usuarioId: string = this.resolveUsuarioId(req);
+    const nombre: string = this.resolveNombre(req);
+    const correo: string = this.resolveCorreo(req);
     const accessToken: string = req.accessToken;
     this.logger.log(`add-experience iniciado para usuarioId=${usuarioId}`);
-    await this.bootstrapService.ensureInitialized(accessToken, usuarioId);
+    await this.bootstrapService.ensureInitialized(
+      accessToken,
+      usuarioId,
+      nombre,
+      correo,
+    );
     const resp: Perfil = await this.profilesService.addExperience(
       usuarioId,
       body.experiencia,
       accessToken,
     );
     return resp;
+  }
+
+  @Get('count')
+  @ApiOperation({ summary: 'Contar total de perfiles creados' })
+  @ApiResponse({ status: 200, description: 'Conteo de perfiles retornado' })
+  public async count(
+    @Req() req: RobleAuthGuard.RobleRequest,
+  ): Promise<{ totalProfiles: number }> {
+    const totalProfiles = await this.profilesService.countProfiles(
+      req.accessToken,
+    );
+    return { totalProfiles };
   }
 }

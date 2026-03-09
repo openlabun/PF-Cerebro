@@ -46,6 +46,23 @@ export class TorneosService {
 
   constructor(private readonly roble: RobleService) {}
 
+  private isAdminRole(userRole?: string): boolean {
+    return String(userRole ?? '').trim().toLowerCase() === 'admin';
+  }
+
+  private canManageTournament(
+    torneo: TorneoRecord,
+    usuarioId: string,
+    userRole?: string,
+  ): boolean {
+    return torneo.creadorId === usuarioId || this.isAdminRole(userRole);
+  }
+
+  private toUpperSafe(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value.trim().toUpperCase();
+  }
+
   private toEstadoTorneo(value: string): EstadoTorneo | null {
     // Si el string coincide con algún valor del enum, lo devolvemos como enum
     if ((Object.values(EstadoTorneo) as string[]).includes(value)) {
@@ -120,6 +137,7 @@ export class TorneosService {
     accessToken: string,
     torneoId: string,
     usuarioId: string,
+    userRole: string,
     nuevoEstado: EstadoTorneo,
   ): Promise<TorneoRecord> {
     const torneoBase = await this.obtenerTorneoPorId(accessToken, torneoId);
@@ -127,9 +145,11 @@ export class TorneosService {
 
     const torneo = await this.syncEstadoPorFecha(accessToken, torneoBase);
 
-    // Solo el creador puede cambiar el estado del torneo
-    if (torneo.creadorId !== usuarioId) {
-      throw new Error('Solo el creador puede cambiar el estado del torneo.');
+    // El creador o un admin pueden cambiar el estado del torneo
+    if (!this.canManageTournament(torneo, usuarioId, userRole)) {
+      throw new Error(
+        'Solo el creador o un admin pueden cambiar el estado del torneo.',
+      );
     }
 
     // No permitimos cambios de estado si el torneo ya está FINALIZADO o CANCELADO
@@ -166,9 +186,10 @@ export class TorneosService {
       [EstadoTorneo.CANCELADO]: [],
     };
 
+    const estadoDestino = this.toUpperSafe(nuevoEstado) as EstadoTorneo;
     const permitidos = allowed[estadoActual] ?? [];
-    if (!permitidos.includes(nuevoEstado)) {
-      throw new Error(`Transición inválida: ${estadoActual} -> ${nuevoEstado}`);
+    if (!permitidos.includes(estadoDestino)) {
+      throw new Error(`Transición inválida: ${estadoActual} -> ${estadoDestino}`);
     }
 
     // Guardamos
@@ -180,7 +201,7 @@ export class TorneosService {
       this.TABLE_TORNEOS,
       '_id',
       torneo._id,
-      { estado: nuevoEstado },
+      { estado: estadoDestino },
     );
     console.log('UPDATE ROBLE RESP:', actualizado);
     return actualizado;
@@ -190,6 +211,7 @@ export class TorneosService {
     accessToken: string,
     torneoId: string,
     usuarioId: string,
+    userRole: string,
     dto: UpdateTorneoDto,
   ): Promise<TorneoRecord> {
     const torneoBase = await this.obtenerTorneoPorId(accessToken, torneoId);
@@ -197,24 +219,21 @@ export class TorneosService {
 
     const torneo = await this.syncEstadoPorFecha(accessToken, torneoBase);
 
-    // Solo el creador puede editar el torneo
-    if (torneo.creadorId !== usuarioId) {
-      throw new Error('Solo el creador puede editar el torneo.');
+    // El creador o un admin pueden editar el torneo
+    if (!this.canManageTournament(torneo, usuarioId, userRole)) {
+      throw new Error('Solo el creador o un admin pueden editar el torneo.');
     }
 
     const estadoActual = this.toEstadoTorneo(torneo.estado);
     if (!estadoActual) throw new Error('Estado actual inválido en torneo.');
 
     // No se puede editar si el torneo ya está FINALIZADO o CANCELADO
-    if (
-      estadoActual === EstadoTorneo.FINALIZADO ||
-      estadoActual === EstadoTorneo.CANCELADO
-    ) {
+    if ((estadoActual === EstadoTorneo.FINALIZADO || estadoActual === EstadoTorneo.CANCELADO) && !this.isAdminRole(userRole)) {
       throw new Error('No se puede editar un torneo FINALIZADO o CANCELADO.');
     }
 
     // Se bloquean cambios de fechas y tipo si el torneo ya está ACTIVO
-    if (estadoActual === EstadoTorneo.ACTIVO) {
+    if (estadoActual === EstadoTorneo.ACTIVO && !this.isAdminRole(userRole)) {
       throw new Error('No se puede editar un torneo ACTIVO (MVP).');
     }
 
@@ -223,12 +242,18 @@ export class TorneosService {
 
     if (dto.nombre !== undefined) updates.nombre = dto.nombre;
     if (dto.descripcion !== undefined) updates.descripcion = dto.descripcion;
-    if (dto.tipo !== undefined) updates.tipo = dto.tipo;
+    if (dto.tipo !== undefined) {
+      const tipo = this.toUpperSafe(dto.tipo);
+      if (tipo) updates.tipo = tipo;
+    }
 
     if (dto.fechaInicio !== undefined) updates.fechaInicio = dto.fechaInicio;
     if (dto.fechaFin !== undefined) updates.fechaFin = dto.fechaFin;
 
-    if (dto.recurrencia !== undefined) updates.recurrencia = dto.recurrencia;
+    if (dto.recurrencia !== undefined) {
+      const recurrencia = this.toUpperSafe(dto.recurrencia);
+      if (recurrencia) updates.recurrencia = recurrencia;
+    }
 
     if (dto.configuracion !== undefined)
       updates.configuracion = dto.configuracion;
@@ -275,15 +300,18 @@ export class TorneosService {
     accessToken: string,
     torneoId: string,
     usuarioId: string,
+    userRole: string,
   ): Promise<TorneoRecord> {
     const torneoBase = await this.obtenerTorneoPorId(accessToken, torneoId);
     if (!torneoBase) throw new Error('Torneo no existe');
 
     const torneo = await this.syncEstadoPorFecha(accessToken, torneoBase);
 
-    // Solo el creador puede cancelar el torneo
-    if (torneo.creadorId !== usuarioId) {
-      throw new Error('Solo el creador puede cancelar el torneo.');
+    // El creador o un admin pueden cancelar el torneo
+    if (!this.canManageTournament(torneo, usuarioId, userRole)) {
+      throw new Error(
+        'Solo el creador o un admin pueden cancelar el torneo.',
+      );
     }
 
     const estadoActual = this.toEstadoTorneo(torneo.estado);
@@ -348,10 +376,10 @@ export class TorneosService {
       codigoAcceso: dto.codigoAcceso ?? null,
       esPublico: dto.esPublico,
       estado: EstadoTorneo.BORRADOR,
-      tipo: dto.tipo,
+      tipo: this.toUpperSafe(dto.tipo),
       fechaInicio: dto.fechaInicio,
       fechaFin: dto.fechaFin,
-      recurrencia: dto.recurrencia ?? 'NINGUNA',
+      recurrencia: this.toUpperSafe(dto.recurrencia ?? 'NINGUNA'),
       configuracion: dto.configuracion ?? {},
       fechaCreacion: new Date().toISOString(),
     };
@@ -603,3 +631,5 @@ export class TorneosService {
     );
   }
 }
+
+

@@ -20,6 +20,8 @@ export class PersonalTrackingBootstrapService {
   public async ensureInitialized(
     accessToken: string,
     userId: string,
+    nombre?: string,
+    correo?: string,
   ): Promise<void> {
     if (this.isInvalidUserId(userId)) {
       this.logger.error(
@@ -59,6 +61,8 @@ export class PersonalTrackingBootstrapService {
         [
           {
             usuarioId: userId,
+            nombre: String(nombre ?? '').trim() || 'Usuario',
+            correo: String(correo ?? '').trim().toLowerCase(),
             nivel: 1,
             experiencia: 0,
             rachaActual: 0,
@@ -117,3 +121,4 @@ export class PersonalTrackingBootstrapService {
     }
   }
 }
+

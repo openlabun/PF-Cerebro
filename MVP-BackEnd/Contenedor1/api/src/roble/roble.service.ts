@@ -82,6 +82,63 @@ export class RobleService {
     }
   }
 
+  async listAuthUsers(accessToken: string): Promise<unknown> {
+    const configuredPaths =
+      this.config.get<string>('ROBLE_AUTH_USERS_PATHS') ||
+      'users,users/list,admin/users,all-users,accounts';
+    const paths = configuredPaths
+      .split(',')
+      .map((p) => p.trim().replace(/^\/+/, ''))
+      .filter(Boolean);
+
+    let lastError: unknown = null;
+    for (const path of paths) {
+      try {
+        const resolvedPath = path.includes('{dbName}')
+          ? path.replaceAll('{dbName}', this.dbName)
+          : path;
+        const url = resolvedPath.startsWith('http://') ||
+          resolvedPath.startsWith('https://')
+          ? resolvedPath
+          : `${this.authBase}/${this.dbName}/${resolvedPath}`;
+        const response = await firstValueFrom(
+          this.http.get<unknown>(url, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          }),
+        );
+        return response.data;
+      } catch (error) {
+        lastError = error;
+        if (isAxiosError(error) && error.response?.status === 404) {
+          continue;
+        }
+        this.throwRobleRequestError(
+          error,
+          'Error consultando usuarios en AUTH ROBLE',
+        );
+      }
+    }
+
+    if (lastError) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.NOT_FOUND,
+          message:
+            'No se encontro endpoint de listado de usuarios en ROBLE. Configura ROBLE_AUTH_USERS_PATHS.',
+        },
+        HttpStatus.NOT_FOUND,
+      );
+    }
+
+    throw new HttpException(
+      {
+        statusCode: HttpStatus.NOT_FOUND,
+        message: 'No hay rutas configuradas para listado de usuarios en ROBLE.',
+      },
+      HttpStatus.NOT_FOUND,
+    );
+  }
+
   async insert<T extends object>(
     accessToken: string,
     tableName: string,

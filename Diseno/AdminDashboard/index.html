@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CEREBRO Admin Dashboard</title>
+    <style>
+      :root {
+        --bg: #f6f7ff;
+        --surface: #ffffff;
+        --primary: #5b5eff;
+        --primary-dark: #4348db;
+        --text: #1e2450;
+        --muted: #6b7297;
+        --border: #e5e8ff;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Inter", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top right, #eceefe, var(--bg) 40%);
+        color: var(--text);
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 20px;
+      }
+      .panel {
+        width: min(760px, 100%);
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 28px;
+        box-shadow: 0 20px 45px rgba(57, 68, 142, 0.15);
+      }
+      h1 { margin: 0 0 8px; }
+      p { margin: 0 0 18px; color: var(--muted); }
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .btn {
+        text-decoration: none;
+        border-radius: 12px;
+        padding: 10px 14px;
+        font-weight: 700;
+        border: 1px solid var(--border);
+      }
+      .btn.primary {
+        background: var(--primary);
+        border-color: var(--primary);
+        color: #fff;
+      }
+      .btn.secondary {
+        color: var(--primary-dark);
+        background: color-mix(in srgb, var(--primary) 12%, transparent);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="panel">
+      <h1>Admin Dashboard CEREBRO</h1>
+      <p>Selecciona una pestaña para ver datos netos o visualizaciones.</p>
+      <div class="actions">
+        <a class="btn primary" href="/tabs/datos.html">Ir a Datos</a>
+        <a class="btn secondary" href="/tabs/graficas.html">Ir a Graficas</a>
+      </div>
+    </main>
+  </body>
+</html>

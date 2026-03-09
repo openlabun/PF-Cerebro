@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Torneo</title>
+    <link rel="stylesheet" href="/assets/css/tabs/torneo-detalle.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <a href="/" class="logo">CEREBRO <span>Admin</span></a>
+        <p>Panel operativo</p>
+      </div>
+      <div class="topbar-actions">
+        <nav class="nav">
+          <a class="nav-btn" href="/tabs/datos.html">Datos</a>
+          <a class="nav-btn" href="/tabs/graficas.html">Graficas</a>
+          <a class="nav-btn active" href="#">Torneo</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="card-head">
+          <h2>Detalle de Torneo</h2>
+          <a class="link-back" href="/tabs/datos.html">Volver a torneos</a>
+        </div>
+        <p id="detailStatus" class="status-text">Cargando torneo...</p>
+      </section>
+
+      <section class="card">
+        <h3>Informacion editable</h3>
+        <form id="torneoForm" class="form-grid">
+          <label>
+            Nombre
+            <input id="nombre" type="text" />
+          </label>
+          <label>
+            Tipo
+            <input id="tipo" type="text" />
+          </label>
+          <label>
+            Estado actual
+            <input id="estadoActual" type="text" disabled />
+          </label>
+          <label>
+            Creador
+            <input id="creadorId" type="text" disabled />
+          </label>
+          <label class="full">
+            Descripcion
+            <textarea id="descripcion" rows="3"></textarea>
+          </label>
+          <label>
+            Fecha inicio
+            <input id="fechaInicio" type="datetime-local" />
+          </label>
+          <label>
+            Fecha fin
+            <input id="fechaFin" type="datetime-local" />
+          </label>
+          <label>
+            Recurrencia
+            <input id="recurrencia" type="text" />
+          </label>
+          <label class="inline-label">
+            <input id="esPublico" type="checkbox" />
+            Es publico
+          </label>
+          <label class="full">
+            Configuracion (JSON)
+            <textarea id="configuracion" rows="8"></textarea>
+          </label>
+          <div class="actions full">
+            <button id="saveBtn" type="submit">Guardar cambios</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h3>Cambio rapido de estado</h3>
+        <div class="estado-row">
+          <select id="nuevoEstado">
+            <option value="BORRADOR">BORRADOR</option>
+            <option value="PROGRAMADO">PROGRAMADO</option>
+            <option value="ACTIVO">ACTIVO</option>
+            <option value="PAUSADO">PAUSADO</option>
+            <option value="FINALIZADO">FINALIZADO</option>
+            <option value="CANCELADO">CANCELADO</option>
+          </select>
+          <button id="updateEstadoBtn" type="button">Actualizar estado</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/js/tabs/torneo-detalle.js"></script>
+  </body>
+</html>
