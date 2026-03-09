@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Tiempo por Seed</title>
+    <link rel="stylesheet" href="/assets/css/tabs/seed-tiempo-detalle.css?v=20260309-1" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <a href="/" class="logo">CEREBRO <span>Admin</span></a>
+        <p>Panel operativo</p>
+      </div>
+      <div class="topbar-actions">
+        <nav class="nav">
+          <a class="nav-btn" href="/tabs/datos.html">Datos</a>
+          <a class="nav-btn" href="/tabs/graficas.html">Graficas</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="card-head">
+          <h2 id="title">Promedio de tiempo por seed</h2>
+          <a class="link-back" href="/tabs/datos.html">Volver a datos</a>
+        </div>
+        <p id="detailStatus" class="status-text">Cargando...</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Seed ID</th>
+                <th>Seed</th>
+                <th>Promedio (seg)</th>
+                <th>Sesiones</th>
+              </tr>
+            </thead>
+            <tbody id="seedTimesBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/js/tabs/seed-tiempo-detalle.js?v=20260309-1"></script>
+  </body>
+</html>

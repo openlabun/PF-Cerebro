@@ -1,4 +1,13 @@
-import { Body, Controller, Post, Patch, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Patch,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import * as robleAuthGuard from '../../common/guards/roble-auth.guard';
 import { GameStatsService } from './game-stats.service';
@@ -14,6 +23,22 @@ class GetStatsDto {
 @Controller('game-stats')
 export class GameStatsController {
   constructor(private readonly gameStatsService: GameStatsService) {}
+
+  @Get('summary')
+  async summary(
+    @Query('juegoId') juegoId: string = 'sudoku',
+    @Req() req: robleAuthGuard.RobleRequest,
+  ) {
+    const accessToken = req.accessToken;
+    const totalPartidasJugadas =
+      await this.gameStatsService.getTotalPlayedByGame(juegoId, accessToken);
+
+    return {
+      juegoId,
+      totalPartidasJugadas,
+      source: 'EstadisticasJuegoUsuario',
+    };
+  }
 
   @Post('me')
   async myStats(

@@ -5,5 +5,8 @@ export interface GameSession {
   puntaje: number;
   resultado: string; // victoria | derrota | empate
   cambioElo: number;
+  tiempo?: number | string | null;
+  idseed?: string | number | null;
+  seed?: string | number | null;
   jugadoEn: string; // ISO date
 }

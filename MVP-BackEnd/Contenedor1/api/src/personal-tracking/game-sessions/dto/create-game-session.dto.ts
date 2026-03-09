@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsNumber, IsString } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateGameSessionDto {
 
@@ -22,4 +22,25 @@ export class CreateGameSessionDto {
   @Type(() => Number)
   @IsNumber()
   cambioElo!: number;
+
+  @ApiProperty({
+    required: false,
+    description: 'Tiempo usado para completar la sesion (en segundos)',
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  tiempo?: number;
+
+  @ApiProperty({ required: false, description: 'Seed usada en la sesion' })
+  @IsOptional()
+  seed?: string | number;
+
+  @ApiProperty({
+    required: false,
+    description: 'ID de la seed en la tabla seedsSudoku',
+  })
+  @IsOptional()
+  @IsString()
+  seedId?: string;
 }

@@ -1,4 +1,6 @@
 export class CreateProfileDto {
+  nombre?: string; // opcional, default desde usuario autenticado
+  correo?: string; // opcional, default desde usuario autenticado
   nivel?: number; // opcional, default 1
   experiencia?: number; // opcional, default 0
   rachaActual?: number; // opcional, default 0

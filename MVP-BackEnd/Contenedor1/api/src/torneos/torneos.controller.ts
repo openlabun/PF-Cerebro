@@ -28,8 +28,11 @@ export class TorneosController {
   constructor(private readonly service: TorneosService) {}
 
   private getUserId(req: robleAuthGuard.RobleRequest): string {
-    // 👇 Ahora usamos el payload del guard directamente
     return req.robleUser.sub;
+  }
+
+  private getUserRole(req: robleAuthGuard.RobleRequest): string {
+    return String(req.robleUser.role ?? '').trim();
   }
 
   @Get()
@@ -60,11 +63,13 @@ export class TorneosController {
     @Body() dto: UpdateEstadoTorneoDto,
   ) {
     const usuarioId = this.getUserId(req);
+    const userRole = this.getUserRole(req);
 
     return this.service.actualizarEstadoTorneo(
       req.accessToken,
       torneoId,
       usuarioId,
+      userRole,
       dto.estado,
     );
   }
@@ -76,8 +81,15 @@ export class TorneosController {
     @Body() dto: UpdateTorneoDto,
   ) {
     const usuarioId = this.getUserId(req);
+    const userRole = this.getUserRole(req);
 
-    return this.service.editarTorneo(req.accessToken, torneoId, usuarioId, dto);
+    return this.service.editarTorneo(
+      req.accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+      dto,
+    );
   }
 
   @Delete(':id')
@@ -86,8 +98,14 @@ export class TorneosController {
     @Param('id') torneoId: string,
   ) {
     const usuarioId = this.getUserId(req);
+    const userRole = this.getUserRole(req);
 
-    return this.service.cancelarTorneo(req.accessToken, torneoId, usuarioId);
+    return this.service.cancelarTorneo(
+      req.accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+    );
   }
 
   @Post()

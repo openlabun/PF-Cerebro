@@ -1,6 +1,8 @@
 export interface PerfilRow {
   _id: string;
   usuarioId: string;
+  nombre?: string;
+  correo?: string;
   nivel: number;
   experiencia: number;
   rachaActual: number;

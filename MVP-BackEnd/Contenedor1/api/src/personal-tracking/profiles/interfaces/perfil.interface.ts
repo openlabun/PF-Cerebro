@@ -2,6 +2,8 @@
 export interface Perfil {
   _id?: string;
   usuarioId: string; // authExternoId de la cookie
+  nombre?: string;
+  correo?: string;
   nivel: number;
   experiencia: number;
   rachaActual: number;

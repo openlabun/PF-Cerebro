@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import * as robleAuthGuard from '../../common/guards/roble-auth.guard';
 import { GameSessionsService } from './game-sessions.service';
@@ -10,6 +10,18 @@ import { CreateGameSessionDto } from './dto/create-game-session.dto';
 @Controller('game-sessions')
 export class GameSessionsController {
   constructor(private readonly service: GameSessionsService) {}
+
+  @Get('sudoku-seed')
+  async getSudokuSeed(
+    @Query('dificultad') dificultad: string,
+    @Req() req: robleAuthGuard.RobleRequest,
+  ) {
+    const accessToken = req.accessToken;
+    return this.service.getRandomSudokuSeedByDifficulty(
+      dificultad,
+      accessToken,
+    );
+  }
 
   @Post()
   async create(
@@ -24,6 +36,9 @@ export class GameSessionsController {
       dto.puntaje,
       dto.resultado,
       dto.cambioElo,
+      dto.tiempo,
+      dto.seedId,
+      dto.seed,
       accessToken,
     );
   }

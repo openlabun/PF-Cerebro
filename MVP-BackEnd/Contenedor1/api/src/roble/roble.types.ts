@@ -10,6 +10,8 @@ export interface RobleInsertResponse<T> {
 export interface RobleUserPayload {
   sub: string;
   email: string;
+  name?: string;
+  nombre?: string;
   role?: string;
   dbName?: string;
 }

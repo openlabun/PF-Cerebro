@@ -255,6 +255,14 @@ const apiClient = {
     });
   },
 
+  getSudokuSeed(accessToken, dificultad) {
+    const encoded = encodeURIComponent(String(dificultad || "").trim());
+    return request(`game-sessions/sudoku-seed?dificultad=${encoded}`, {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
   updateMyGameStats(accessToken, payload) {
     return request("game-stats/me", {
       method: "PATCH",

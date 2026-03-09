@@ -41,6 +41,10 @@ export class AuthService {
     return this.robleService.logout(accessToken);
   }
 
+  async listUsers(accessToken: string) {
+    return this.robleService.listAuthUsers(accessToken);
+  }
+
   async verifyToken(authHeader: string) {
     if (!authHeader?.startsWith('Bearer ')) {
       throw new Error('Invalid Authorization header');

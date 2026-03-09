@@ -72,4 +72,11 @@ export class AuthController {
   verifyToken(@Req() req: RobleRequest) {
     return { valid: true, user: req.robleUser };
   }
+
+  @UseGuards(RobleAuthGuard)
+  @ApiBearerAuth()
+  @Get('users')
+  listUsers(@Req() req: RobleRequest) {
+    return this.service.listUsers(req.accessToken);
+  }
 }

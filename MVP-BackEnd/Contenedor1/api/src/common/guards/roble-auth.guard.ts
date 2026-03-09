@@ -16,6 +16,8 @@ export interface RobleRequest extends Request {
 export interface RobleUserPayload {
   sub: string;
   email: string;
+  name?: string;
+  nombre?: string;
   role?: string;
   dbName?: string;
 }
