@@ -47,6 +47,12 @@ export class GameSessionsService {
     return Math.floor(parsed);
   }
 
+  private normalizeSessionId(value: unknown): string | undefined {
+    if (value === undefined || value === null) return undefined;
+    const normalized = String(value).trim();
+    return normalized ? normalized : undefined;
+  }
+
   private async resolveSessionSeedValue(
     seedId: unknown,
     seed: unknown,
@@ -122,6 +128,51 @@ export class GameSessionsService {
       huecos: Math.floor(parsedHuecos),
       dificultad: normalizedDifficulty,
     };
+  }
+
+  async getLatestSession(
+    usuarioID: string,
+    juegoId: string,
+    accessToken: string,
+    excludeSessionId?: string,
+  ): Promise<GameSession | null> {
+    const normalizedJuegoId = String(juegoId || '').trim();
+    if (!normalizedJuegoId) {
+      throw new HttpException(
+        'El parametro juegoId es obligatorio',
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    const normalizedExcludedId = this.normalizeSessionId(excludeSessionId);
+    const rows = await this.robleService.read<GameSession>(
+      accessToken,
+      'SesionJuego',
+      { usuarioID, juegoId: normalizedJuegoId },
+    );
+
+    const sorted = (Array.isArray(rows) ? rows : [])
+      .filter((row) => {
+        const sessionId = this.normalizeSessionId(row?._id);
+        return !normalizedExcludedId || sessionId !== normalizedExcludedId;
+      })
+      .filter((row) => {
+        const playedAt = new Date(String(row?.jugadoEn || ''));
+        return !Number.isNaN(playedAt.getTime());
+      })
+      .sort((a, b) => {
+        const left = new Date(String(a.jugadoEn)).getTime();
+        const right = new Date(String(b.jugadoEn)).getTime();
+        return right - left;
+      });
+
+    // this.logger.log(
+    //   `Ultima sesion consultada: usuarioId=${usuarioID}, juegoId=${normalizedJuegoId}, excludeSessionId=${normalizedExcludedId ?? 'none'}, ultimaSesion=${JSON.stringify(
+    //     sorted[0] ?? null,
+    //   )}`,
+    // );
+
+    return sorted[0] ?? null;
   }
 
   async createSession(

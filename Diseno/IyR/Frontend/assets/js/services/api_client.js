@@ -265,6 +265,18 @@ const apiClient = {
     });
   },
 
+  getLatestGameSession(accessToken, juegoId, options = {}) {
+    const normalizedGameId = String(juegoId || "").trim();
+    const excludeSessionId = String(options.excludeSessionId || "").trim();
+    const query = new URLSearchParams({ juegoId: normalizedGameId });
+    if (excludeSessionId) query.set("excludeSessionId", excludeSessionId);
+
+    return request(`game-sessions/latest?${query.toString()}`, {
+      method: "GET",
+      token: accessToken,
+    });
+  },
+
   updateMyGameStats(accessToken, payload) {
     return request("game-stats/me", {
       method: "PATCH",

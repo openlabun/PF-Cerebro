@@ -1,9 +1,16 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import { Perfil } from '../profiles/interfaces/perfil.interface';
 
+type GameSessionRecord = {
+  _id?: string;
+  jugadoEn?: string;
+};
+
 @Injectable()
 export class StreaksService {
+  private readonly logger = new Logger(StreaksService.name);
+
   constructor(private readonly robleService: RobleService) {}
 
   // ================================
@@ -11,11 +18,37 @@ export class StreaksService {
   // ================================
   async increaseStreak(usuarioId: string, accessToken: string) {
     const perfil = await this.getProfile(usuarioId, accessToken);
+    const rachaActual = Number(perfil.rachaActual ?? 0);
+    const latestSessions = await this.getLatestSessions(usuarioId, accessToken, 2);
+    const currentSession = latestSessions[0] ?? null;
+    const previousSession = latestSessions[1] ?? null;
+    const currentSessionDay = this.getSessionDayKey(currentSession?.jugadoEn);
+    const previousSessionDay = this.getSessionDayKey(previousSession?.jugadoEn);
+    const isSameSessionDay =
+      Boolean(currentSessionDay) &&
+      Boolean(previousSessionDay) &&
+      currentSessionDay === previousSessionDay;
 
-    const nuevaRacha: number = perfil.rachaActual + 1;
+    if (isSameSessionDay) {
+      // this.logger.log(
+      //   `Racha no aumentada por misma fecha: usuarioId=${usuarioId}, rachaActual=${rachaActual}, currentSessionDay=${currentSessionDay}, previousSessionDay=${previousSessionDay}`,
+      // );
+
+      return {
+        message: 'La racha no aumenta mas de una vez por dia',
+        rachaActual,
+        rachaMaxima: Number(perfil.rachaMaxima ?? rachaActual),
+      };
+    }
+
+    const nuevaRacha: number = rachaActual + 1;
 
     const nuevaRachaMaxima: number =
       nuevaRacha > perfil.rachaMaxima ? nuevaRacha : perfil.rachaMaxima;
+
+    // this.logger.log(
+    //   `Aumentando racha: usuarioId=${usuarioId}, rachaActual=${rachaActual}, nuevaRacha=${nuevaRacha}`,
+    // );
 
     const updated = await this.robleService.update<Perfil>(
       accessToken,
@@ -30,6 +63,10 @@ export class StreaksService {
 
     const rachaActualActualizada = Number(updated?.rachaActual);
     const rachaMaximaActualizada = Number(updated?.rachaMaxima);
+
+    // this.logger.log(
+    //   `Racha actualizada: usuarioId=${usuarioId}, rachaActual=${Number.isFinite(rachaActualActualizada) ? rachaActualActualizada : nuevaRacha}, rachaMaxima=${Number.isFinite(rachaMaximaActualizada) ? rachaMaximaActualizada : nuevaRachaMaxima}`,
+    // );
 
     return {
       message: 'Racha aumentada correctamente',
@@ -46,7 +83,11 @@ export class StreaksService {
   // RESETEAR RACHA
   // ================================
   async resetStreak(usuarioId: string, accessToken: string) {
-    await this.getProfile(usuarioId, accessToken);
+    const perfil = await this.getProfile(usuarioId, accessToken);
+
+    // this.logger.log(
+    //   `Reseteando racha: usuarioId=${usuarioId}, rachaActual=${Number(perfil.rachaActual ?? 0)}, nuevaRacha=0`,
+    // );
 
     await this.robleService.update<Perfil>(
       accessToken,
@@ -147,5 +188,37 @@ export class StreaksService {
     }
 
     return perfiles[0];
+  }
+
+  private getSessionDayKey(value: unknown): string | null {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  private async getLatestSessions(
+    usuarioId: string,
+    accessToken: string,
+    limit: number,
+  ): Promise<GameSessionRecord[]> {
+    const sesiones = await this.robleService.read<GameSessionRecord>(
+      accessToken,
+      'SesionJuego',
+      { usuarioID: usuarioId },
+    );
+
+    return (Array.isArray(sesiones) ? sesiones : [])
+      .filter((session) => this.getSessionDayKey(session?.jugadoEn))
+      .sort((a, b) => {
+        const left = new Date(String(a?.jugadoEn ?? '')).getTime();
+        const right = new Date(String(b?.jugadoEn ?? '')).getTime();
+        return right - left;
+      })
+      .slice(0, Math.max(0, limit));
   }
 }

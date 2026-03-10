@@ -155,10 +155,13 @@ async function bootstrapApp() {
     apiClient,
     authStorage,
     getAccessToken: () => authModule?.getAccessToken?.() || authStorage.getAccessToken(),
-    onSudokuCompleted: async (score) => {
+    onSudokuCompleted: async (score, meta = {}) => {
       const session = authModule?.getSession?.() || null;
       const accessToken = authModule?.getAccessToken?.() || null;
-      return profileModule?.registerSudokuActivity(session, accessToken, { score });
+      return profileModule?.registerSudokuActivity(session, accessToken, {
+        score,
+        gameSession: meta.gameSession || null,
+      });
     },
   });
 
