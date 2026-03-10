@@ -23,6 +23,22 @@ export class GameSessionsController {
     );
   }
 
+  @Get('latest')
+  async getLatestSession(
+    @Query('juegoId') juegoId: string,
+    @Query('excludeSessionId') excludeSessionId: string | undefined,
+    @Req() req: robleAuthGuard.RobleRequest,
+  ) {
+    const usuarioID = String(req.robleUser.sub);
+    const accessToken = req.accessToken;
+    return this.service.getLatestSession(
+      usuarioID,
+      juegoId,
+      accessToken,
+      excludeSessionId,
+    );
+  }
+
   @Post()
   async create(
     @Body() dto: CreateGameSessionDto,

@@ -318,10 +318,11 @@ export function createSudokuModule({
 
     if (state.timerInterval) clearInterval(state.timerInterval);
 
+    let createdGameSession = null;
     try {
       const accessToken = getAccessToken?.() || authStorage.getAccessToken();
       if (accessToken) {
-        await apiClient.createGameSession(accessToken, {
+        createdGameSession = await apiClient.createGameSession(accessToken, {
           juegoId: GAME_ID_SUDOKU,
           puntaje: score,
           resultado: "singlePlayer",
@@ -338,7 +339,7 @@ export function createSudokuModule({
 
     let completionMeta = null;
     try {
-      completionMeta = await onSudokuCompleted?.(score);
+      completionMeta = await onSudokuCompleted?.(score, { gameSession: createdGameSession });
     } catch (error) {
       console.warn("No se pudo sincronizar la racha tras completar el sudoku:", error);
     }

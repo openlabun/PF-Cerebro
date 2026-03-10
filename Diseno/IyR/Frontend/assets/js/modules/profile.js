@@ -64,6 +64,8 @@ const frameOptions = [
   { key: "frame-inferno", label: "Inferno", minStreak: 11 },
 ];
 
+const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000;
+
 function toYmd(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
@@ -82,6 +84,18 @@ function normalizeStreakDates(rawDates) {
     .filter((item) => isValidYmd(item));
 
   return [...new Set(cleaned)].sort((a, b) => a.localeCompare(b));
+}
+
+function parseIsoDate(value) {
+  const parsed = new Date(String(value || "").trim());
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getSessionDayKey(value) {
+  const raw = String(value || "").trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = parseIsoDate(raw);
+  return parsed ? toYmd(parsed) : null;
 }
 
 function getProfileStorageKey(prefix, userId) {
@@ -742,14 +756,88 @@ function setProfileFrame(frameKey) {
     renderFrameOptions();
 
     try {
-      const response = await apiClient.increaseStreak(accessToken);
-      const remote = Number(response?.rachaActual);
-      if (Number.isFinite(remote)) serverStreak = remote;
+      if (!options?.gameSession?.jugadoEn) {
+        throw new Error("La sesion actual no quedo persistida en SesionJuego.");
+      }
+
+      const currentSessionId = String(options?.gameSession?._id || "").trim();
+      const currentPlayedAt =
+        parseIsoDate(options?.gameSession?.jugadoEn) || new Date();
+      const previousSession = await apiClient.getLatestGameSession(accessToken, GAME_ID_SUDOKU, {
+        excludeSessionId: currentSessionId,
+      });
+
+      const previousPlayedAt = parseIsoDate(previousSession?.jugadoEn);
+      const currentSessionDayKey = getSessionDayKey(options?.gameSession?.jugadoEn);
+      const previousSessionDayKey = getSessionDayKey(previousSession?.jugadoEn);
+      const isSameSessionDay =
+        Boolean(currentSessionDayKey) &&
+        Boolean(previousSessionDayKey) &&
+        currentSessionDayKey === previousSessionDayKey;
+      const elapsedSincePreviousSessionMs = previousPlayedAt
+        ? currentPlayedAt.getTime() - previousPlayedAt.getTime()
+        : null;
+      const isWithinStreakWindow =
+        elapsedSincePreviousSessionMs !== null &&
+        elapsedSincePreviousSessionMs <= STREAK_SESSION_WINDOW_MS;
+      const currentStreakValue = Number(serverStreak) || 0;
+      const shouldResetStreak =
+        elapsedSincePreviousSessionMs !== null &&
+        !isSameSessionDay &&
+        elapsedSincePreviousSessionMs > STREAK_SESSION_WINDOW_MS;
+      const shouldIncreaseStreak =
+        elapsedSincePreviousSessionMs === null ||
+        shouldResetStreak ||
+        (!isSameSessionDay && isWithinStreakWindow);
+      const nextStreakValue = shouldIncreaseStreak
+        ? shouldResetStreak
+          ? 1
+          : currentStreakValue + 1
+        : currentStreakValue;
+
+      // console.info("[streak] Evaluacion previa a actualizar racha", {
+      //   userId: currentUserId,
+      //   sessionActual: options?.gameSession || null,
+      //   ultimaSesion: previousSession || null,
+      //   rachaActual: currentStreakValue,
+      //   nuevaRacha: nextStreakValue,
+      //   isWithinStreakWindow,
+      //   isSameSessionDay,
+      //   currentSessionDayKey,
+      //   previousSessionDayKey,
+      //   elapsedSincePreviousSessionMs,
+      //   shouldIncreaseStreak,
+      //   shouldResetStreak,
+      //   streakWindowHours: 28,
+      // });
+
+      if (shouldResetStreak) {
+        await apiClient.resetStreak(accessToken);
+      }
+
+      let remote = Number.NaN;
+      if (shouldIncreaseStreak) {
+        const response = await apiClient.increaseStreak(accessToken);
+        remote = Number(response?.rachaActual);
+        if (Number.isFinite(remote)) serverStreak = remote;
+      }
 
       // Confirma el valor persistido en backend para evitar UI optimista inconsistente.
       const refreshedProfile = await apiClient.getMyProfile(accessToken);
       const persisted = Number(refreshedProfile?.rachaActual);
       if (Number.isFinite(persisted)) serverStreak = persisted;
+
+      // console.info("[streak] Resultado final tras sincronizar racha", {
+      //   userId: currentUserId,
+      //   sessionActual: options?.gameSession || null,
+      //   ultimaSesion: previousSession || null,
+      //   rachaActual: currentStreakValue,
+      //   nuevaRacha: Number.isFinite(persisted)
+      //     ? persisted
+      //     : Number.isFinite(remote)
+      //       ? remote
+      //       : nextStreakValue,
+      // });
     } catch (error) {
       console.warn("No se pudo aumentar la racha en backend:", {
         currentUserId,
