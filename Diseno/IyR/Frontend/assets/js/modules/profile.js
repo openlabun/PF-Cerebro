@@ -65,6 +65,12 @@ const frameOptions = [
 ];
 
 const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000;
+const ELO_LEAGUES = [
+  { min: 0, max: 999, label: "Bronce", frame: "frame-bronze" },
+  { min: 1000, max: 1199, label: "Plata", frame: "frame-silver" },
+  { min: 1200, max: 1399, label: "Oro", frame: "frame-gold" },
+  { min: 1400, max: Infinity, label: "Platino", frame: "frame-platinum" },
+];
 
 function toYmd(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -100,6 +106,12 @@ function getSessionDayKey(value) {
 
 function getProfileStorageKey(prefix, userId) {
   return `${prefix}:${String(userId || "guest")}`;
+}
+
+function getLeagueForElo(elo) {
+  const numericElo = Number(elo);
+  const safeElo = Number.isFinite(numericElo) ? numericElo : 0;
+  return ELO_LEAGUES.find((league) => safeElo >= league.min && safeElo <= league.max) || ELO_LEAGUES[0];
 }
 
 export function createProfileModule({ apiClient }) {
@@ -682,14 +694,11 @@ function setProfileFrame(frameKey) {
       }
 
       // Asignación de liga según el valor de "elo"
+      const league = getLeagueForElo(stats.elo);
       profileModeStats.sudoku = [
         `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
         `Elo: ${stats.elo ?? 0}`,
-        stats.elo >= 0 && stats.elo <= 100 ? `Liga: Bronce` :
-        stats.elo >= 101 && stats.elo <= 200 ? `Liga: Plata` :
-        stats.elo >= 201 && stats.elo <= 300 ? `Liga: Oro` :
-        stats.elo >= 301 && stats.elo <= 400 ? `Liga: Platino` : 
-        `Liga: -`,
+        `Liga: ${league.label}`,
       ];
 
       const unlockedByRules = getUnlockedKeysByRules(stats.partidasJugadas);
@@ -699,17 +708,7 @@ function setProfileFrame(frameKey) {
       applyUnlockedBadges([...unlockedByRules, ...unlockedFromRemote]);
 
       // Selección del marco según la liga
-      if (stats.elo >= 0 && stats.elo <= 100) {
-        setProfileFrame("frame-bronze"); // Bronce
-      } else if (stats.elo >= 101 && stats.elo <= 200) {
-        setProfileFrame("frame-silver"); // Plata
-      } else if (stats.elo >= 201 && stats.elo <= 300) {
-        setProfileFrame("frame-gold"); // Oro
-      } else if (stats.elo >= 301 && stats.elo <= 400) {
-        setProfileFrame("frame-platinum"); // Platino
-      } else {
-        setProfileFrame("frame-bronze"); // Valor predeterminado
-      }
+      setProfileFrame(league.frame);
 
       renderFrameOptions();
       renderStreakCalendar();

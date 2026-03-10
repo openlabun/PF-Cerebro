@@ -326,12 +326,11 @@ export function createSudokuModule({
           juegoId: GAME_ID_SUDOKU,
           puntaje: score,
           resultado: "singlePlayer",
-          cambioElo: score > 700 ? 15 : score > 400 ? 10 : 5,
+          dificultad: state.currentDifficulty?.label,
           tiempo: Number(state.seconds || 0),
           seedId: state.seedRecordId || undefined,
           seed: String(state.seedActual),
         });
-        await apiClient.addExperience(accessToken, Math.floor(score / 4));
       }
     } catch (error) {
       console.error("No se pudo registrar la partida:", error);

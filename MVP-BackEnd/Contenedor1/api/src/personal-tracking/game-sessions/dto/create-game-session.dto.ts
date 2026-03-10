@@ -20,8 +20,9 @@ export class CreateGameSessionDto {
 
   @ApiProperty()
   @Type(() => Number)
+  @IsOptional()
   @IsNumber()
-  cambioElo!: number;
+  cambioElo?: number;
 
   @ApiProperty({
     required: false,
@@ -43,4 +44,12 @@ export class CreateGameSessionDto {
   @IsOptional()
   @IsString()
   seedId?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'Dificultad visible usada para calcular XP y Elo',
+  })
+  @IsOptional()
+  @IsString()
+  dificultad?: string;
 }

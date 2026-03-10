@@ -52,6 +52,7 @@ export class GameSessionsController {
       dto.puntaje,
       dto.resultado,
       dto.cambioElo,
+      dto.dificultad,
       dto.tiempo,
       dto.seedId,
       dto.seed,
