@@ -628,5 +628,22 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
   opacity: 0.9;
   user-select: none;
 }
+
+.note.highlight-same-note {
+  color: color-mix(in srgb, var(--primary) 82%, #ffffff);
+  background: color-mix(in srgb, var(--primary) 24%, transparent);
+  border-radius: 999px;
+  min-width: 1.1em;
+  padding: 0.08rem 0.18rem;
+  text-align: center;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
+}
+
+:root[data-theme="dark"] .note.highlight-same-note {
+  color: #ffffff;
+  background: color-mix(in srgb, var(--primary) 46%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 52%, transparent);
+}
+
 :root[data-theme="dark"] .streak-chip { color: #ffd8b3; }
 :root[data-theme="dark"] .calendar-day.active { color: #ffd7b8; }

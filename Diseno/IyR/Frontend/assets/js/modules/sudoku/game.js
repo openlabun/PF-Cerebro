@@ -406,6 +406,11 @@ export function createSudokuModule({
       return;
     }
 
+    removeCandidateFromPeerNotes(row, col, num);
+    revalidateAllNotesAgainstBoard();
+    createBoard();
+    refreshProgress();
+
     if (estaResuelto(state.tableroActual)) {
       finishSudokuWithScore();
       return;
@@ -416,6 +421,78 @@ export function createSudokuModule({
     applyCurrentHighlights();
   }
 
+  function getInvalidNoteReason(row, col, num) {
+    for (let currentCol = 0; currentCol < 9; currentCol += 1) {
+      if (currentCol !== col && state.tableroActual[row][currentCol] === num) {
+        return `No puedes agregar la nota ${num}: ya existe un ${num} en la fila.`;
+      }
+    }
+
+    for (let currentRow = 0; currentRow < 9; currentRow += 1) {
+      if (currentRow !== row && state.tableroActual[currentRow][col] === num) {
+        return `No puedes agregar la nota ${num}: ya existe un ${num} en la columna.`;
+      }
+    }
+
+    const blockStartRow = Math.floor(row / 3) * 3;
+    const blockStartCol = Math.floor(col / 3) * 3;
+    for (let currentRow = blockStartRow; currentRow < blockStartRow + 3; currentRow += 1) {
+      for (let currentCol = blockStartCol; currentCol < blockStartCol + 3; currentCol += 1) {
+        if (currentRow === row && currentCol === col) continue;
+        if (state.tableroActual[currentRow][currentCol] === num) {
+          return `No puedes agregar la nota ${num}: ya existe un ${num} en el bloque 3x3.`;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function noteViolatesCurrentBoard(row, col, num) {
+    return Boolean(getInvalidNoteReason(row, col, num));
+  }
+
+  function removeCandidateFromPeerNotes(row, col, num) {
+    if (!state.notas || !num) return;
+
+    for (let currentCol = 0; currentCol < 9; currentCol += 1) {
+      if (currentCol === col) continue;
+      state.notas[row]?.[currentCol]?.delete(num);
+    }
+
+    for (let currentRow = 0; currentRow < 9; currentRow += 1) {
+      if (currentRow === row) continue;
+      state.notas[currentRow]?.[col]?.delete(num);
+    }
+
+    const blockStartRow = Math.floor(row / 3) * 3;
+    const blockStartCol = Math.floor(col / 3) * 3;
+    for (let currentRow = blockStartRow; currentRow < blockStartRow + 3; currentRow += 1) {
+      for (let currentCol = blockStartCol; currentCol < blockStartCol + 3; currentCol += 1) {
+        if (currentRow === row && currentCol === col) continue;
+        state.notas[currentRow]?.[currentCol]?.delete(num);
+      }
+    }
+  }
+
+  function revalidateAllNotesAgainstBoard() {
+    if (!state.notas) return;
+
+    for (let row = 0; row < 9; row += 1) {
+      for (let col = 0; col < 9; col += 1) {
+        if (state.puzzleInicial[row][col] !== 0) continue;
+        const cellNotes = state.notas[row]?.[col];
+        if (!cellNotes || cellNotes.size === 0) continue;
+
+        for (const note of Array.from(cellNotes)) {
+          if (noteViolatesCurrentBoard(row, col, note)) {
+            cellNotes.delete(note);
+          }
+        }
+      }
+    }
+  }
+
   function handleNoteInput(num) {
     if (!state.selectedCell) return;
 
@@ -424,6 +501,12 @@ export function createSudokuModule({
 
     if (state.puzzleInicial[row][col] !== 0) {
       setSudokuStatus("No puedes poner notas en una celda fija.");
+      return;
+    }
+
+    const invalidReason = getInvalidNoteReason(row, col, num);
+    if (invalidReason) {
+      setSudokuStatus(invalidReason);
       return;
     }
 

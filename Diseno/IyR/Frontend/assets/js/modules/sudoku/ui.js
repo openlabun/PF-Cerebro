@@ -28,6 +28,9 @@ export function clearSelectionHighlights(boardEl) {
   boardEl.querySelectorAll(".cell").forEach((cell) => {
     cell.classList.remove("highlight-peer", "highlight-same");
   });
+  boardEl.querySelectorAll(".note").forEach((note) => {
+    note.classList.remove("highlight-same-note");
+  });
 }
 
 export function applySelectionHighlights(boardEl, selectedCell, tableroActual, highlightEnabled) {
@@ -50,6 +53,14 @@ export function applySelectionHighlights(boardEl, selectedCell, tableroActual, h
     const value = tableroActual?.[r]?.[c] ?? 0;
     if (selectedValue !== 0 && value === selectedValue) {
       cell.classList.add("highlight-same");
+    }
+
+    if (selectedValue !== 0) {
+      cell.querySelectorAll(".note").forEach((noteEl) => {
+        if (noteEl.textContent.trim() === String(selectedValue)) {
+          noteEl.classList.add("highlight-same-note");
+        }
+      });
     }
   });
 }
