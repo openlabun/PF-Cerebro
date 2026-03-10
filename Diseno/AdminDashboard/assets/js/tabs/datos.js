@@ -1,5 +1,6 @@
 const endpoints = {
   snapshot: "/api/admin/snapshot",
+  torneos: "/api/admin/torneos",
 };
 const REFRESH_MS = 10000;
 const TORNEOS_PAGE_SIZE = 8;
@@ -21,6 +22,7 @@ const SUDOKU_DIFFICULTIES = [
   "Profesional",
 ];
 let loading = false;
+const torneosAccessCodeCache = new Map();
 const torneosState = {
   all: [],
   filtered: [],
@@ -42,6 +44,38 @@ function escapeHtml(text) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function setTorneosStatus(message) {
+  setText("torneosStatus", message);
+}
+
+function normalizeTorneoId(row) {
+  return String(row?._id || "").trim();
+}
+
+function isPrivateTorneo(row) {
+  if (row?.esPublico === false) return true;
+  if (row?.esPublico === true) return false;
+  return Boolean(String(row?.codigoAcceso || "").trim());
+}
+
+function getVisibilityLabel(row) {
+  return isPrivateTorneo(row) ? "Privado" : "Publico";
+}
+
+function getVisibilityClass(row) {
+  return isPrivateTorneo(row) ? "badge-private" : "badge-public";
+}
+
+function warmAccessCodeCache(rows) {
+  (rows || []).forEach((row) => {
+    const torneoId = normalizeTorneoId(row);
+    if (!torneoId) return;
+    const code = String(row?.codigoAcceso || "").trim();
+    if (!code) return;
+    torneosAccessCodeCache.set(torneoId, code);
+  });
 }
 
 async function getJson(url) {
@@ -140,6 +174,91 @@ function formatCreatorCell(torneo) {
   return "-";
 }
 
+function renderVisibilityCell(torneo) {
+  const label = getVisibilityLabel(torneo);
+  const klass = getVisibilityClass(torneo);
+  return `<span class="visibility-badge ${klass}">${escapeHtml(label)}</span>`;
+}
+
+async function resolveAccessCode(torneoId) {
+  const normalizedId = String(torneoId || "").trim();
+  if (!normalizedId) return "";
+
+  const cached = String(torneosAccessCodeCache.get(normalizedId) || "").trim();
+  if (cached) return cached;
+
+  const payload = await getJson(`${endpoints.torneos}/${encodeURIComponent(normalizedId)}`);
+  const torneo = payload?.data || payload || {};
+  const code = String(torneo?.codigoAcceso || "").trim();
+  if (code) {
+    torneosAccessCodeCache.set(normalizedId, code);
+  }
+  return code;
+}
+
+function setCodeCellHidden(rowEl) {
+  const valueEl = rowEl?.querySelector(".codigo-inline");
+  const toggleBtn = rowEl?.querySelector('[data-torneo-action="toggle-code"]');
+  if (valueEl) {
+    valueEl.textContent = "Oculto";
+    valueEl.dataset.codigoVisible = "0";
+  }
+  if (toggleBtn) {
+    toggleBtn.textContent = "Mostrar codigo de acceso";
+  }
+}
+
+function setCodeCellVisible(rowEl, code) {
+  const valueEl = rowEl?.querySelector(".codigo-inline");
+  const toggleBtn = rowEl?.querySelector('[data-torneo-action="toggle-code"]');
+  const copyBtn = rowEl?.querySelector('[data-torneo-action="copy-code"]');
+  if (valueEl) {
+    valueEl.textContent = code;
+    valueEl.dataset.codigoVisible = "1";
+  }
+  if (toggleBtn) {
+    toggleBtn.textContent = "Ocultar codigo";
+  }
+  if (copyBtn) {
+    copyBtn.disabled = !code;
+  }
+}
+
+function setCodeCellUnavailable(rowEl) {
+  const valueEl = rowEl?.querySelector(".codigo-inline");
+  const toggleBtn = rowEl?.querySelector('[data-torneo-action="toggle-code"]');
+  const copyBtn = rowEl?.querySelector('[data-torneo-action="copy-code"]');
+  if (valueEl) {
+    valueEl.textContent = "No disponible";
+    valueEl.dataset.codigoVisible = "0";
+  }
+  if (toggleBtn) {
+    toggleBtn.textContent = "Mostrar codigo de acceso";
+  }
+  if (copyBtn) {
+    copyBtn.disabled = true;
+  }
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.focus();
+  textArea.select();
+  const copied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  return copied;
+}
+
 function renderTorneosTable() {
   const body = document.getElementById("torneosBody");
   const pageInfo = document.getElementById("torneosPageInfo");
@@ -157,16 +276,52 @@ function renderTorneosTable() {
 
   body.innerHTML = "";
   if (!currentRows.length) {
-    body.innerHTML = '<tr><td colspan="4">No hay torneos que coincidan con la busqueda.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5">No hay torneos que coincidan con la busqueda.</td></tr>';
   } else {
     currentRows.forEach((torneo) => {
-      const id = torneo?._id ? encodeURIComponent(torneo._id) : "";
+      const torneoId = normalizeTorneoId(torneo);
+      const encodedId = torneoId ? encodeURIComponent(torneoId) : "";
+      const isPrivate = isPrivateTorneo(torneo);
+      const cachedCode = String(torneosAccessCodeCache.get(torneoId) || "").trim();
+
+      const codeActions =
+        isPrivate && encodedId
+          ? `
+        <div class="codigo-actions">
+          <button
+            type="button"
+            class="row-action row-action-btn"
+            data-torneo-action="toggle-code"
+            data-torneo-id="${encodedId}"
+          >
+            Mostrar codigo de acceso
+          </button>
+          <span class="codigo-inline" data-codigo-visible="0">Oculto</span>
+          <button
+            type="button"
+            class="row-action row-action-btn"
+            data-torneo-action="copy-code"
+            data-torneo-id="${encodedId}"
+            ${cachedCode ? "" : "disabled"}
+          >
+            Copiar
+          </button>
+        </div>
+      `
+          : '<span class="muted-text">No aplica</span>';
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${escapeHtml(torneo?.nombre || "-")}</td>
         <td>${escapeHtml(formatCreatorCell(torneo))}</td>
+        <td>${renderVisibilityCell(torneo)}</td>
         <td>${escapeHtml(torneo?.estado || "-")}</td>
-        <td>${id ? `<a class="row-action" href="/tabs/torneo-detalle.html?id=${id}">Administrar</a>` : "-"}</td>
+        <td>
+          <div class="torneo-actions-cell">
+            ${encodedId ? `<a class="row-action" href="/tabs/torneo-detalle.html?id=${encodedId}">Administrar</a>` : "-"}
+            ${codeActions}
+          </div>
+        </td>
       `;
       body.appendChild(tr);
     });
@@ -224,6 +379,7 @@ function refreshTorneosFilters(rows) {
 
 function setTorneosData(rows) {
   torneosState.all = Array.isArray(rows) ? rows : [];
+  warmAccessCodeCache(torneosState.all);
   refreshTorneosFilters(torneosState.all);
   applyTorneosFilter();
   renderTorneosTable();
@@ -246,16 +402,116 @@ async function loadDatos() {
     renderAverageTimeByDifficultyTable(avgTimeByDifficulty.data || []);
     setTorneosData(torneos.data || []);
 
-    setText("torneosStatus", `Torneos cargados: ${torneos.count ?? 0}`);
+    setTorneosStatus(`Torneos cargados: ${torneos.count ?? 0}`);
   } catch (error) {
     setText("kpiSudokuCount", "Error");
     setText("kpiTorneosCount", "Error");
     setText("kpiPvpCount", "Error");
-    setText("torneosStatus", `No disponible: ${error.message}`);
+    setTorneosStatus(`No disponible: ${error.message}`);
     renderAverageTimeByDifficultyTable([]);
     setTorneosData([]);
   } finally {
     loading = false;
+  }
+}
+
+function decodeTorneoId(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+async function onToggleCode(buttonEl) {
+  const rowEl = buttonEl?.closest("tr");
+  const valueEl = rowEl?.querySelector(".codigo-inline");
+  const copyBtn = rowEl?.querySelector('[data-torneo-action="copy-code"]');
+  const torneoId = decodeTorneoId(buttonEl?.dataset?.torneoId);
+  if (!rowEl || !valueEl || !torneoId) return;
+
+  const isVisible = valueEl.dataset.codigoVisible === "1";
+  if (isVisible) {
+    setCodeCellHidden(rowEl);
+    return;
+  }
+
+  const prevLabel = buttonEl.textContent;
+  buttonEl.disabled = true;
+  buttonEl.textContent = "Cargando...";
+  try {
+    const code = await resolveAccessCode(torneoId);
+    if (!code) {
+      setCodeCellUnavailable(rowEl);
+      setTorneosStatus(`No hay codigo de acceso disponible para el torneo ${torneoId}.`);
+      return;
+    }
+    setCodeCellVisible(rowEl, code);
+    if (copyBtn) copyBtn.disabled = false;
+    setTorneosStatus(`Codigo de acceso listo para torneo ${torneoId}.`);
+  } catch (error) {
+    setCodeCellUnavailable(rowEl);
+    setTorneosStatus(`No se pudo obtener codigo de acceso: ${error.message}`);
+  } finally {
+    buttonEl.disabled = false;
+    if (buttonEl.textContent === "Cargando...") {
+      buttonEl.textContent = prevLabel || "Mostrar codigo de acceso";
+    }
+  }
+}
+
+async function onCopyCode(buttonEl) {
+  const rowEl = buttonEl?.closest("tr");
+  const valueEl = rowEl?.querySelector(".codigo-inline");
+  const torneoId = decodeTorneoId(buttonEl?.dataset?.torneoId);
+  if (!torneoId) return;
+
+  let code = String(torneosAccessCodeCache.get(torneoId) || "").trim();
+  if (!code) {
+    try {
+      code = await resolveAccessCode(torneoId);
+    } catch (error) {
+      setTorneosStatus(`No se pudo cargar codigo para copiar: ${error.message}`);
+      return;
+    }
+  }
+  if (!code) {
+    setTorneosStatus(`No hay codigo disponible para copiar en torneo ${torneoId}.`);
+    return;
+  }
+
+  try {
+    const copied = await copyTextToClipboard(code);
+    if (!copied) {
+      setTorneosStatus("No se pudo copiar automaticamente. Copialo manualmente.");
+      return;
+    }
+    if (valueEl && valueEl.dataset.codigoVisible !== "1") {
+      setCodeCellVisible(rowEl, code);
+    }
+    setTorneosStatus(`Codigo copiado para torneo ${torneoId}.`);
+  } catch {
+    setTorneosStatus("No se pudo copiar automaticamente. Copialo manualmente.");
+  }
+}
+
+async function onTorneosBodyClick(event) {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  const actionEl = target.closest("[data-torneo-action]");
+  if (!(actionEl instanceof HTMLElement)) return;
+
+  const action = String(actionEl.dataset.torneoAction || "").trim();
+  if (!action) return;
+
+  if (action === "toggle-code") {
+    await onToggleCode(actionEl);
+    return;
+  }
+  if (action === "copy-code") {
+    await onCopyCode(actionEl);
   }
 }
 
@@ -265,6 +521,7 @@ function bindTorneosEvents() {
   const tipoFilter = document.getElementById("torneoTipoFilter");
   const prevBtn = document.getElementById("torneosPrevBtn");
   const nextBtn = document.getElementById("torneosNextBtn");
+  const torneosBody = document.getElementById("torneosBody");
 
   if (searchInput) {
     searchInput.addEventListener("input", (event) => {
@@ -310,6 +567,10 @@ function bindTorneosEvents() {
         renderTorneosTable();
       }
     });
+  }
+
+  if (torneosBody) {
+    torneosBody.addEventListener("click", onTorneosBodyClick);
   }
 }
 

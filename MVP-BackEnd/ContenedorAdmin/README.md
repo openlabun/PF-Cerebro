@@ -28,7 +28,10 @@ Este contenedor implementa capacidades de observabilidad operativa para CEREBRO 
 
 ## Endpoints de administración de torneos (set up futuro)
 
+- `POST /api/admin/torneos`
 - `GET /api/admin/torneos`
+- `GET /api/admin/torneos/:id`
+- `PUT /api/admin/torneos/:id`
 - `PATCH /api/admin/torneos/:id/estado`
 
 Estas rutas consumen Contenedor1 usando:

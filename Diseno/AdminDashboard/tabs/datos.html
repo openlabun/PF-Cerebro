@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard - Datos</title>
-    <link rel="stylesheet" href="/assets/css/tabs/datos.css?v=20260308-2" />
+    <link rel="stylesheet" href="/assets/css/tabs/datos.css?v=20260310-3" />
   </head>
   <body>
     <header class="topbar">
@@ -80,7 +80,10 @@
               <option value="">Todos los tipos</option>
             </select>
           </div>
-          <p id="torneosStatus" class="status-text">Cargando...</p>
+          <div class="torneos-toolbar-actions">
+            <a class="toolbar-link" href="/tabs/torneo-detalle.html?mode=create">Crear torneo</a>
+            <p id="torneosStatus" class="status-text">Cargando...</p>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
@@ -88,6 +91,7 @@
               <tr>
                 <th>Nombre de torneo</th>
                 <th>Creador</th>
+                <th>Visibilidad</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -103,6 +107,6 @@
       </section>
     </main>
 
-    <script src="/assets/js/tabs/datos.js?v=20260309-2"></script>
+    <script src="/assets/js/tabs/datos.js?v=20260310-2"></script>
   </body>
 </html>

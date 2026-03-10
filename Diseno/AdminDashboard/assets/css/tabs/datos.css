@@ -149,6 +149,13 @@ td:first-child {
   margin-bottom: 0.7rem;
 }
 
+.torneos-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
 .torneos-filters {
   display: flex;
   gap: 0.55rem;
@@ -209,6 +216,79 @@ td:first-child {
   font-weight: 700;
   font-size: 0.82rem;
   background: #edf5ff;
+}
+
+.row-action-btn {
+  cursor: pointer;
+  font: inherit;
+  line-height: 1.2;
+}
+
+.row-action-btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.visibility-badge {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.badge-public {
+  background: #e8f9f1;
+  border-color: #a8e9cc;
+  color: #176b47;
+}
+
+.badge-private {
+  background: #fff3d8;
+  border-color: #f2d29a;
+  color: #885600;
+}
+
+.torneo-actions-cell {
+  display: grid;
+  gap: 0.35rem;
+  align-items: start;
+}
+
+.codigo-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.codigo-inline {
+  display: inline-block;
+  border: 1px dashed #c7d7ef;
+  border-radius: 8px;
+  padding: 0.2rem 0.45rem;
+  background: #f7fbff;
+  color: #0f2f57;
+  font-family: "Consolas", "Courier New", monospace;
+  font-size: 0.78rem;
+}
+
+.muted-text {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.toolbar-link {
+  display: inline-block;
+  text-decoration: none;
+  border-radius: 999px;
+  padding: 0.42rem 0.9rem;
+  font-weight: 800;
+  font-size: 0.84rem;
+  color: #ffffff;
+  background: linear-gradient(120deg, #0f5ea6, #0f2f57);
+  border: 1px solid rgba(15, 47, 87, 0.25);
 }
 
 .pagination {

@@ -1,4 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { RobleService } from 'src/roble/roble.service';
 import { CreateTorneoDto } from './dto/create-torneo.dto';
 import { CreateResultadoDto } from './dto/create-resultado.dto';
@@ -141,26 +146,30 @@ export class TorneosService {
     nuevoEstado: EstadoTorneo,
   ): Promise<TorneoRecord> {
     const torneoBase = await this.obtenerTorneoPorId(accessToken, torneoId);
-    if (!torneoBase) throw new Error('Torneo no existe');
+    if (!torneoBase) {
+      throw new NotFoundException('Torneo no existe');
+    }
 
     const torneo = await this.syncEstadoPorFecha(accessToken, torneoBase);
 
     // El creador o un admin pueden cambiar el estado del torneo
     if (!this.canManageTournament(torneo, usuarioId, userRole)) {
-      throw new Error(
+      throw new ForbiddenException(
         'Solo el creador o un admin pueden cambiar el estado del torneo.',
       );
     }
 
     // No permitimos cambios de estado si el torneo ya está FINALIZADO o CANCELADO
     const estadoActual = this.toEstadoTorneo(torneo.estado);
-    if (!estadoActual) throw new Error('Estado actual inválido en torneo.');
+    if (!estadoActual) {
+      throw new BadRequestException('Estado actual inválido en torneo.');
+    }
 
     if (
       estadoActual === EstadoTorneo.FINALIZADO ||
       estadoActual === EstadoTorneo.CANCELADO
     ) {
-      throw new Error(
+      throw new BadRequestException(
         'No se puede cambiar el estado de un torneo FINALIZADO o CANCELADO.',
       );
     }
@@ -187,14 +196,23 @@ export class TorneosService {
     };
 
     const estadoDestino = this.toUpperSafe(nuevoEstado) as EstadoTorneo;
+    if (!this.toEstadoTorneo(estadoDestino)) {
+      throw new BadRequestException(`Estado destino inválido: ${estadoDestino}`);
+    }
+    if (estadoDestino === estadoActual) {
+      return torneo;
+    }
+
     const permitidos = allowed[estadoActual] ?? [];
     if (!permitidos.includes(estadoDestino)) {
-      throw new Error(`Transición inválida: ${estadoActual} -> ${estadoDestino}`);
+      throw new BadRequestException(
+        `Transición inválida: ${estadoActual} -> ${estadoDestino}`,
+      );
     }
 
     // Guardamos
     if (!torneo._id)
-      throw new Error('Torneo sin _id (no se puede actualizar).');
+      throw new BadRequestException('Torneo sin _id (no se puede actualizar).');
 
     const actualizado = await this.roble.update<TorneoRecord>(
       accessToken,
@@ -203,7 +221,6 @@ export class TorneosService {
       torneo._id,
       { estado: estadoDestino },
     );
-    console.log('UPDATE ROBLE RESP:', actualizado);
     return actualizado;
   }
 

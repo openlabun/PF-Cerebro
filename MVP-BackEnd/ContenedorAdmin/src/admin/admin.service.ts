@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UpdateTorneoEstadoDto } from './dto/update-torneo-estado.dto';
+import { CreateTorneoDto } from './dto/create-torneo.dto';
 
 type TorneoRecord = {
   _id?: string;
@@ -293,6 +294,17 @@ export class AdminService {
   async getTorneos() {
     const snapshot = await this.getAggregatedSnapshot();
     return snapshot.torneos;
+  }
+
+  async createTorneo(dto: CreateTorneoDto) {
+    const payload = {
+      ...dto,
+      recurrencia: dto.recurrencia || 'NINGUNA',
+      configuracion: dto.configuracion || {},
+    };
+    const result = await this.requestContenedor1('torneos', 'POST', payload);
+    this.invalidateSnapshotCache();
+    return result;
   }
 
   async patchTorneoEstado(torneoId: string, dto: UpdateTorneoEstadoDto) {

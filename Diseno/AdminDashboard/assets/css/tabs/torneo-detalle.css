@@ -114,6 +114,134 @@ input, textarea, select {
 
 .full { grid-column: 1 / -1; }
 
+.field-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.code-field {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.code-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+}
+
+.secondary-btn {
+  background: #e7eef9;
+  color: #0f2f57;
+  border: 1px solid #cdd9ee;
+}
+
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.helper-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.config-builder {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.85rem;
+  background: #f8fbff;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.config-builder h4,
+.config-builder h5 {
+  margin: 0;
+  color: #0f2f57;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.config-inline {
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+}
+
+.extra-rules {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.extra-rules-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.extra-rules-head button {
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.84rem;
+  background: linear-gradient(120deg, #0f5ea6, #0f2f57);
+}
+
+.extra-rules-rows {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.extra-rule-row {
+  display: grid;
+  grid-template-columns: 1.2fr 0.7fr 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.extra-value-wrap {
+  display: grid;
+}
+
+.extra-value-wrap input,
+.extra-value-wrap select {
+  width: 100%;
+}
+
+.extra-value-bool {
+  display: none;
+}
+
+.extra-rule-row .extra-remove {
+  border-radius: 8px;
+  padding: 0.45rem 0.7rem;
+  background: #e7eef9;
+  color: #0f2f57;
+  border: 1px solid #cdd9ee;
+}
+
+.advanced-config {
+  border-top: 1px solid var(--border);
+  padding-top: 0.6rem;
+}
+
+.advanced-config summary {
+  cursor: pointer;
+  color: #0f5ea6;
+  font-weight: 700;
+  margin-bottom: 0.55rem;
+}
+
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -138,5 +266,7 @@ button {
 @media (max-width: 760px) {
   .topbar { flex-direction: column; align-items: flex-start; }
   .form-grid { grid-template-columns: 1fr; }
+  .config-grid { grid-template-columns: 1fr; }
+  .extra-rule-row { grid-template-columns: 1fr; }
   .estado-row { flex-direction: column; align-items: stretch; }
 }

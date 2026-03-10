@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   Patch,
+  Post,
   Put,
   Query,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
+import { CreateTorneoDto } from './dto/create-torneo.dto';
 import { UpdateTorneoEstadoDto } from './dto/update-torneo-estado.dto';
 
 @ApiTags('admin')
@@ -147,6 +149,23 @@ export class AdminController {
     }
   }
 
+  @Post('torneos')
+  @ApiOperation({ summary: 'Crear torneo en Contenedor1' })
+  @ApiResponse({ status: 503, description: 'Contenedor1 no disponible o sin permisos' })
+  async createTorneo(@Body() dto: CreateTorneoDto) {
+    try {
+      const data = await this.adminService.createTorneo(dto);
+      return { source: 'contenedor1', data };
+    } catch (error) {
+      throw new BadGatewayException({
+        message:
+          'No fue posible crear el torneo. Verifica token admin, permisos y payload enviado.',
+        details: error instanceof Error ? error.message : String(error),
+        source: 'contenedor-admin',
+      });
+    }
+  }
+
   @Patch('torneos/:id/estado')
   @HttpCode(200)
   @ApiOperation({ summary: 'Actualizar estado de torneo en Contenedor1' })
@@ -162,7 +181,7 @@ export class AdminController {
     } catch (error) {
       throw new BadGatewayException({
         message:
-          'No fue posible cambiar el estado del torneo. Integra permisos de admin en Contenedor1 para habilitarlo.',
+          'No fue posible cambiar el estado del torneo.',
         details: error instanceof Error ? error.message : String(error),
         source: 'contenedor-admin',
       });
