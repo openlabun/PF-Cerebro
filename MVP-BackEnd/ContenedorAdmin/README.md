@@ -37,7 +37,7 @@ Este contenedor implementa capacidades de observabilidad operativa para CEREBRO 
 Estas rutas consumen Contenedor1 usando:
 
 - `CONTENEDOR1_BASE_URL` (default: `http://cerebro-api:3000/api`)
-- `ADMIN_API_TOKEN` (si Contenedor1 exige JWT/rol admin)
+- auth admin por token (`ADMIN_API_TOKEN` + opcional `ADMIN_REFRESH_TOKEN`) o por credenciales (`ADMIN_EMAIL` + `ADMIN_PASSWORD`)
 
 ## Swagger / OpenAPI
 
@@ -56,7 +56,17 @@ http://localhost:3001/api/admin/docs
 - `CONTENEDOR1_BASE_URL` (default: `http://cerebro-api:3000/api`)
 - `CONTENEDOR2_BASE_URL` (default: `http://contenedor2:3001`)
 - `ADMIN_API_TOKEN` (Bearer token inicial para consumir endpoints protegidos en contenedor1/2)
-- `ADMIN_REFRESH_TOKEN` (recomendado: refresca automaticamente el access token via `/api/auth/refresh`)
+- `ADMIN_REFRESH_TOKEN` (opcional: refresca automaticamente el access token via `/api/auth/refresh`)
+- `ADMIN_EMAIL` (opcional recomendado: email admin para autologin via `/api/auth/login`)
+- `ADMIN_PASSWORD` (opcional recomendado: password admin para autologin via `/api/auth/login`)
+
+### Estrategia de autenticacion admin
+
+Orden de prioridad para generar el Bearer token:
+
+1. Reusar `ADMIN_API_TOKEN` si todavia es valido.
+2. Si hay `ADMIN_REFRESH_TOKEN`, refrescar con `/api/auth/refresh`.
+3. Si no hay refresh o falla, intentar login con `ADMIN_EMAIL` + `ADMIN_PASSWORD`.
 
 ## Ejecución local
 

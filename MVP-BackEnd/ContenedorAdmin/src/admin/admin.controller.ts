@@ -30,7 +30,7 @@ export class AdminController {
   private observabilityUnavailable(error: unknown): BadGatewayException {
     return new BadGatewayException({
       message:
-        'No fue posible obtener observabilidad desde contenedor1/contenedor2. Revisa CONTENEDOR1_BASE_URL, CONTENEDOR2_BASE_URL y token admin (ADMIN_API_TOKEN o ADMIN_REFRESH_TOKEN).',
+        'No fue posible obtener observabilidad desde contenedor1/contenedor2. Revisa CONTENEDOR1_BASE_URL, CONTENEDOR2_BASE_URL y auth admin (ADMIN_API_TOKEN/ADMIN_REFRESH_TOKEN o ADMIN_EMAIL/ADMIN_PASSWORD).',
       details: error instanceof Error ? error.message : String(error),
       source: 'contenedor1-contenedor2',
     });
@@ -142,7 +142,7 @@ export class AdminController {
     } catch (error) {
       throw new BadGatewayException({
         message:
-          'No fue posible consultar torneos en este momento. Revisa CONTENEDOR1_BASE_URL y ADMIN_API_TOKEN.',
+          'No fue posible consultar torneos en este momento. Revisa CONTENEDOR1_BASE_URL y auth admin (token o credenciales).',
         details: error instanceof Error ? error.message : String(error),
         source: 'contenedor-admin',
       });
@@ -198,7 +198,7 @@ export class AdminController {
     } catch (error) {
       throw new BadGatewayException({
         message:
-          'No fue posible consultar el torneo solicitado. Revisa permisos y token admin.',
+          'No fue posible consultar el torneo solicitado. Revisa permisos y auth admin (token o credenciales).',
         details: error instanceof Error ? error.message : String(error),
         source: 'contenedor-admin',
       });

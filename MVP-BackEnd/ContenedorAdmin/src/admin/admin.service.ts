@@ -84,10 +84,13 @@ export class AdminService {
   private readonly cacheTtlMs = Number(process.env.ADMIN_CACHE_TTL_MS || 15000);
 
   private readonly initialAdminApiToken = process.env.ADMIN_API_TOKEN || '';
+  private readonly adminEmail = String(process.env.ADMIN_EMAIL || '').trim();
+  private readonly adminPassword = process.env.ADMIN_PASSWORD || '';
   private adminRefreshToken = process.env.ADMIN_REFRESH_TOKEN || '';
   private currentAdminApiToken = this.initialAdminApiToken;
   private accessTokenExpMs = this.decodeJwtExpMs(this.initialAdminApiToken);
   private refreshInFlight: Promise<string> | null = null;
+  private loginInFlight: Promise<string> | null = null;
 
   private snapshotCache: AggregatedSnapshot | null = null;
   private snapshotCacheExpiresAt = 0;
@@ -742,14 +745,17 @@ export class AdminService {
     }
 
     if (!this.adminRefreshToken) {
-      return this.currentAdminApiToken;
+      if (!this.hasAdminCredentials()) {
+        return this.currentAdminApiToken;
+      }
+      return this.loginAdminWithLock();
     }
 
     if (this.refreshInFlight) {
       return this.refreshInFlight;
     }
 
-    this.refreshInFlight = this.refreshAdminToken();
+    this.refreshInFlight = this.refreshAdminTokenWithFallback();
     try {
       return await this.refreshInFlight;
     } finally {
@@ -776,14 +782,8 @@ export class AdminService {
       { requiresAuth: false },
     );
 
-    const accessToken =
-      payload?.accessToken && typeof payload.accessToken === 'string'
-        ? payload.accessToken
-        : '';
-    const nextRefreshToken =
-      payload?.refreshToken && typeof payload.refreshToken === 'string'
-        ? payload.refreshToken
-        : '';
+    const accessToken = this.extractToken(payload, 'accessToken');
+    const nextRefreshToken = this.extractToken(payload, 'refreshToken');
 
     if (!accessToken) {
       throw new Error('No fue posible refrescar ADMIN_API_TOKEN.');
@@ -795,6 +795,88 @@ export class AdminService {
     }
     this.accessTokenExpMs = this.decodeJwtExpMs(accessToken);
     return accessToken;
+  }
+
+  private async refreshAdminTokenWithFallback() {
+    try {
+      return await this.refreshAdminToken();
+    } catch {
+      if (this.hasAdminCredentials()) {
+        return this.loginAdminWithLock();
+      }
+
+      if (this.currentAdminApiToken) {
+        return this.currentAdminApiToken;
+      }
+
+      throw new Error(
+        'No fue posible autenticar admin. Define ADMIN_REFRESH_TOKEN/ADMIN_API_TOKEN o ADMIN_EMAIL/ADMIN_PASSWORD.',
+      );
+    }
+  }
+
+  private hasAdminCredentials() {
+    return Boolean(this.adminEmail && this.adminPassword);
+  }
+
+  private async loginAdminWithLock() {
+    if (this.loginInFlight) {
+      return this.loginInFlight;
+    }
+
+    this.loginInFlight = this.loginAsAdmin();
+    try {
+      return await this.loginInFlight;
+    } finally {
+      this.loginInFlight = null;
+    }
+  }
+
+  private async loginAsAdmin() {
+    if (!this.hasAdminCredentials()) {
+      throw new Error('ADMIN_EMAIL/ADMIN_PASSWORD no estan configurados.');
+    }
+
+    const payload = await this.requestContenedor1(
+      'auth/login',
+      'POST',
+      {
+        email: this.adminEmail,
+        password: this.adminPassword,
+      },
+      { requiresAuth: false },
+    );
+
+    const accessToken = this.extractToken(payload, 'accessToken');
+    const refreshToken = this.extractToken(payload, 'refreshToken');
+    if (!accessToken) {
+      throw new Error('No fue posible obtener ADMIN_API_TOKEN desde /auth/login.');
+    }
+
+    this.currentAdminApiToken = accessToken;
+    if (refreshToken) {
+      this.adminRefreshToken = refreshToken;
+    }
+    this.accessTokenExpMs = this.decodeJwtExpMs(accessToken);
+    return accessToken;
+  }
+
+  private extractToken(payload: unknown, key: 'accessToken' | 'refreshToken') {
+    if (!payload || typeof payload !== 'object') return '';
+
+    const direct = (payload as Record<string, unknown>)[key];
+    if (typeof direct === 'string' && direct.trim()) {
+      return direct.trim();
+    }
+
+    const nestedData = (payload as { data?: unknown }).data;
+    if (!nestedData || typeof nestedData !== 'object') return '';
+
+    const nested = (nestedData as Record<string, unknown>)[key];
+    if (typeof nested === 'string' && nested.trim()) {
+      return nested.trim();
+    }
+    return '';
   }
 
   private decodeJwtExpMs(token: string) {
@@ -829,7 +911,7 @@ export class AdminService {
       const token = await this.getAdminApiToken();
       if (!token) {
         throw new Error(
-          'No hay token disponible. Define ADMIN_REFRESH_TOKEN o ADMIN_API_TOKEN.',
+          'No hay token disponible. Define ADMIN_REFRESH_TOKEN/ADMIN_API_TOKEN o ADMIN_EMAIL/ADMIN_PASSWORD.',
         );
       }
       headers.Authorization = `Bearer ${token}`;
