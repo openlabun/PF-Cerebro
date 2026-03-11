@@ -201,7 +201,7 @@ ok("Jugador 2 inscrito en el torneo")
 # ============================================================
 separador("FASE 5 — Suscribir webhooks en Contenedor2")
 
-eventos = ["match.started", "opponent.moved", "match.finished", "match.forfeit"]
+eventos = ["match.started", "player.finished", "match.finished", "match.forfeit", "player.forfeit"]
 
 res = requests.post(f"{C2}/webhook/subscribe", json={
     "url": WEBHOOK_URL,
@@ -292,7 +292,7 @@ for j in jugadas:
         resultado = res.json()
         ok(f"Jugador {j['jugador']} jugó ({j['row']},{j['col']})={j['value']} — correcta: {resultado.get('esCorrecta')}")
 
-print(f"\n  👉 Revisar webhook.site — deberían haber llegado eventos 'opponent.moved'")
+print(f"\n  👉 Revisar webhook.site — en esta version ya no se emite 'opponent.moved'")
 time.sleep(1)
 
 
@@ -339,7 +339,7 @@ print("""
   ✅ Fase 5  — Webhooks suscritos en Contenedor2
   ✅ Fase 6  — Match creado en Contenedor2
   ✅ Fase 7  — Jugador 2 se unió (esperar match.started en webhook.site)
-  ✅ Fase 8  — Jugadas realizadas (esperar opponent.moved en webhook.site)
+  ✅ Fase 8  — Jugadas realizadas (esperar player.finished o match.finished en webhook.site)
   ✅ Fase 9  — Forfeit registrado (esperar match.forfeit en webhook.site)
   ✅ Fase 10 — Ranking consultado
 
