@@ -1,3 +1,6 @@
+import { Link } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
+
 const featureCards = [
   {
     title: 'Salas PvP',
@@ -17,6 +20,8 @@ const featureCards = [
 ]
 
 function HomePage() {
+  const { isAuthenticated, user } = useAuth()
+
   return (
     <main>
       <section className="hero welcome-banner">
@@ -29,12 +34,12 @@ function HomePage() {
           </p>
 
           <div className="hero-actions">
-            <button className="btn primary" type="button">
-              Crear sala
-            </button>
-            <button className="btn light" type="button">
-              Ver ranking
-            </button>
+            <Link className="btn primary" to={isAuthenticated ? '/simulacion' : '/login'}>
+              {isAuthenticated ? 'Entrar al simulador' : 'Iniciar sesion'}
+            </Link>
+            <Link className="btn light" to="/signup">
+              Crear cuenta
+            </Link>
             <button className="btn ghost" type="button">
               Configurar duelo
             </button>
@@ -44,6 +49,7 @@ function HomePage() {
             <span className="chip">Matchmaking</span>
             <span className="chip">1v1</span>
             <span className="chip">Tiempo real</span>
+            {isAuthenticated ? <span className="chip">Sesion activa: {user?.email}</span> : null}
           </div>
         </div>
 
@@ -60,7 +66,7 @@ function HomePage() {
           <div className="section-heading">
             <div>
               <p className="section-kicker">Modulos base</p>
-              <h2>Bloques iniciales del simulador</h2>
+              <h2>{isAuthenticated ? 'Sesion habilitada para flujo PvP' : 'Bloques iniciales del simulador'}</h2>
             </div>
             <span className="stat-chip">React + Vite</span>
           </div>
@@ -73,6 +79,15 @@ function HomePage() {
                 <p>{card.description}</p>
               </article>
             ))}
+          </div>
+
+          <div className="mode-detail">
+            <strong>{isAuthenticated ? `Bienvenido, ${user?.name || user?.email}` : 'Autenticacion integrada'}</strong>
+            <p className="mode-copy">
+              {isAuthenticated
+                ? 'Tu sesion se guarda en localStorage y la ruta de simulacion queda protegida por token.'
+                : 'El simulador ya cuenta con cliente API, almacenamiento de sesion y vistas dedicadas para login y registro.'}
+            </p>
           </div>
         </div>
 

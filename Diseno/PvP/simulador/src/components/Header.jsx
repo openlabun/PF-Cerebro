@@ -1,6 +1,20 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 
 function Header() {
+  const navigate = useNavigate()
+  const { isAuthenticated, user, logout } = useAuth()
+
+  async function handleSessionAction() {
+    if (!isAuthenticated) {
+      navigate('/login')
+      return
+    }
+
+    await logout()
+    navigate('/')
+  }
+
   return (
     <header className="topbar">
       <NavLink className="logo" to="/">
@@ -21,6 +35,14 @@ function Header() {
           Simulacion
         </NavLink>
       </nav>
+      <div className="session-actions">
+        {isAuthenticated && user?.name ? (
+          <span className="session-pill">{user.name}</span>
+        ) : null}
+        <button className="nav-btn session-btn" onClick={handleSessionAction} type="button">
+          {isAuthenticated ? 'Cerrar sesion' : 'Iniciar sesion'}
+        </button>
+      </div>
     </header>
   )
 }
