@@ -35,10 +35,22 @@ button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 18
 html { scroll-behavior: smooth; }
 body { margin: 0; font-family: "Inter", sans-serif; color: var(--text); background: radial-gradient(circle at top right, #eceefe, var(--bg) 35%); overflow-x: hidden; }
 
-.topbar { max-width: 1160px; margin: 0 auto; padding: 1.2rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.topbar { max-width: 1160px; margin: 0 auto; padding: 1.2rem 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;}
 .logo { text-decoration: none; color: var(--text); font-size: 1.55rem; font-weight: 800; }
 .logo span { color: var(--primary); }
-nav, .topbar-actions { display: flex; gap: .6rem; }
+nav {
+  display: flex;
+  gap: .6rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+nav::-webkit-scrollbar {
+  display: none;
+}
+
+.topbar-actions { display: flex; gap: .6rem; }
 
 .nav-btn { border: 1px solid var(--border); background: color-mix(in srgb, var(--primary) 13%, transparent); color: var(--primary-dark); border-radius: 999px; padding: .45rem .9rem; font-weight: 600; cursor: pointer; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }
 .nav-btn:hover { transform: translateY(-2px); background: color-mix(in srgb, var(--primary) 24%, transparent); }
@@ -62,7 +74,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 
 .board-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; box-shadow: var(--shadow); padding: 1rem; }
 .board-card.compact { max-width: 430px; }
-.game-tab { margin-top: 1rem; }
+.game-tab { width: 100%; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .board-header { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: .7rem; gap: 1rem; align-items: flex-start; }
 .difficulty-wrap { display: flex; flex-direction: column; gap: .25rem; }
@@ -71,10 +83,9 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 
 /* ===== Sudoku game card (respeta tema claro/oscuro) ===== */
 .sudoku-game-card {
-  --sudoku-primary: var(--primary);
-  --sudoku-primary-dark: var(--primary-dark);
-  background: var(--bg);
-  border-color: var(--border);
+  width: fit-content;
+  min-width: fit-content; /* ← never squeeze the board */
+  margin: 0 auto;
 }
 
 .sudoku-game-card .timer-display {
@@ -252,10 +263,6 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
   max-width: 100%;
 }
 
-.sudoku-game-card .board {
-  margin: 0;
-  max-width: 100%;
-}
 
 .sudoku-controls {
   display: flex;
@@ -395,20 +402,44 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 /* ===== Board global (resto de la app) ===== */
 .board {
   display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  width: 100%;
-  max-width: min(100%, 540px);
-  aspect-ratio: 1 / 1;
-  margin: 0 auto;
+  grid-template-columns: repeat(9, 1fr);
+  grid-template-rows: repeat(9, 1fr);
+
+  width: 540px;
+  height: 540px;
+  min-width: 540px;  /* ← never go below 540 */
+  min-height: 540px;
+  flex-shrink: 0;
+  flex-grow: 0;
+align-self: center;
   border: 3px solid var(--subgrid-line);
   border-radius: 10px;
   overflow: hidden;
-  min-width: 0;
-  box-sizing: border-box;
 }
-.cell,.sign-cell { aspect-ratio: 1 / 1; width: 100%; min-width: 0; border: 1px solid var(--cell-border); display: grid; place-items: center; font-weight: 700; color: var(--text); background: var(--cell-bg); box-sizing: border-box; }
+
+.cell, .sign-cell {
+  width: 60px;
+  height: 60px;
+  border: 1px solid var(--cell-border);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: var(--text);
+  background: var(--cell-bg);
+  box-sizing: border-box;
+  line-height: 1;
+  padding: 0;
+}
+
+/* Inner wrapper needed since we're using padding-bottom trick */
+.cell > *, .sign-cell > * {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
 .cell { cursor: pointer; 
-font-size: clamp(1.5rem, 4vw, 2.4rem);}
+font-size: clamp(1rem, 3.5vw, 2rem);}
 .cell.selected { outline: 2px solid var(--primary); outline-offset: -2px; }
 .cell.error { background: #ffdbdb; color: #941b1b; }
 .cell.block-right,.sign-cell.block-right { border-right: 3px solid var(--subgrid-line); }
@@ -574,8 +605,8 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
 
 .hidden { display: none !important; }
 
-@media (max-width: 930px) {
-  nav { display: none; }
+@media (max-width: 700px) {
+  .topbar { flex-wrap: wrap; }
   .hero { grid-template-columns: 1fr; }
   .board-card.compact { max-width: none; }
   .summoner-header { grid-template-columns: 1fr; justify-items: center; text-align: center; }
@@ -584,25 +615,29 @@ font-size: clamp(1.5rem, 4vw, 2.4rem);}
   .badges-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .picker-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .profile-grid { grid-template-columns: 1fr; }
-  .sudoku-main { flex-direction: column; align-items: center; }
+.sudoku-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  gap: 2rem;
+}
   .sudoku-top-row { flex-direction: column; align-items: stretch; }
   .sudoku-top-right {
     flex-wrap: wrap;
     justify-content: flex-start;
   }
-  .sudoku-game-card .btn-new-game {
-    flex: 1 1 100%;
-    width: 100%;
-    text-align: center;
-  }
-  .sudoku-grid-wrap {
-    width: 100%;
-    max-width: 100%;
-  }
-  .sudoku-game-card .board {
-    width: 100%;
-    max-width: 100%;
-  }
+.sudoku-game-card .btn-new-game {
+  background: var(--sudoku-primary);
+  color: #fff;
+  border: 0;
+  border-radius: 14px;
+  padding: 0.6rem 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 }
 
 /* ===== Notas Sudoku ===== */
