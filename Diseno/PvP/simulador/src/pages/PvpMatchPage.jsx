@@ -57,6 +57,18 @@ function findFirstEditableCell(puzzle, boardState) {
   return null
 }
 
+function isSolvedBoard(board, solution) {
+  if (!board.length || !solution.length) return false
+
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      if (board[row]?.[col] !== solution[row]?.[col]) return false
+    }
+  }
+
+  return true
+}
+
 function PvpMatchPage() {
   const navigate = useNavigate()
   const { matchId } = useParams()
@@ -94,6 +106,15 @@ function PvpMatchPage() {
   function setGameStatus(message, ok = false) {
     setStatus(message)
     setStatusOk(ok)
+  }
+
+  function scheduleHomeRedirect(message, delayMs = 300) {
+    if (redirectScheduled) return
+    setRedirectScheduled(true)
+    setGameStatus(message, true)
+    window.setTimeout(() => {
+      navigate('/', { replace: true })
+    }, delayMs)
   }
 
   function isAlreadyJoinedError(error) {
@@ -191,7 +212,7 @@ function PvpMatchPage() {
         if (nextMatch.estado === 'WAITING') {
           setGameStatus('Partida creada. Comparte el enlace y espera al rival.', true)
         } else if (nextMatch.estado === 'ACTIVE') {
-          setGameStatus('Partida activa. Tus jugadas se validan en el cliente.', true)
+          setGameStatus('Partida activa. Ya puedes comenzar a jugar.', true)
         }
       } catch (error) {
         if (!mounted || error?.name === 'AbortError') return
@@ -203,7 +224,7 @@ function PvpMatchPage() {
             if (!mounted) return
             setGameStatus(
               joinedMatch.estado === 'ACTIVE'
-                ? 'Partida activa. Tus jugadas se validan en el cliente.'
+                ? 'Partida activa. Ya puedes comenzar a jugar.'
                 : 'Rival unido. Esperando sincronizacion del match.',
               true,
             )
@@ -257,18 +278,18 @@ function PvpMatchPage() {
     if (!match || redirectScheduled) return
     if (match.estado !== 'FINISHED' && match.estado !== 'FORFEIT') return
 
-    setRedirectScheduled(true)
     const isForfeit = match.estado === 'FORFEIT'
-    setGameStatus(
+    scheduleHomeRedirect(
       isForfeit ? 'La partida termino por abandono. Volviendo al inicio...' : 'Partida finalizada. Volviendo al inicio...',
-      true,
+      isForfeit ? 250 : 2000,
     )
-    const timeout = window.setTimeout(() => {
-      navigate('/', { replace: true })
-    }, isForfeit ? 250 : 2000)
+  }, [match, redirectScheduled])
 
-    return () => window.clearTimeout(timeout)
-  }, [match, navigate, redirectScheduled])
+  useEffect(() => {
+    if (redirectScheduled) return
+    if (!isSolvedBoard(board, solution)) return
+    scheduleHomeRedirect('Sudoku completado. Volviendo al inicio...')
+  }, [board, solution, redirectScheduled])
 
   async function handleCopyInviteLink() {
     try {
@@ -337,19 +358,23 @@ function PvpMatchPage() {
 
     if (solution[row]?.[col] !== num) {
       setErrorCount((current) => current + 1)
-      setGameStatus('Movimiento incorrecto. Validado localmente.')
+      setGameStatus('Movimiento incorrecto.')
       return
     }
 
     setSubmittingMove(true)
     try {
-      await apiClient.makePvpMove(matchId, { row, col, value: num }, c2AccessToken)
+      const result = await apiClient.makePvpMove(matchId, { row, col, value: num }, c2AccessToken)
       setConfirmedBoard((currentBoard) => {
         const nextBoard = currentBoard.map((line) => [...line])
         nextBoard[row][col] = num
         return nextBoard
       })
-      setGameStatus('Movimiento correcto. Sincronizado con el backend.', true)
+      if (result?.matchTerminado || result?.playerFinished) {
+        scheduleHomeRedirect('Sudoku completado. Volviendo al inicio...')
+      } else {
+        setGameStatus('Movimiento correcto.', true)
+      }
       await fetchMatch()
     } catch (error) {
       setBoard((currentBoard) => {
@@ -357,7 +382,7 @@ function PvpMatchPage() {
         nextBoard[row][col] = 0
         return nextBoard
       })
-      setGameStatus(error.message || 'No se pudo sincronizar la jugada correcta.')
+      setGameStatus(error.message || 'No se pudo registrar la jugada.')
     } finally {
       setSubmittingMove(false)
     }
@@ -514,7 +539,7 @@ function PvpMatchPage() {
                 </div>
 
                 <div className="board-actions controls icon-actions">
-                  <button className="btn-control btn-icon-circle" type="button" onClick={() => setGameStatus('Validacion local activa.', true)}>
+                  <button className="btn-control btn-icon-circle" type="button" onClick={() => setGameStatus('Partida en curso.', true)}>
                     <span className="btn-icon" aria-hidden="true">
                       OK
                     </span>
@@ -547,7 +572,7 @@ function PvpMatchPage() {
                         clearNotesCell(nextNotes, row, col)
                         return nextNotes
                       })
-                      setGameStatus('Celda limpiada localmente.')
+                      setGameStatus('Celda limpiada.')
                     }}
                   >
                     <span className="btn-icon" aria-hidden="true">
@@ -581,7 +606,7 @@ function PvpMatchPage() {
           <div className="sudoku-bottom">
             <p className={`status${statusOk ? ' ok' : ''}`}>{status}</p>
             <p className="mode-copy">
-              El tablero se valida localmente. El backend solo sincroniza jugadas correctas y estado del match.
+              Completa tu tablero y supera el progreso del rival.
             </p>
           </div>
         </div>
