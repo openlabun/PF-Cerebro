@@ -20,8 +20,7 @@
     <header class="topbar">
       <a class="logo" id="home-logo" href="#">Cere<span>bro</span></a>
       <nav>
-        <button type="button" class="nav-btn active" id="tab-inicio">Inicio</button>
-        <button type="button" class="nav-btn" id="tab-jugar">Jugar Sudoku</button>
+        <button type="button" class="nav-btn" id="tab-jugar">Jugar</button>
         <button type="button" class="nav-btn" id="tab-torneos">Torneos</button>
         <button type="button" class="nav-btn" id="tab-pvp">PvP</button>
         <button type="button" class="nav-btn" id="tab-perfil">Perfil</button>
@@ -213,17 +212,12 @@
       </div>
 
       <section class="game-tab hidden" id="juego-tab">
-        <div class="game-header">
-          <h2>Partida actual</h2>
-          <button class="btn light" id="back-home" type="button">Volver al inicio</button>
-        </div>
 
         <div class="board-card sudoku-game-card" aria-label="Tablero sudoku">
           <div class="sudoku-top-row">
             <div class="difficulty-wrap">
               <label for="difficulty-select">Dificultad:</label>
               <select id="difficulty-select" class="difficulty-select" aria-label="Seleccionar dificultad"></select>
-              <span id="difficulty-label" class="difficulty-label">Dificultad: Intermedio</span>
             </div>
             <div class="sudoku-top-right">
               <span id="timer" class="timer-display">00:00</span>
@@ -280,10 +274,6 @@
       </section>
 
       <section class="game-tab hidden" id="torneos-tab">
-        <div class="game-header">
-          <h2>Torneos de Sudoku</h2>
-          <button class="btn light back-home-generic" type="button">Volver al inicio</button>
-        </div>
         <div class="board-card mode-view-card">
           <p class="eyebrow">Temporada activa</p>
           <h3>Copa Mente Rapida</h3>
@@ -298,10 +288,6 @@
       </section>
 
       <section class="game-tab hidden" id="pvp-tab">
-        <div class="game-header">
-          <h2>Modo PvP</h2>
-          <button class="btn light back-home-generic" type="button">Volver al inicio</button>
-        </div>
         <div class="board-card mode-view-card">
           <p class="eyebrow">1 vs 1</p>
           <h3>Reta a otro jugador</h3>
@@ -316,10 +302,6 @@
       </section>
 
       <section class="game-tab hidden" id="login-tab">
-        <div class="game-header">
-          <h2>Iniciar sesión</h2>
-          <button class="btn light" id="back-home-from-login" type="button">Volver al inicio</button>
-        </div>
         <div class="board-card auth-card auth-tab-card">
           <div class="auth-switch">
             <button type="button" class="nav-btn active" id="show-login-form">Iniciar sesión</button>

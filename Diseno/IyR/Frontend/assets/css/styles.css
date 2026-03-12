@@ -77,9 +77,12 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 .game-tab { width: 100%; }
 .game-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
 .board-header { display: flex; justify-content: space-between; color: var(--muted); margin-bottom: .7rem; gap: 1rem; align-items: flex-start; }
-.difficulty-wrap { display: flex; flex-direction: column; gap: .25rem; }
-.difficulty-select { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; padding: .35rem .5rem; font-weight: 600; }
-.difficulty-label { font-size: .82rem; color: var(--muted); }
+.difficulty-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.difficulty-select { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 8px; font-weight: 600; }
 
 /* ===== Sudoku game card (respeta tema claro/oscuro) ===== */
 .sudoku-game-card {
@@ -114,10 +117,6 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
   min-width: 160px;
 }
 
-.sudoku-game-card .difficulty-label {
-  font-size: 0.82rem;
-  color: var(--muted);
-}
 
 .sudoku-top-row {
   display: flex;
