@@ -6,6 +6,15 @@ const AuthContext = createContext(null)
 function normalizeSessionUser(sessionUser = {}, verifiedUser = {}) {
   const fallbackEmail = verifiedUser.email || sessionUser.email || ''
   const fallbackName = sessionUser.name || (fallbackEmail ? fallbackEmail.split('@')[0] : '')
+  const verificationFlags = [
+    verifiedUser.isVerified,
+    verifiedUser.verified,
+    verifiedUser.emailVerified,
+    sessionUser.isVerified,
+    sessionUser.verified,
+    sessionUser.emailVerified,
+  ]
+  const resolvedVerification = verificationFlags.find((value) => typeof value === 'boolean')
 
   return {
     ...sessionUser,
@@ -13,6 +22,7 @@ function normalizeSessionUser(sessionUser = {}, verifiedUser = {}) {
     sub: verifiedUser.sub || sessionUser.sub || sessionUser.id || null,
     email: fallbackEmail,
     name: sessionUser.name || fallbackName,
+    isVerified: resolvedVerification,
   }
 }
 
@@ -210,6 +220,7 @@ export function AuthProvider({ children }) {
     user: session?.user || null,
     accessToken: session?.accessToken || null,
     isAuthenticated: Boolean(session?.c1AccessToken && session?.c2AccessToken),
+    isVerified: session?.user?.isVerified,
     isLoading,
     login,
     signup,
@@ -226,3 +237,5 @@ export function useAuth() {
   }
   return context
 }
+
+

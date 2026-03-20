@@ -1,42 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import SudokuBoard from '../components/SudokuBoard.jsx'
 import { resolveConfig } from '../config.js'
+import {
+  SudokuGameProvider,
+  cloneNotes,
+  formatSudokuTime,
+  useSudokuGame,
+} from '../context/SudokuGameContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { generatePvpBoard } from '../lib/pvpSudoku.js'
-import { clearNotesCell, createEmptyNotes, toggleNote } from '../lib/sudoku.js'
+import { clearNotesCell, createEmptyNotes } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
-
-function cloneNotes(notes) {
-  return notes.map((row) => row.map((cell) => new Set(cell)))
-}
-
-function formatTime(totalSeconds) {
-  const seconds = Math.max(0, Number(totalSeconds) || 0)
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const ss = String(seconds % 60).padStart(2, '0')
-  return `${mm}:${ss}`
-}
-
-function noteViolatesCurrentBoard(board, row, col, num) {
-  for (let currentCol = 0; currentCol < 9; currentCol += 1) {
-    if (currentCol !== col && board[row][currentCol] === num) return 'ya existe en la fila'
-  }
-
-  for (let currentRow = 0; currentRow < 9; currentRow += 1) {
-    if (currentRow !== row && board[currentRow][col] === num) return 'ya existe en la columna'
-  }
-
-  const startRow = Math.floor(row / 3) * 3
-  const startCol = Math.floor(col / 3) * 3
-  for (let currentRow = startRow; currentRow < startRow + 3; currentRow += 1) {
-    for (let currentCol = startCol; currentCol < startCol + 3; currentCol += 1) {
-      if (currentRow === row && currentCol === col) continue
-      if (board[currentRow][currentCol] === num) return 'ya existe en el bloque 3x3'
-    }
-  }
-
-  return null
-}
 
 function buildInviteLinkWithTournament(matchId, tournamentId) {
   const basePath = `${import.meta.env.BASE_URL || '/'}pvp/${matchId}`
@@ -57,7 +32,7 @@ function findFirstEditableCell(puzzle, boardState) {
   return null
 }
 
-function PvpMatchPage() {
+function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   const navigate = useNavigate()
   const { matchId } = useParams()
   const [searchParams] = useSearchParams()
@@ -65,17 +40,6 @@ function PvpMatchPage() {
   const config = resolveConfig()
 
   const [match, setMatch] = useState(null)
-  const [puzzle, setPuzzle] = useState([])
-  const [solution, setSolution] = useState([])
-  const [board, setBoard] = useState([])
-  const [confirmedBoard, setConfirmedBoard] = useState([])
-  const [invalidCells, setInvalidCells] = useState({})
-  const [notes, setNotes] = useState(() => createEmptyNotes())
-  const [selectedCell, setSelectedCell] = useState(null)
-  const [noteMode, setNoteMode] = useState(false)
-  const [highlightEnabled, setHighlightEnabled] = useState(true)
-  const [status, setStatus] = useState('Conectando con la partida...')
-  const [statusOk, setStatusOk] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submittingMove, setSubmittingMove] = useState(false)
   const [forfeiting, setForfeiting] = useState(false)
@@ -84,18 +48,40 @@ function PvpMatchPage() {
   const [redirectScheduled, setRedirectScheduled] = useState(false)
   const initializedBoardRef = useRef(false)
   const pollingInFlightRef = useRef(false)
+  const selectedCellRef = useRef(null)
+
+  const {
+    puzzle,
+    solution,
+    board,
+    selectedCell,
+    noteMode,
+    highlightEnabled,
+    status,
+    statusOk,
+    hydrateGame,
+    setBoard,
+    setNotes,
+    setNoteMode,
+    setHighlightEnabled,
+    setStatus,
+    clearSelectedCell,
+    toggleSelectedNote,
+    markCellError,
+    clearCellError,
+  } = useSudokuGame()
 
   const c1AccessToken = session?.c1AccessToken || ''
   const c2AccessToken = session?.c2AccessToken || ''
   const shouldAutoJoin = searchParams.get('join') === '1'
-  const tournamentId = searchParams.get('torneoId') || match?.torneoId || ''
+  const requestedTournamentId = searchParams.get('torneoId') || ''
+  const tournamentId = requestedTournamentId || match?.torneoId || ''
   const inviteLink = useMemo(() => buildInviteLinkWithTournament(matchId, tournamentId), [matchId, tournamentId])
   const webhookReceiverUrl = config.PVP_WEBHOOK_RECEIVER_URL
 
-  function setGameStatus(message, ok = false) {
-    setStatus(message)
-    setStatusOk(ok)
-  }
+  useEffect(() => {
+    selectedCellRef.current = selectedCell
+  }, [selectedCell])
 
   function updateLocalMyGame(mutator) {
     setMatch((current) => {
@@ -110,7 +96,7 @@ function PvpMatchPage() {
   function scheduleHomeRedirect(message, delayMs = 300) {
     if (redirectScheduled) return
     setRedirectScheduled(true)
-    setGameStatus(message, true)
+    setStatus(message, true)
     window.setTimeout(() => {
       navigate('/', { replace: true })
     }, delayMs)
@@ -168,13 +154,23 @@ function PvpMatchPage() {
 
     if ((!initializedBoardRef.current || updateBoard) && nextMatch?.myGame?.boardState?.length) {
       const generated = generatePvpBoard(nextMatch.seed)
-      setPuzzle(generated.puzzle)
-      setSolution(generated.solution)
       const nextBoard = nextMatch.myGame.boardState.map((row) => [...row])
-      setConfirmedBoard(nextBoard.map((row) => [...row]))
-      setBoard(nextBoard)
-      setNotes(createEmptyNotes())
-      setSelectedCell((current) => current || findFirstEditableCell(generated.puzzle, nextBoard))
+      const currentSelectedCell = selectedCellRef.current
+      const shouldKeepCurrentSelection =
+        currentSelectedCell &&
+        generated.puzzle[currentSelectedCell.row]?.[currentSelectedCell.col] === 0 &&
+        nextBoard[currentSelectedCell.row]?.[currentSelectedCell.col] === 0
+      onConfirmedBoardChange(nextBoard.map((row) => [...row]))
+      hydrateGame({
+        puzzle: generated.puzzle,
+        solution: generated.solution,
+        board: nextBoard,
+        notes: createEmptyNotes(),
+        selectedCell: shouldKeepCurrentSelection ? currentSelectedCell : findFirstEditableCell(generated.puzzle, nextBoard),
+        noteMode: false,
+        highlightEnabled: true,
+        cellErrors: {},
+      })
       initializedBoardRef.current = true
     }
 
@@ -200,28 +196,28 @@ function PvpMatchPage() {
         setLoading(true)
         await ensureWebhookSubscription()
         if (shouldAutoJoin) {
-          await ensureTournamentJoined(tournamentId)
+          await ensureTournamentJoined(requestedTournamentId || tournamentId)
           await apiClient.joinPvpMatch(matchId, { tokenC1: c1AccessToken }, c2AccessToken)
-          if (mounted) setGameStatus('Rival unido. Preparando partida...', true)
+          if (mounted) setStatus('Rival unido. Preparando partida...', true)
         }
 
         const nextMatch = await fetchMatch({ updateBoard: true, signal: controller.signal })
         if (!mounted) return
 
         if (nextMatch.estado === 'WAITING') {
-          setGameStatus('Partida creada. Comparte el enlace y espera al rival.', true)
+          setStatus('Partida creada. Comparte el enlace y espera al rival.', true)
         } else if (nextMatch.estado === 'ACTIVE') {
-          setGameStatus('Partida activa. Ya puedes comenzar a jugar.', true)
+          setStatus('Partida activa. Ya puedes comenzar a jugar.', true)
         }
       } catch (error) {
         if (!mounted || error?.name === 'AbortError') return
-        if (shouldAutoJoin && tournamentId && isNotPlayerError(error)) {
+        if (shouldAutoJoin && requestedTournamentId && isNotPlayerError(error)) {
           try {
-            await ensureTournamentJoined(tournamentId)
+            await ensureTournamentJoined(requestedTournamentId)
             await apiClient.joinPvpMatch(matchId, { tokenC1: c1AccessToken }, c2AccessToken)
             const joinedMatch = await fetchMatch({ updateBoard: true, signal: controller.signal })
             if (!mounted) return
-            setGameStatus(
+            setStatus(
               joinedMatch.estado === 'ACTIVE'
                 ? 'Partida activa. Ya puedes comenzar a jugar.'
                 : 'Rival unido. Esperando sincronizacion del match.',
@@ -230,12 +226,12 @@ function PvpMatchPage() {
             return
           } catch (joinError) {
             if (!mounted || joinError?.name === 'AbortError') return
-            setGameStatus(joinError.message || 'No se pudo unir al match.')
+            setStatus(joinError.message || 'No se pudo unir al match.')
             return
           }
         }
 
-        setGameStatus(error.message || 'No se pudo cargar la partida.')
+        setStatus(error.message || 'No se pudo cargar la partida.')
       } finally {
         if (mounted) setLoading(false)
       }
@@ -247,7 +243,7 @@ function PvpMatchPage() {
       mounted = false
       controller.abort()
     }
-  }, [c1AccessToken, c2AccessToken, matchId, shouldAutoJoin, tournamentId])
+  }, [c1AccessToken, c2AccessToken, matchId, requestedTournamentId, shouldAutoJoin])
 
   useEffect(() => {
     if (!matchId || !c2AccessToken) return undefined
@@ -287,55 +283,30 @@ function PvpMatchPage() {
   async function handleCopyInviteLink() {
     try {
       await navigator.clipboard.writeText(inviteLink)
-      setGameStatus('Enlace copiado al portapapeles.', true)
+      setStatus('Enlace copiado al portapapeles.', true)
     } catch {
-      setGameStatus('No se pudo copiar el enlace. Copialo manualmente.')
+      setStatus('No se pudo copiar el enlace. Copialo manualmente.')
     }
-  }
-
-  function handleNoteInput(num) {
-    if (!selectedCell || !board.length) return
-
-    const { row, col } = selectedCell
-    if (puzzle[row]?.[col] !== 0) {
-      setGameStatus('No puedes poner notas en una celda fija.')
-      return
-    }
-
-    const invalidReason = noteViolatesCurrentBoard(board, row, col, num)
-    if (invalidReason) {
-      setGameStatus(`No puedes agregar la nota ${num}: ${invalidReason}.`)
-      return
-    }
-
-    setNotes((currentNotes) => {
-      const nextNotes = cloneNotes(currentNotes)
-      const result = toggleNote(nextNotes, board, row, col, num)
-      if (!result.ok) return currentNotes
-      setGameStatus(result.action === 'added' ? `Nota ${num} agregada.` : `Nota ${num} eliminada.`)
-      return nextNotes
-    })
   }
 
   async function applyValue(num, asNote = false) {
     if (!match || match.estado !== 'ACTIVE' || submittingMove) return
     if (!selectedCell) {
-      setGameStatus('Selecciona una celda editable antes de jugar.')
+      setStatus('Selecciona una celda editable antes de jugar.')
       return
     }
     if (asNote) {
-      handleNoteInput(num)
+      toggleSelectedNote(num)
       return
     }
 
     const { row, col } = selectedCell
-    const cellKey = `${row}-${col}`
     if (puzzle[row]?.[col] !== 0) {
-      setGameStatus('No puedes modificar una celda fija.')
+      setStatus('No puedes modificar una celda fija.')
       return
     }
     if (confirmedBoard[row]?.[col] !== 0) {
-      setGameStatus('Esa celda ya fue resuelta por ti.')
+      setStatus('Esa celda ya fue resuelta por ti.')
       return
     }
 
@@ -344,11 +315,7 @@ function PvpMatchPage() {
       nextBoard[row][col] = num
       return nextBoard
     })
-    setInvalidCells((current) => {
-      const next = { ...current }
-      delete next[cellKey]
-      return next
-    })
+    clearCellError(row, col)
     setNotes((currentNotes) => {
       const nextNotes = cloneNotes(currentNotes)
       clearNotesCell(nextNotes, row, col)
@@ -356,10 +323,7 @@ function PvpMatchPage() {
     })
 
     if (solution[row]?.[col] !== num) {
-      setInvalidCells((current) => ({
-        ...current,
-        [cellKey]: true,
-      }))
+      markCellError(row, col, true)
       updateLocalMyGame((currentMyGame) => ({
         ...currentMyGame,
         score: (currentMyGame.score ?? 0) - 1,
@@ -380,10 +344,10 @@ function PvpMatchPage() {
           mistakes: Math.max(0, (currentMyGame.mistakes ?? 0) - 1),
         }))
         setErrorCount((current) => Math.max(0, current - 1))
-        setGameStatus(error.message || 'No se pudo registrar la jugada.')
+        setStatus(error.message || 'No se pudo registrar la jugada.')
         return
       }
-      setGameStatus('Movimiento incorrecto.')
+      setStatus('Movimiento incorrecto.')
       return
     }
 
@@ -398,25 +362,21 @@ function PvpMatchPage() {
       if (typeof result?.myMistakes === 'number') {
         setErrorCount(result.myMistakes)
       }
-      setConfirmedBoard((currentBoard) => {
+      onConfirmedBoardChange((currentBoard) => {
         const nextBoard = currentBoard.map((line) => [...line])
         nextBoard[row][col] = num
         return nextBoard
       })
-      setInvalidCells((current) => {
-        const next = { ...current }
-        delete next[cellKey]
-        return next
-      })
+      clearCellError(row, col)
 
       if (result?.matchTerminado) {
         scheduleHomeRedirect('Sudoku completado. Volviendo al inicio...')
       } else {
-        setGameStatus('Movimiento correcto.', true)
+        setStatus('Movimiento correcto.', true)
       }
       await fetchMatch()
     } catch (error) {
-      setGameStatus(error.message || 'No se pudo registrar la jugada.')
+      setStatus(error.message || 'No se pudo registrar la jugada.')
     } finally {
       setSubmittingMove(false)
     }
@@ -427,7 +387,7 @@ function PvpMatchPage() {
 
     const { row, col } = selectedCell
     if (puzzle[row]?.[col] !== 0 || confirmedBoard[row]?.[col] !== 0) {
-      setGameStatus('Selecciona una celda editable para la prueba.')
+      setStatus('Selecciona una celda editable para la prueba.')
       return
     }
 
@@ -440,7 +400,7 @@ function PvpMatchPage() {
       (candidate) => candidate !== solution[row][col],
     )
     if (!wrongValue) {
-      setGameStatus('No se pudo generar una jugada incorrecta de prueba.')
+      setStatus('No se pudo generar una jugada incorrecta de prueba.')
       return
     }
 
@@ -455,13 +415,20 @@ function PvpMatchPage() {
       await apiClient.forfeitPvpMatch(matchId, c2AccessToken)
       setMatch((current) => (current ? { ...current, estado: 'FORFEIT' } : current))
     } catch (error) {
-      setGameStatus(error.message || 'No se pudo abandonar la partida.')
+      setStatus(error.message || 'No se pudo abandonar la partida.')
     } finally {
       setForfeiting(false)
     }
   }
 
-  const selectedValue = selectedCell ? board[selectedCell.row]?.[selectedCell.col] || 0 : 0
+  function handleClearCell() {
+    if (!selectedCell) return
+    const didClear = clearSelectedCell()
+    if (didClear) {
+      clearCellError(selectedCell.row, selectedCell.col)
+    }
+  }
+
   const myGame = match?.myGame || null
   const opponent = match?.opponent || null
   const startedAt = match?.fechaInicio ? new Date(match.fechaInicio).getTime() : null
@@ -490,7 +457,7 @@ function PvpMatchPage() {
             </div>
 
             <div className="sudoku-top-right">
-              <span className="timer-display">{formatTime(elapsedSeconds)}</span>
+              <span className="timer-display">{formatSudokuTime(elapsedSeconds)}</span>
               <span className="stat-chip">Rival: {opponent?.score ?? 0}</span>
               <span className="stat-chip">{opponent?.finished ? 'Rival listo' : 'Rival en juego'}</span>
               <button className="btn ghost btn-pause" type="button" onClick={() => navigate('/simulacion')}>
@@ -523,59 +490,7 @@ function PvpMatchPage() {
           ) : (
             <div className="sudoku-main">
               <div className="sudoku-grid-wrap">
-                <div className="board" role="grid" aria-label="Tablero PvP">
-                  {board.map((rowValues, rowIndex) =>
-                    rowValues.map((value, colIndex) => {
-                      const isPrefilled = puzzle[rowIndex]?.[colIndex] !== 0
-                      const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                      const isPeer =
-                        highlightEnabled &&
-                        selectedCell &&
-                        (selectedCell.row === rowIndex || selectedCell.col === colIndex)
-                      const isSameValue =
-                        highlightEnabled && selectedValue !== 0 && value !== 0 && value === selectedValue
-                      const isError = Boolean(invalidCells[`${rowIndex}-${colIndex}`])
-
-                      const classNames = [
-                        'cell',
-                        isPrefilled ? 'prefilled' : '',
-                        isSelected ? 'selected' : '',
-                        isPeer ? 'highlight-peer' : '',
-                        isSameValue ? 'highlight-same' : '',
-                        isError ? 'error' : '',
-                        notes[rowIndex]?.[colIndex]?.size ? 'has-notes' : '',
-                        (colIndex + 1) % 3 === 0 && colIndex !== 8 ? 'block-right' : '',
-                        (rowIndex + 1) % 3 === 0 && rowIndex !== 8 ? 'block-bottom' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')
-
-                      return (
-                        <button
-                          key={`${rowIndex}-${colIndex}`}
-                          className={classNames}
-                          type="button"
-                          onClick={() => setSelectedCell({ row: rowIndex, col: colIndex })}
-                        >
-                          {value !== 0 ? (
-                            <span>{value}</span>
-                          ) : notes[rowIndex]?.[colIndex]?.size ? (
-                            <div className="notes-grid">
-                              {Array.from({ length: 9 }, (_, offset) => offset + 1).map((note) => (
-                                <div
-                                  key={note}
-                                  className={`note${selectedValue !== 0 && note === selectedValue ? ' highlight-same-note' : ''}`}
-                                >
-                                  {notes[rowIndex][colIndex].has(note) ? note : ''}
-                                </div>
-                              ))}
-                            </div>
-                          ) : null}
-                        </button>
-                      )
-                    }),
-                  )}
-                </div>
+                <SudokuBoard ariaLabel="Tablero PvP" />
               </div>
 
               <div className="sudoku-controls">
@@ -594,7 +509,7 @@ function PvpMatchPage() {
                 </div>
 
                 <div className="board-actions controls icon-actions">
-                  <button className="btn-control btn-icon-circle" type="button" onClick={() => setGameStatus('Partida en curso.', true)}>
+                  <button className="btn-control btn-icon-circle" type="button" onClick={() => setStatus('Partida en curso.', true)}>
                     <span className="btn-icon" aria-hidden="true">
                       OK
                     </span>
@@ -610,31 +525,7 @@ function PvpMatchPage() {
                       N
                     </span>
                   </button>
-                  <button
-                    className="btn-control btn-icon-circle"
-                    type="button"
-                    onClick={() => {
-                      if (!selectedCell) return
-                      const { row, col } = selectedCell
-                      if (puzzle[row]?.[col] !== 0 || confirmedBoard[row]?.[col] !== 0) return
-                      setBoard((currentBoard) => {
-                        const nextBoard = currentBoard.map((line) => [...line])
-                        nextBoard[row][col] = 0
-                        return nextBoard
-                      })
-                      setInvalidCells((current) => {
-                        const next = { ...current }
-                        delete next[`${row}-${col}`]
-                        return next
-                      })
-                      setNotes((currentNotes) => {
-                        const nextNotes = cloneNotes(currentNotes)
-                        clearNotesCell(nextNotes, row, col)
-                        return nextNotes
-                      })
-                      setGameStatus('Celda limpiada.')
-                    }}
-                  >
+                  <button className="btn-control btn-icon-circle" type="button" onClick={handleClearCell}>
                     <span className="btn-icon" aria-hidden="true">
                       CLR
                     </span>
@@ -674,9 +565,7 @@ function PvpMatchPage() {
 
           <div className="sudoku-bottom">
             <p className={`status${statusOk ? ' ok' : ''}`}>{status}</p>
-            <p className="mode-copy">
-              Completa tu tablero y supera el progreso del rival.
-            </p>
+            <p className="mode-copy">Completa tu tablero y supera el progreso del rival.</p>
           </div>
         </div>
       </section>
@@ -684,4 +573,30 @@ function PvpMatchPage() {
   )
 }
 
+function PvpMatchPage() {
+  const [confirmedBoard, setConfirmedBoard] = useState([])
+
+  function getEditableState({ row, col, puzzle }) {
+    if (puzzle[row]?.[col] !== 0) {
+      return { editable: false, message: 'No puedes modificar una celda fija.' }
+    }
+    if (confirmedBoard[row]?.[col] !== 0) {
+      return { editable: false, message: 'Esa celda ya fue resuelta por ti.' }
+    }
+
+    return { editable: true, message: '' }
+  }
+
+  return (
+    <SudokuGameProvider errorMode="tracked" getEditableState={getEditableState}>
+      <PvpMatchPageContent confirmedBoard={confirmedBoard} onConfirmedBoardChange={setConfirmedBoard} />
+    </SudokuGameProvider>
+  )
+}
+
 export default PvpMatchPage
+
+
+
+
+

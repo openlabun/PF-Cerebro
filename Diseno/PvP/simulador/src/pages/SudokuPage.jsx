@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import SudokuBoard from '../components/SudokuBoard.jsx'
+import {
+  SudokuGameProvider,
+  cloneNotes,
+  formatSudokuTime,
+  useSudokuGame,
+} from '../context/SudokuGameContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { apiClient } from '../services/apiClient.js'
 import {
@@ -14,7 +21,6 @@ import {
   getHintLimit,
   getRandomHint,
   isBoardSolved,
-  toggleNote,
 } from '../lib/sudoku.js'
 
 const GAME_ID_SUDOKU = 'uVsB-k2rjora'
@@ -75,16 +81,6 @@ function getSessionDayKey(value) {
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
   const dd = String(date.getUTCDate()).padStart(2, '0')
   return `${yyyy}-${mm}-${dd}`
-}
-
-function cloneNotes(notes) {
-  return notes.map((row) => row.map((cell) => new Set(cell)))
-}
-
-function formatTime(seconds) {
-  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
-  const ss = String(seconds % 60).padStart(2, '0')
-  return `${mm}:${ss}`
 }
 
 function removeCandidateFromPeerNotes(notes, row, col, num) {
@@ -156,26 +152,17 @@ function buildGame(difficultyKey) {
   }
 }
 
-function SudokuPage() {
+function SudokuPageContent() {
   const [difficultyKey, setDifficultyKey] = useState(difficultyLevels[2].key)
-  const [solution, setSolution] = useState([])
-  const [puzzle, setPuzzle] = useState([])
-  const [board, setBoard] = useState([])
-  const [notes, setNotes] = useState(() => createEmptyNotes())
-  const [selectedCell, setSelectedCell] = useState(null)
-  const [noteMode, setNoteMode] = useState(false)
-  const [highlightEnabled, setHighlightEnabled] = useState(true)
   const [paused, setPaused] = useState(false)
   const [completed, setCompleted] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const [errorCount, setErrorCount] = useState(0)
   const [hintsUsed, setHintsUsed] = useState(0)
-  const [status, setStatus] = useState('Cargando sudoku...')
-  const [statusOk, setStatusOk] = useState(false)
   const [score, setScore] = useState(0)
   const [seed, setSeed] = useState(0)
   const difficulty = getDifficultyByKey(difficultyKey)
-  const { isAuthenticated, accessToken } = useAuth()
+  const { isAuthenticated, accessToken, isVerified, user } = useAuth()
   const latestMetricsRef = useRef({ seconds: 0, errorCount: 0, hintsUsed: 0 })
   const bestSudokuScoreRef = useRef(0)
   const achievementCatalogRef = useRef(new Map())
@@ -185,10 +172,26 @@ function SudokuPage() {
   const [achievementPopupItems, setAchievementPopupItems] = useState([])
   const [streakMessage, setStreakMessage] = useState('')
 
-  function setGameStatus(message, ok = false) {
-    setStatus(message)
-    setStatusOk(ok)
-  }
+  const {
+    puzzle,
+    solution,
+    board,
+    notes,
+    selectedCell,
+    selectedValue,
+    noteMode,
+    highlightEnabled,
+    status,
+    statusOk,
+    hydrateGame,
+    setBoard,
+    setNotes,
+    setNoteMode,
+    setHighlightEnabled,
+    setStatus,
+    clearSelectedCell,
+    toggleSelectedNote,
+  } = useSudokuGame()
 
   async function syncRemoteAchievementCatalog() {
     if (!accessToken) return
@@ -256,13 +259,13 @@ function SudokuPage() {
     await Promise.all(promises)
   }
 
-  async function registerSudokuActivity(score, gameSession) {
+  async function registerSudokuActivity(nextScore, gameSession) {
     if (!accessToken || !isAuthenticated) {
       return { recorded: false, newlyUnlockedAchievements: [] }
     }
 
     const previousUnlocked = new Set(unlockedBadges)
-    bestSudokuScoreRef.current = Math.max(bestSudokuScoreRef.current, score)
+    bestSudokuScoreRef.current = Math.max(bestSudokuScoreRef.current, nextScore)
 
     const nextUnlocked = new Set(unlockedBadges)
     if (bestSudokuScoreRef.current > 500) nextUnlocked.add('score-over-500')
@@ -325,12 +328,15 @@ function SudokuPage() {
       return { recorded: true, newlyUnlockedAchievements }
     } catch (error) {
       console.warn('Error registrando actividad de Sudoku:', error)
+      if (isVerified === false) {
+        setStatus(`No se pudo sincronizar tu progreso porque la cuenta ${user?.email || 'actual'} no esta verificada.`)
+      }
       return { recorded: false, newlyUnlockedAchievements: [] }
     }
   }
 
-  function getXpByDifficulty(score, difficulty) {
-    const baseXp = Math.max(0, Math.floor(score / 10))
+  function getXpByDifficulty(nextScore, nextDifficulty) {
+    const baseXp = Math.max(0, Math.floor(nextScore / 10))
     const multipliers = {
       Principiante: 1.0,
       Iniciado: 1.2,
@@ -339,11 +345,11 @@ function SudokuPage() {
       Experto: 2.1,
       Profesional: 2.5,
     }
-    const multiplier = multipliers[difficulty?.label] ?? 1.0
+    const multiplier = multipliers[nextDifficulty?.label] ?? 1.0
     return Math.max(1, Math.floor(baseXp * multiplier))
   }
 
-  function getVirtualOpponentRating(difficulty) {
+  function getVirtualOpponentRating(nextDifficulty) {
     const map = {
       Principiante: 300,
       Iniciado: 500,
@@ -352,7 +358,7 @@ function SudokuPage() {
       Experto: 1100,
       Profesional: 1300,
     }
-    return map[difficulty?.label] ?? 700
+    return map[nextDifficulty?.label] ?? 700
   }
 
   function calculateExpectedScore(playerElo, opponentElo) {
@@ -364,14 +370,13 @@ function SudokuPage() {
     const k = playerElo < 1200 ? 40 : playerElo < 1800 ? 30 : 20
     const expected = calculateExpectedScore(playerElo, opponentElo)
     const actual = result === 'victoria' ? 1 : result === 'derrota' ? 0 : 0.5
-    const delta = Math.round(k * (actual - expected))
-    return delta
+    return Math.round(k * (actual - expected))
   }
 
-  function calculatePerformanceState({ seconds, errorCount, hintsUsed }, difficulty) {
-    const timeFactor = Math.min(1, 1 - seconds / 900)
-    const errorFactor = Math.max(0, 1 - errorCount / 30)
-    const hintFactor = Math.max(0, 1 - hintsUsed / 10)
+  function calculatePerformanceState({ seconds: totalSeconds, errorCount: totalErrors, hintsUsed: totalHints }, nextDifficulty) {
+    const timeFactor = Math.min(1, 1 - totalSeconds / 900)
+    const errorFactor = Math.max(0, 1 - totalErrors / 30)
+    const hintFactor = Math.max(0, 1 - totalHints / 10)
     const basePerformance = (timeFactor + errorFactor + hintFactor) / 3
 
     const difficultyPenalty = {
@@ -383,7 +388,7 @@ function SudokuPage() {
       Profesional: 0.20,
     }
 
-    return Math.max(0, basePerformance - (difficultyPenalty[difficulty?.label] ?? 0.08))
+    return Math.max(0, basePerformance - (difficultyPenalty[nextDifficulty?.label] ?? 0.08))
   }
 
   async function handleSudokuCompletion(nextScore) {
@@ -393,6 +398,7 @@ function SudokuPage() {
     let eloChange = 0
     let resultado = 'victoria'
     let xpGain = 0
+    let persistenceOk = false
 
     try {
       const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU).catch(() => null)
@@ -404,7 +410,6 @@ function SudokuPage() {
       resultado = performance < 0.5 || isBadInPrincipiante ? 'derrota' : 'victoria'
 
       eloChange = calculateEloDelta(currentElo, opponentElo, resultado)
-      // ensure negative on very poor principiante with high elo
       if (difficulty?.label === 'Principiante' && performance < 0.35 && currentElo > 600) {
         eloChange = Math.min(-5, eloChange)
         resultado = 'derrota'
@@ -423,24 +428,33 @@ function SudokuPage() {
       })
 
       await apiClient.addExperience(accessToken, xpGain)
+      persistenceOk = true
     } catch (error) {
       console.warn('No se pudo persistir la sesion de Sudoku:', error)
+      if (isVerified === false) {
+        setStatus(`No se pudo sincronizar puntaje, XP o ELO porque la cuenta ${user?.email || 'actual'} no esta verificada.`)
+      }
     }
 
     await registerSudokuActivity(nextScore, gameSession)
-    setStatus(`XP ganada: ${xpGain}. ELO cambio: ${eloChange} (${resultado}).`, true)
+    if (persistenceOk && (xpGain > 0 || eloChange !== 0)) {
+      setStatus(`XP ganada: ${xpGain}. ELO cambio: ${eloChange} (${resultado}).`, true)
+    }
   }
 
   function startNewGame(nextDifficultyKey = difficultyKey) {
     const nextGame = buildGame(nextDifficultyKey)
     setDifficultyKey(nextDifficultyKey)
-    setSolution(nextGame.solution)
-    setPuzzle(nextGame.puzzle)
-    setBoard(nextGame.board)
-    setNotes(nextGame.notes)
-    setSelectedCell(null)
-    setNoteMode(false)
-    setHighlightEnabled(true)
+    hydrateGame({
+      puzzle: nextGame.puzzle,
+      solution: nextGame.solution,
+      board: nextGame.board,
+      notes: nextGame.notes,
+      selectedCell: null,
+      noteMode: false,
+      highlightEnabled: true,
+      cellErrors: {},
+    })
     setPaused(false)
     setCompleted(false)
     setSeconds(0)
@@ -448,7 +462,7 @@ function SudokuPage() {
     setHintsUsed(0)
     setScore(0)
     setSeed(nextGame.seed)
-    setGameStatus(`Selecciona una celda para comenzar. Limite de pistas: ${getHintLimit(nextGame.difficulty)}.`)
+    setStatus(`Selecciona una celda para comenzar. Limite de pistas: ${getHintLimit(nextGame.difficulty)}.`)
   }
 
   function finishGame(nextBoard = board) {
@@ -465,7 +479,7 @@ function SudokuPage() {
 
     setCompleted(true)
     setScore(nextScore)
-    setGameStatus(
+    setStatus(
       `Sudoku completado. Puntaje final: ${nextScore} (tiempo: ${metrics.seconds}s, errores: ${metrics.errorCount}, pistas: ${metrics.hintsUsed}).`,
       true,
     )
@@ -532,7 +546,7 @@ function SudokuPage() {
             clearNotesCell(nextNotes, row, col)
             return nextNotes
           })
-          setGameStatus('Notas eliminadas.')
+          setStatus('Notas eliminadas.')
         } else {
           clearSelectedCell()
         }
@@ -541,71 +555,19 @@ function SudokuPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [board, completed, noteMode, paused, puzzle, selectedCell])
-
-  function clearSelectedCell() {
-    if (!selectedCell || paused || completed) return
-    const { row, col } = selectedCell
-
-    if (puzzle[row][col] !== 0) {
-      setGameStatus('No puedes modificar una celda fija.')
-      return
-    }
-
-    setBoard((currentBoard) => {
-      const nextBoard = currentBoard.map((line) => [...line])
-      nextBoard[row][col] = 0
-      return nextBoard
-    })
-
-    setNotes((currentNotes) => {
-      const nextNotes = cloneNotes(currentNotes)
-      clearNotesCell(nextNotes, row, col)
-      return nextNotes
-    })
-
-    setGameStatus('Celda borrada')
-  }
-
-  function handleNoteInput(num) {
-    if (!selectedCell) return
-    const { row, col } = selectedCell
-
-    if (puzzle[row][col] !== 0) {
-      setGameStatus('No puedes poner notas en una celda fija.')
-      return
-    }
-
-    const invalidReason = noteViolatesCurrentBoard(board, row, col, num)
-    if (invalidReason) {
-      setGameStatus(`No puedes agregar la nota ${num}: ${invalidReason}.`)
-      return
-    }
-
-    setNotes((currentNotes) => {
-      const nextNotes = cloneNotes(currentNotes)
-      const result = toggleNote(nextNotes, board, row, col, num)
-      if (!result.ok) {
-        setGameStatus(result.message || 'No se pudo actualizar la nota.')
-        return currentNotes
-      }
-
-      setGameStatus(result.action === 'added' ? `Nota ${num} agregada.` : `Nota ${num} eliminada.`)
-      return nextNotes
-    })
-  }
+  }, [board, clearSelectedCell, completed, noteMode, paused, puzzle, selectedCell, setNoteMode, setNotes, setStatus])
 
   function applyValue(num, asNote = false) {
     if (!selectedCell || paused || completed) return
     if (asNote) {
-      handleNoteInput(num)
+      toggleSelectedNote(num)
       return
     }
 
     const { row, col } = selectedCell
 
     if (puzzle[row][col] !== 0) {
-      setGameStatus('No puedes modificar una celda fija.')
+      setStatus('No puedes modificar una celda fija.')
       return
     }
 
@@ -629,13 +591,13 @@ function SudokuPage() {
       if (num !== solution[row][col]) {
         setErrorCount((current) => {
           const next = previousValue !== num ? current + 1 : current
-          setGameStatus(`Numero incorrecto. Errores: ${next}.`)
+          setStatus(`Numero incorrecto. Errores: ${next}.`)
           return next
         })
         return nextBoard
       }
 
-      setGameStatus('Movimiento aplicado')
+      setStatus('Movimiento aplicado')
       return nextBoard
     })
   }
@@ -645,18 +607,18 @@ function SudokuPage() {
 
     const hintLimit = getHintLimit(difficulty)
     if (hintLimit <= 0) {
-      setGameStatus('Esta dificultad no permite pistas.')
+      setStatus('Esta dificultad no permite pistas.')
       return
     }
 
     if (hintsUsed >= hintLimit) {
-      setGameStatus(`Ya alcanzaste el limite de ${hintLimit} pista(s) para esta dificultad.`)
+      setStatus(`Ya alcanzaste el limite de ${hintLimit} pista(s) para esta dificultad.`)
       return
     }
 
     const result = getRandomHint(board, solution, seed + seconds + hintsUsed + 1)
     if (!result.ok) {
-      setGameStatus(result.message)
+      setStatus(result.message)
       return
     }
 
@@ -677,14 +639,13 @@ function SudokuPage() {
     })
 
     setHintsUsed((current) => current + 1)
-    setGameStatus(`Pista aplicada. Pistas usadas: ${hintsUsed + 1}/${hintLimit}.`)
+    setStatus(`Pista aplicada. Pistas usadas: ${hintsUsed + 1}/${hintLimit}.`)
   }
 
   const progress = puzzle.length
     ? calculateProgress(puzzle, board, solution)
     : { correct: 0, editable: 0, percentage: 0 }
   const correctCounts = solution.length ? countCorrectByNumber(board, solution) : Array(10).fill(0)
-  const selectedValue = selectedCell ? board[selectedCell.row][selectedCell.col] : 0
   const hintLimit = getHintLimit(difficulty)
 
   return (
@@ -718,7 +679,7 @@ function SudokuPage() {
             </div>
 
             <div className="sudoku-top-right">
-              <span className="timer-display">{formatTime(seconds)}</span>
+              <span className="timer-display">{formatSudokuTime(seconds)}</span>
               <span className="stat-chip">Errores: {errorCount}</span>
               <span className="stat-chip">Pistas: {hintsUsed}</span>
               <button className="btn ghost btn-pause" type="button" onClick={() => setPaused((current) => !current)}>
@@ -732,59 +693,7 @@ function SudokuPage() {
 
           <div className="sudoku-main">
             <div className="sudoku-grid-wrap">
-              <div className="board" role="grid" aria-label="Tablero Sudoku">
-                {board.map((rowValues, rowIndex) =>
-                  rowValues.map((value, colIndex) => {
-                    const isPrefilled = puzzle[rowIndex]?.[colIndex] !== 0
-                    const isSelected = selectedCell?.row === rowIndex && selectedCell?.col === colIndex
-                    const isPeer =
-                      highlightEnabled &&
-                      selectedCell &&
-                      (selectedCell.row === rowIndex || selectedCell.col === colIndex)
-                    const isSameValue =
-                      highlightEnabled && selectedValue !== 0 && value !== 0 && value === selectedValue
-                    const isError = !isPrefilled && value !== 0 && solution[rowIndex]?.[colIndex] !== value
-
-                    const classNames = [
-                      'cell',
-                      isPrefilled ? 'prefilled' : '',
-                      isSelected ? 'selected' : '',
-                      isPeer ? 'highlight-peer' : '',
-                      isSameValue ? 'highlight-same' : '',
-                      isError ? 'error' : '',
-                      notes[rowIndex]?.[colIndex]?.size ? 'has-notes' : '',
-                      (colIndex + 1) % 3 === 0 && colIndex !== 8 ? 'block-right' : '',
-                      (rowIndex + 1) % 3 === 0 && rowIndex !== 8 ? 'block-bottom' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')
-
-                    return (
-                      <button
-                        key={`${rowIndex}-${colIndex}`}
-                        className={classNames}
-                        type="button"
-                        onClick={() => setSelectedCell({ row: rowIndex, col: colIndex })}
-                      >
-                        {value !== 0 ? (
-                          <span>{value}</span>
-                        ) : notes[rowIndex]?.[colIndex]?.size ? (
-                          <div className="notes-grid">
-                            {Array.from({ length: 9 }, (_, offset) => offset + 1).map((note) => (
-                              <div
-                                key={note}
-                                className={`note${selectedValue !== 0 && note === selectedValue ? ' highlight-same-note' : ''}`}
-                              >
-                                {notes[rowIndex][colIndex].has(note) ? note : ''}
-                              </div>
-                            ))}
-                          </div>
-                        ) : null}
-                      </button>
-                    )
-                  }),
-                )}
-              </div>
+              <SudokuBoard ariaLabel="Tablero Sudoku" />
             </div>
 
             <div className="sudoku-controls">
@@ -819,7 +728,7 @@ function SudokuPage() {
                   onClick={() => {
                     if (paused || completed) return
                     setNoteMode((current) => !current)
-                    setGameStatus(!noteMode ? 'Modo notas: ACTIVADO.' : 'Modo notas: desactivado')
+                    setStatus(!noteMode ? 'Modo notas: ACTIVADO.' : 'Modo notas: desactivado')
                   }}
                 >
                   <span className="btn-icon-badge notes-badge">{noteMode ? 'ON' : 'OFF'}</span>
@@ -886,7 +795,7 @@ function SudokuPage() {
             <h3 className="sudoku-pause-title">Sudoku completado</h3>
             <p className="sudoku-pause-text">Puntaje: {score}</p>
             <p className="sudoku-pause-text">
-              Tiempo: {formatTime(seconds)} | Errores: {errorCount} | Pistas: {hintsUsed}
+              Tiempo: {formatSudokuTime(seconds)} | Errores: {errorCount} | Pistas: {hintsUsed}
             </p>
             <button className="btn primary sudoku-pause-resume-btn" type="button" onClick={() => startNewGame(difficultyKey)}>
               Jugar otra vez
@@ -922,4 +831,18 @@ function SudokuPage() {
   )
 }
 
+function SudokuPage() {
+  return (
+    <SudokuGameProvider>
+      <SudokuPageContent />
+    </SudokuGameProvider>
+  )
+}
+
 export default SudokuPage
+
+
+
+
+
+
