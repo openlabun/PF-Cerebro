@@ -1,4 +1,4 @@
-import { IsInt, Min, Max } from 'class-validator';
+import { IsBoolean, IsInt, Min, Max } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class MakeMoveDto {
@@ -19,4 +19,8 @@ export class MakeMoveDto {
   @Min(1)
   @Max(9)
   value: number;
+
+  @ApiProperty({ example: true, description: 'Resultado de validacion calculado por el cliente' })
+  @IsBoolean()
+  esCorrecta: boolean;
 }

@@ -1,12 +1,15 @@
-import { IsUrl, IsArray, IsString } from 'class-validator';
+import { IsArray, IsString, IsUrl } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class SubscribeWebhookDto {
   @ApiProperty({
     example: 'https://mi-frontend.com/webhook',
-    description: 'URL donde se enviarán los eventos',
+    description: 'URL donde se enviaran los eventos',
   })
-  @IsUrl()
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+  })
   url: string;
 
   @ApiProperty({

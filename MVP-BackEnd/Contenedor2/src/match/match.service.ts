@@ -95,6 +95,17 @@ interface LegacyInferredState {
   fechaFin: string | null;
 }
 
+function normalizeStoredBoolean(value: unknown): boolean {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  if (typeof value === 'number') return value !== 0;
+  return false;
+}
+
 @Injectable()
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
@@ -354,7 +365,9 @@ export class MatchService {
       if (baseBoard[row][col] !== 0) continue;
       if (boardState[row][col] !== 0) continue;
 
-      const isCorrect = solution[row][col] === value;
+      // Temporalmente confiamos en la validacion del cliente.
+      // El score y el progreso deben respetar el veredicto almacenado.
+      const isCorrect = normalizeStoredBoolean(mov.esCorrecta);
       if (isCorrect) {
         boardState[row][col] = value;
         correctCells += 1;
@@ -612,6 +625,7 @@ export class MatchService {
     row: number,
     col: number,
     value: number,
+    esCorrecta: boolean,
     token: string,
   ) {
     this.cacheUserToken(usuarioId, token);
@@ -639,13 +653,6 @@ export class MatchService {
       throw new BadRequestException('Esa celda ya fue resuelta por ti');
     }
 
-    const esCorrecta = this.sudokuService.validateMove(
-      state.solution,
-      row,
-      col,
-      value,
-    );
-
     await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
       {
         matchId: state._id,
@@ -653,7 +660,7 @@ export class MatchService {
         row,
         col,
         value,
-        esCorrecta,
+        esCorrecta: normalizeStoredBoolean(esCorrecta),
         timestamp: new Date().toISOString(),
       },
     ]);

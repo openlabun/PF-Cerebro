@@ -10,7 +10,7 @@ sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='repla
 # ============================================================
 # CONFIGURACIÓN — Cambiar antes de correr
 # ============================================================
-C1 = "http://localhost:3002"   # Contenedor1
+C1 = "http://localhost:3000"   # Contenedor1
 C2 = "http://localhost:3001"   # Contenedor2
 
 JUGADOR1_EMAIL = "usuarioprueba1@prueba.com"

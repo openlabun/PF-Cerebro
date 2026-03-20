@@ -63,3 +63,12 @@ services:
     depends_on:
       - backend-admin
     restart: unless-stopped
+
+  pvp-simulador:
+    container_name: cerebro-pvp-simulador
+    build:
+      context: "./Diseno/PvP/simulador"
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    restart: unless-stopped

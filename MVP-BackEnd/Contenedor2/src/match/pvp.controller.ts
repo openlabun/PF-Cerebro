@@ -62,6 +62,7 @@ export class PvpController {
       dto.row,
       dto.col,
       dto.value,
+      dto.esCorrecta,
       req.accessToken,
     );
   }
