@@ -311,7 +311,7 @@ export function initializeDifficultyOptions(difficultySelect, currentDifficultyK
   difficultyLevels.forEach((level, index) => {
     const option = document.createElement("option");
     option.value = level.key;
-    option.textContent = `${index + 1}. ${level.label}`;
+    option.textContent = `${level.label}`;
     if (level.key === currentDifficultyKey) option.selected = true;
     difficultySelect.appendChild(option);
   });
