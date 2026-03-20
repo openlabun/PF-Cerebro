@@ -28,6 +28,23 @@ const DEFAULT_PROFILE_MODE_STATS = {
   ],
 }
 
+function getUnlockedKeysByRules(partidasJugadas = 0, elo = 0) {
+  const unlocked = []
+  if (partidasJugadas >= 1) unlocked.push('first-game')
+  if (partidasJugadas >= 5) unlocked.push('five-games')
+  if (partidasJugadas >= 10) unlocked.push('ten-games')
+  if (elo > 500) unlocked.push('score-over-500')
+  return unlocked
+}
+
+function getFrameByElo(elo = 0) {
+  if (elo >= 301) return 'frame-platinum'
+  if (elo >= 201) return 'frame-gold'
+  if (elo >= 101) return 'frame-silver'
+  if (elo >= 0) return 'frame-bronze'
+  return 'frame-royal'
+}
+
 function getProfileDisplayName(userObj) {
   if (!userObj) return DEFAULT_PROFILE_NAME
   if (userObj.name) return userObj.name
@@ -47,6 +64,8 @@ function ProfilePage() {
     rachaActual: 0,
   })
   const [profileModeStats, setProfileModeStats] = useState({ ...DEFAULT_PROFILE_MODE_STATS })
+  const [unlockedBadges, setUnlockedBadges] = useState(new Set())
+  const [selectedFrame, setSelectedFrame] = useState('frame-royal')
   const [loading, setLoading] = useState(false)
 
   // Sincronizar datos de identidad desde la sesión y cargar datos completos
@@ -118,6 +137,7 @@ function ProfilePage() {
 
       if (stats) {
         const elo = stats.elo ?? 0
+        const partidasJugadas = Number(stats.partidasJugadas ?? 0)
         const liga =
           elo >= 301 && elo <= 400
             ? 'Platino'
@@ -129,14 +149,20 @@ function ProfilePage() {
                   ? 'Bronce'
                   : '-'
 
+        const frame = getFrameByElo(elo)
+        const unlocked = new Set(getUnlockedKeysByRules(partidasJugadas, elo))
+
         setProfileModeStats((prev) => ({
           ...prev,
           sudoku: [
-            `Partidas jugadas: ${stats.partidasJugadas ?? 0}`,
+            `Partidas jugadas: ${partidasJugadas}`,
             `Elo: ${elo}`,
             `Liga: ${liga}`,
           ],
         }))
+
+        setUnlockedBadges(unlocked)
+        setSelectedFrame(frame)
       }
     } catch (error) {
       console.warn('Fallo cargando estadísticas de Sudoku:', error)
@@ -159,6 +185,8 @@ function ProfilePage() {
         profileModeStats={profileModeStats}
         isAuthenticated={isAuthenticated}
         loading={loading}
+        unlockedBadges={unlockedBadges}
+        selectedFrame={selectedFrame}
       />
     </main>
   )

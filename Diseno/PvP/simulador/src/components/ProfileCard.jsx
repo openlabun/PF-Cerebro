@@ -6,11 +6,11 @@ import AvatarModal from './profile/AvatarModal.jsx'
 import BadgeModal from './profile/BadgeModal.jsx'
 import StreakModal from './profile/StreakModal.jsx'
 
-function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading }) {
+function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading, unlockedBadges: parentUnlockedBadges, selectedFrame: parentSelectedFrame }) {
   const [selectedAvatar, setSelectedAvatar] = useState('♔')
-  const [selectedFrame, setSelectedFrame] = useState('frame-royal')
+  const [selectedFrame, setSelectedFrame] = useState(parentSelectedFrame || 'frame-royal')
   const [selectedBadges, setSelectedBadges] = useState(Array(6).fill(null))
-  const [unlockedBadges, setUnlockedBadges] = useState(new Set())
+  const [unlockedBadges, setUnlockedBadges] = useState(new Set(parentUnlockedBadges || []))
   const [activeMode, setActiveMode] = useState('sudoku')
   const [showAvatarModal, setShowAvatarModal] = useState(false)
   const [showBadgeModal, setShowBadgeModal] = useState(false)
@@ -28,6 +28,18 @@ function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading }
   const xpNext = xpParaSiguienteNivel(nivel)
   const safeXp = Math.max(0, Math.min(profileData?.experiencia || 0, xpNext))
   const progressPct = (safeXp / xpNext) * 100
+
+  useEffect(() => {
+    if (parentSelectedFrame) {
+      setSelectedFrame(parentSelectedFrame)
+    }
+  }, [parentSelectedFrame])
+
+  useEffect(() => {
+    if (parentUnlockedBadges) {
+      setUnlockedBadges(new Set(parentUnlockedBadges))
+    }
+  }, [parentUnlockedBadges])
 
   if (loading) {
     return <div className="board-card profile-card">Cargando perfil...</div>
@@ -73,7 +85,11 @@ function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading }
         onSelect={setSelectedAvatar} 
         selectedFrame={selectedFrame} 
         onFrameChange={setSelectedFrame} 
-        isFrameUnlocked={() => (profileData?.rachaActual || 0) >= 11} 
+        isFrameUnlocked={(frame) => {
+          const streak = Number(profileData?.rachaActual || 0)
+          const min = Number(frame?.minStreak || 0)
+          return streak >= min || frame?.key === parentSelectedFrame
+        }} 
       />
 
       <BadgeModal 
