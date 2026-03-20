@@ -1,10 +1,17 @@
 import SudokuBoard from '../components/SudokuBoard.jsx'
 import SudokuControlsPanel from '../components/SudokuControlsPanel.jsx'
+import DifficultySelect from '../components/DifficultySelect.jsx'
 import { SudokuGameProvider } from '../context/SudokuGameContext.jsx'
 import { formatSudokuTime } from '../context/SudokuGameContext.jsx'
 import { useLocalSudokuGame } from '../hooks/useLocalSudokuGame.js'
+import { difficultyLevels } from '../lib/sudoku.js'
 
 function SudokuPageContent() {
+  const difficultyOptions = difficultyLevels.map((level) => ({
+    value: level.key,
+    label: level.label,
+  }))
+
   const {
     difficulty,
     difficultyKey,
@@ -46,27 +53,12 @@ function SudokuPageContent() {
           <div className="sudoku-top-row">
             <div className="difficulty-wrap">
               <label htmlFor="difficulty-select">Dificultad:</label>
-              <div className="difficulty-select-shell">
-                <select
-                  id="difficulty-select"
-                  className="difficulty-select"
-                  value={difficultyKey}
-                  onChange={(event) => startNewGame(event.target.value)}
-                >
-                  {[
-                    ['muy-facil', 'Principiante'],
-                    ['facil', 'Iniciado'],
-                    ['medio', 'Intermedio'],
-                    ['dificil', 'Avanzado'],
-                    ['experto', 'Experto'],
-                    ['maestro', 'Profesional'],
-                  ].map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <DifficultySelect
+                id="difficulty-select"
+                value={difficultyKey}
+                options={difficultyOptions}
+                onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey)}
+              />
               <span className="difficulty-label">Dificultad: {difficulty.label}</span>
             </div>
 

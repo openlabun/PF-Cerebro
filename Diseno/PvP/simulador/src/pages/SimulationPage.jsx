@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import DifficultySelect from '../components/DifficultySelect.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { difficultyLevels, getDifficultyByKey, getHintLimit } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
@@ -16,6 +17,10 @@ function SimulationPage() {
   const [creating, setCreating] = useState(false)
   const [status, setStatus] = useState('')
   const [difficultyKey, setDifficultyKey] = useState(difficultyLevels[2].key)
+  const difficultyOptions = difficultyLevels.map((level) => ({
+    value: level.key,
+    label: level.label,
+  }))
 
   const difficulty = getDifficultyByKey(difficultyKey)
   const hintLimit = getHintLimit(difficulty)
@@ -68,21 +73,13 @@ function SimulationPage() {
 
           <div className="difficulty-wrap">
             <label htmlFor="pvp-difficulty-select">Dificultad:</label>
-            <div className="difficulty-select-shell">
-              <select
-                id="pvp-difficulty-select"
-                className="difficulty-select"
-                value={difficultyKey}
-                onChange={(event) => setDifficultyKey(event.target.value)}
-                disabled={creating}
-              >
-                {difficultyLevels.map((level) => (
-                  <option key={level.key} value={level.key}>
-                    {level.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <DifficultySelect
+              id="pvp-difficulty-select"
+              value={difficultyKey}
+              options={difficultyOptions}
+              onChange={setDifficultyKey}
+              disabled={creating}
+            />
             <span className="difficulty-label">Tablero PvP: {difficulty.label}</span>
             <span className="difficulty-label">
               En single player esta dificultad permite {hintLimit} pista(s). En PvP las pistas siguen deshabilitadas para ambos jugadores.

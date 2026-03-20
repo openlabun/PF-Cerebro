@@ -3,13 +3,16 @@ services:
   frontend:
     container_name: cerebro-frontend
     build:
-      context: "./Diseno/IyR/Frontend"
-      dockerfile: Dockerfile
+      context: "./Diseno/PvP/simulador"
+      dockerfile: Dockerfile.frontend
+      args:
+        VITE_APP_BASE_PATH: "/"
     ports:
       - "5051:80"
     restart: unless-stopped
     depends_on:
       - cerebro-api
+      - backend-pvp
 
   cerebro-api:
     container_name: cerebro-api

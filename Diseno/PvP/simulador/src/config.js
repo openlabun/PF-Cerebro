@@ -3,7 +3,7 @@ const DEFAULT_CONFIG = Object.freeze({
   PVP_API_BASE_URL: '/api/pvp',
   PVP_AUTH_API_BASE_URL: '/api/pvp-auth',
   PVP_WEBHOOK_API_BASE_URL: '/api/pvp-webhook',
-  PVP_WEBHOOK_RECEIVER_URL: 'http://frontend/simulation/pvp/api/webhooks',
+  PVP_WEBHOOK_RECEIVER_URL: 'http://frontend/api/webhooks',
   AUTH_STORAGE_KEY: 'cerebro_auth_session',
 })
 

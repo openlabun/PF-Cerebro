@@ -1,8 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-function pvpWebhookReceiverPlugin() {
+function normalizeBasePath(basePath) {
+  const raw = String(basePath || '/simulation/pvp/').trim()
+  const withLeadingSlash = raw.startsWith('/') ? raw : `/${raw}`
+  return withLeadingSlash.endsWith('/') ? withLeadingSlash : `${withLeadingSlash}/`
+}
+
+function pvpWebhookReceiverPlugin(basePath) {
   const eventStore = []
+  const normalizedBasePath = normalizeBasePath(basePath)
+  const webhookPath = `${normalizedBasePath}api/webhooks`
+  const webhookEventsPath = `${normalizedBasePath}api/webhooks/events`
 
   function writeJson(res, statusCode, payload) {
     res.statusCode = statusCode
@@ -38,7 +47,7 @@ function pvpWebhookReceiverPlugin() {
       server.middlewares.use(async (req, res, next) => {
         const url = req.url || ''
 
-        if (req.method === 'POST' && url === '/simulation/pvp/api/webhooks') {
+        if (req.method === 'POST' && url === webhookPath) {
           try {
             const payload = await parseJsonBody(req)
             eventStore.unshift({
@@ -53,7 +62,7 @@ function pvpWebhookReceiverPlugin() {
           return
         }
 
-        if (req.method === 'GET' && url.startsWith('/simulation/pvp/api/webhooks/events')) {
+        if (req.method === 'GET' && url.startsWith(webhookEventsPath)) {
           const requestUrl = new URL(url, 'http://localhost')
           const matchId = requestUrl.searchParams.get('matchId')
           const filtered = matchId ? eventStore.filter((event) => event.matchId === matchId) : eventStore
@@ -67,7 +76,11 @@ function pvpWebhookReceiverPlugin() {
   }
 }
 
-export default defineConfig({
-  base: '/simulation/pvp/',
-  plugins: [react(), pvpWebhookReceiverPlugin()],
+export default defineConfig(() => {
+  const basePath = normalizeBasePath(process.env.VITE_APP_BASE_PATH)
+
+  return {
+    base: basePath,
+    plugins: [react(), pvpWebhookReceiverPlugin(basePath)],
+  }
 })
