@@ -14,19 +14,19 @@ services:
   cerebro-api:
     container_name: cerebro-api
     build:
-      context: "./MVP-BackEnd/Contenedor1/api"
+      context: "./Backend/AuthPersonalTrackingTorneos/api"
       dockerfile: Dockerfile
     env_file:
-      - "./MVP-BackEnd/Contenedor1/api/.env"
+      - "./Backend/AuthPersonalTrackingTorneos/api/.env"
     restart: unless-stopped
 
-  contenedor2:
-    container_name: cerebro-contenedor2
+  backend-pvp:
+    container_name: cerebro-backend-pvp
     build:
-      context: "./MVP-BackEnd/Contenedor2"
+      context: "./Backend/PvP"
       dockerfile: Dockerfile
     env_file:
-      - "./MVP-BackEnd/Contenedor2/.env"
+      - "./Backend/PvP/.env"
     environment:
       CONTENEDOR1_BASE_URL: "http://cerebro-api:3000/api"
     depends_on:
@@ -36,16 +36,16 @@ services:
   backend-admin:
     container_name: cerebro-backend-admin
     build:
-      context: "./MVP-BackEnd/ContenedorAdmin"
+      context: "./Backend/ContenedorAdmin"
       dockerfile: Dockerfile
     env_file:
-      - path: "./MVP-BackEnd/ContenedorAdmin/.env.example"
-      - path: "./MVP-BackEnd/ContenedorAdmin/.env"
+      - path: "./Backend/ContenedorAdmin/.env.example"
+      - path: "./Backend/ContenedorAdmin/.env"
         required: false
-      - path: "./MVP-BackEnd/Contenedor1/api/.env"
+      - path: "./Backend/AuthPersonalTrackingTorneos/api/.env"
     environment:
       CONTENEDOR1_BASE_URL: "${CONTENEDOR1_BASE_URL:-http://cerebro-api:3000/api}"
-      CONTENEDOR2_BASE_URL: "${CONTENEDOR2_BASE_URL:-http://contenedor2:3001}"
+      CONTENEDOR2_BASE_URL: "${CONTENEDOR2_BASE_URL:-http://backend-pvp:3001}"
       PORT: "3001"
     expose:
       - "3001"

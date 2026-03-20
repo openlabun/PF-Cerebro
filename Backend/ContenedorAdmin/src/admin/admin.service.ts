@@ -80,7 +80,7 @@ export class AdminService {
   private readonly contenedor1BaseUrl =
     process.env.CONTENEDOR1_BASE_URL || 'http://cerebro-api:3000/api';
   private readonly contenedor2BaseUrl =
-    process.env.CONTENEDOR2_BASE_URL || 'http://contenedor2:3001';
+    process.env.CONTENEDOR2_BASE_URL || 'http://backend-pvp:3001';
   private readonly cacheTtlMs = Number(process.env.ADMIN_CACHE_TTL_MS || 15000);
 
   private readonly initialAdminApiToken = process.env.ADMIN_API_TOKEN || '';
