@@ -308,10 +308,10 @@ export function createKeypad(keypadEl, onNumberClick) {
 export function initializeDifficultyOptions(difficultySelect, currentDifficultyKey) {
   if (!difficultySelect) return;
   difficultySelect.innerHTML = "";
-  difficultyLevels.forEach((level) => {
+  difficultyLevels.forEach((level, index) => {
     const option = document.createElement("option");
     option.value = level.key;
-    option.textContent = level.label;
+    option.textContent = `${index + 1}. ${level.label}`;
     if (level.key === currentDifficultyKey) option.selected = true;
     difficultySelect.appendChild(option);
   });
