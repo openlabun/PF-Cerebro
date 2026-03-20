@@ -30,13 +30,16 @@ const guides = {
 };
 
 function createSudokuState() {
+  const emptySolucion = Array.from({ length: 9 }, () => Array(9).fill(0));
+  const emptyPuzzleInicial = Array.from({ length: 9 }, () => Array(9).fill(0));
+  const emptyTableroActual = Array.from({ length: 9 }, () => Array(9).fill(0));
   return {
     currentDifficulty: difficultyLevels[2],
     noteMode: false,
     seconds: 0,
-    solucion: [],
-    puzzleInicial: Array.from({ length: 9 }, () => Array(9).fill(0)),
-    tableroActual: Array.from({ length: 9 }, () => Array(9).fill(0)),
+    solucion: emptySolucion,
+    puzzleInicial: emptyPuzzleInicial,
+    tableroActual: emptyTableroActual,
     notas: crearNotasVacias(),
     selectedCell: null,
     seedActual: null,
@@ -58,13 +61,16 @@ function getHintLimit(label) {
 }
 
 function getProgress(sudoku) {
+  if (!sudoku || !Array.isArray(sudoku.puzzleInicial) || !Array.isArray(sudoku.tableroActual) || !Array.isArray(sudoku.solucion)) {
+    return { editable: 0, correct: 0, percentage: 0 };
+  }
   let editable = 0;
   let correct = 0;
   for (let r = 0; r < 9; r += 1) {
     for (let c = 0; c < 9; c += 1) {
-      if (sudoku.puzzleInicial[r][c] === 0) {
+      if (sudoku.puzzleInicial[r]?.[c] === 0) {
         editable += 1;
-        if (sudoku.tableroActual[r][c] === sudoku.solucion[r][c]) correct += 1;
+        if (sudoku.tableroActual[r]?.[c] === sudoku.solucion[r]?.[c]) correct += 1;
       }
     }
   }
@@ -86,12 +92,14 @@ function calculateScore(sudoku, board) {
 function getHighlights(sudoku) {
   const peers = new Set();
   const same = new Set();
-  if (!sudoku.highlightEnabled || !sudoku.selectedCell) return { peers, same, noteValue: null };
-  const value = sudoku.tableroActual[sudoku.selectedCell.row][sudoku.selectedCell.col];
+  if (!sudoku || !sudoku.highlightEnabled || !sudoku.selectedCell) return { peers, same, noteValue: null };
+  const cellRow = sudoku.selectedCell.row;
+  const cellCol = sudoku.selectedCell.col;
+  const value = sudoku.tableroActual?.[cellRow]?.[cellCol] || 0;
   for (let r = 0; r < 9; r += 1) {
     for (let c = 0; c < 9; c += 1) {
-      if (r === sudoku.selectedCell.row || c === sudoku.selectedCell.col) peers.add(`${r}-${c}`);
-      if (value !== 0 && sudoku.tableroActual[r][c] === value) same.add(`${r}-${c}`);
+      if (r === cellRow || c === cellCol) peers.add(`${r}-${c}`);
+      if (value !== 0 && sudoku.tableroActual?.[r]?.[c] === value) same.add(`${r}-${c}`);
     }
   }
   return { peers, same, noteValue: value || null };
@@ -157,8 +165,22 @@ function App() {
   const isAuthenticated = Boolean(session?.accessToken);
   const accessToken = session?.accessToken || null;
   const profileUser = getSessionUser(session);
-  const progress = useMemo(() => getProgress(sudoku), [sudoku]);
-  const highlights = useMemo(() => getHighlights(sudoku), [sudoku]);
+  const progress = useMemo(() => {
+    try {
+      return getProgress(sudoku);
+    } catch (error) {
+      console.error("getProgress error", error, sudoku);
+      return { editable: 0, correct: 0, percentage: 0 };
+    }
+  }, [sudoku]);
+  const highlights = useMemo(() => {
+    try {
+      return getHighlights(sudoku);
+    } catch (error) {
+      console.error("getHighlights error", error, sudoku);
+      return { peers: new Set(), same: new Set(), noteValue: null };
+    }
+  }, [sudoku]);
 
   useEffect(() => {
     const storedTheme = localStorage.getItem(THEME_KEY) || "light";
