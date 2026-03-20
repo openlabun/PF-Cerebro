@@ -208,6 +208,7 @@ export function AuthProvider({ children }) {
   const value = {
     session,
     user: session?.user || null,
+    accessToken: session?.accessToken || null,
     isAuthenticated: Boolean(session?.c1AccessToken && session?.c2AccessToken),
     isLoading,
     login,

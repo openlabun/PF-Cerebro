@@ -326,4 +326,70 @@ export const apiClient = {
       token: accessToken,
     })
   },
+
+  getMyProfile(accessToken) {
+    return request('profiles/me', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getMyGameStats(accessToken, gameId) {
+    return request('game-stats/me', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: { juegoId: gameId },
+    })
+  },
+
+  getAchievements(accessToken) {
+    return request('achievements', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getMyAchievements(accessToken) {
+    return request('my-achievements', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  unlockAchievement(accessToken, logroId) {
+    return request(`achievements/${logroId}/unlock`, {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getLatestGameSession(accessToken, gameId, options = {}) {
+    const excludeParam = options.excludeSessionId ? `?exclude=${options.excludeSessionId}` : ''
+    return request(`game-sessions/latest/${gameId}${excludeParam}`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  increaseStreak(accessToken) {
+    return request('streak/increase', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  resetStreak(accessToken) {
+    return request('streak/reset', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
 }

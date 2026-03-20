@@ -43,7 +43,12 @@ function Header() {
       </nav>
       <div className="session-actions">
         {isAuthenticated && user?.name ? (
-          <span className="session-pill">{user.name}</span>
+          <>
+            <NavLink to="/profile" className="nav-btn session-btn">
+              Mi perfil
+            </NavLink>
+            <span className="session-pill">{user.name}</span>
+          </>
         ) : null}
         <button className="nav-btn session-btn" onClick={handleSessionAction} type="button">
           {isAuthenticated ? 'Cerrar sesion' : 'Iniciar sesion'}

@@ -7,6 +7,7 @@ import SignUpPage from '../pages/SignUpPage.jsx'
 import SimulationPage from '../pages/SimulationPage.jsx'
 import PvpMatchPage from '../pages/PvpMatchPage.jsx'
 import SudokuPage from '../pages/SudokuPage.jsx'
+import ProfilePage from '../pages/ProfilePage.jsx'
 
 const router = createBrowserRouter(
   [
@@ -25,6 +26,10 @@ const router = createBrowserRouter(
         {
           path: 'signup',
           element: <SignUpPage />,
+        },
+        {
+          path: 'profile',
+          element: <ProfilePage />,
         },
         {
           element: <RequireAuth />,
