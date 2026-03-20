@@ -1,6 +1,11 @@
-import { cloneBoard } from './sudoku.js'
+import {
+  cloneBoard,
+  createPuzzle,
+  generateSolution,
+  getDifficultyByKey,
+} from './sudoku.js'
 
-function createBackendRandom(seed = 1) {
+function createLegacyBackendRandom(seed = 1) {
   let state = (((Number(seed) % 2147483646) + 2147483646) % 2147483646) + 1
 
   return {
@@ -22,8 +27,8 @@ function createBackendRandom(seed = 1) {
   }
 }
 
-export function generatePvpBoard(seed) {
-  const rng = createBackendRandom(seed)
+function generateLegacyPvpBoard(seed) {
+  const rng = createLegacyBackendRandom(seed)
 
   const base = [
     [1, 2, 3, 4, 5, 6, 7, 8, 9],
@@ -94,5 +99,16 @@ export function generatePvpBoard(seed) {
     puzzle[row][col] = 0
   }
 
+  return { puzzle, solution }
+}
+
+export function generatePvpBoard(seed, difficultyKey = '') {
+  const difficulty = getDifficultyByKey(difficultyKey)
+  if (!difficultyKey) {
+    return generateLegacyPvpBoard(seed)
+  }
+
+  const solution = generateSolution(seed)
+  const puzzle = createPuzzle(solution, difficulty.holes, seed)
   return { puzzle, solution }
 }

@@ -46,25 +46,27 @@ function SudokuPageContent() {
           <div className="sudoku-top-row">
             <div className="difficulty-wrap">
               <label htmlFor="difficulty-select">Dificultad:</label>
-              <select
-                id="difficulty-select"
-                className="difficulty-select"
-                value={difficultyKey}
-                onChange={(event) => startNewGame(event.target.value)}
-              >
-                {[
-                  ['muy-facil', 'Principiante'],
-                  ['facil', 'Iniciado'],
-                  ['medio', 'Intermedio'],
-                  ['dificil', 'Avanzado'],
-                  ['experto', 'Experto'],
-                  ['maestro', 'Profesional'],
-                ].map(([key, label], index) => (
-                  <option key={key} value={key}>
-                   {label}
-                  </option>
-                ))}
-              </select>
+              <div className="difficulty-select-shell">
+                <select
+                  id="difficulty-select"
+                  className="difficulty-select"
+                  value={difficultyKey}
+                  onChange={(event) => startNewGame(event.target.value)}
+                >
+                  {[
+                    ['muy-facil', 'Principiante'],
+                    ['facil', 'Iniciado'],
+                    ['medio', 'Intermedio'],
+                    ['dificil', 'Avanzado'],
+                    ['experto', 'Experto'],
+                    ['maestro', 'Profesional'],
+                  ].map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <span className="difficulty-label">Dificultad: {difficulty.label}</span>
             </div>
 

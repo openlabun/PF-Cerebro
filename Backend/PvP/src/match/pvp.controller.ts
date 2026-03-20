@@ -41,6 +41,7 @@ export class PvpController {
       usuarioId,
       req.accessToken,
       dto.tokenC1,
+      dto.difficultyKey,
     );
   }
 

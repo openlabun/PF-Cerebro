@@ -12,19 +12,23 @@ import {
 import { useAuth } from '../context/AuthContext.jsx'
 import { useSudokuKeyboardControls } from '../hooks/useSudokuKeyboardControls.js'
 import { generatePvpBoard } from '../lib/pvpSudoku.js'
-import { clearNotesCell, createEmptyNotes } from '../lib/sudoku.js'
+import { clearNotesCell, createEmptyNotes, getDifficultyByKey, getHintLimit } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
 
-function buildInviteLink(matchId, { inviteToken = '', tournamentId = '' } = {}) {
+function buildInviteLink(matchId, { inviteToken = '', tournamentId = '', difficultyKey = '' } = {}) {
   const basePath = `${import.meta.env.BASE_URL || '/'}pvp/${matchId}`
   const params = new URLSearchParams({ join: '1' })
   const normalizedTournamentId = String(tournamentId || '').trim()
   const normalizedInviteToken = String(inviteToken || '').trim()
+  const normalizedDifficultyKey = String(difficultyKey || '').trim()
 
   if (normalizedTournamentId) {
     params.set('torneoId', normalizedTournamentId)
   } else if (normalizedInviteToken) {
     params.set('inviteToken', normalizedInviteToken)
+  }
+  if (normalizedDifficultyKey) {
+    params.set('difficultyKey', normalizedDifficultyKey)
   }
 
   return new URL(`${basePath}?${params.toString()}`, window.location.origin).toString()
@@ -107,11 +111,15 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   const shouldAutoJoin = searchParams.get('join') === '1'
   const requestedInviteToken = searchParams.get('inviteToken') || ''
   const requestedTournamentId = searchParams.get('torneoId') || ''
+  const requestedDifficultyKey = searchParams.get('difficultyKey') || ''
   const tournamentId = requestedTournamentId || match?.torneoId || ''
   const inviteToken = tournamentId ? '' : requestedInviteToken || match?.inviteToken || ''
+  const difficultyKey = match?.difficultyKey || requestedDifficultyKey || ''
+  const difficulty = difficultyKey ? getDifficultyByKey(difficultyKey) : null
+  const hintLimit = difficulty ? getHintLimit(difficulty) : null
   const inviteLink = useMemo(
-    () => buildInviteLink(matchId, { inviteToken, tournamentId }),
-    [inviteToken, matchId, tournamentId],
+    () => buildInviteLink(matchId, { inviteToken, tournamentId, difficultyKey }),
+    [difficultyKey, inviteToken, matchId, tournamentId],
   )
   const webhookReceiverUrl = config.PVP_WEBHOOK_RECEIVER_URL
 
@@ -189,7 +197,8 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
     setMatch(nextMatch)
 
     if ((!initializedBoardRef.current || updateBoard) && nextMatch?.myGame?.boardState?.length) {
-      const generated = generatePvpBoard(nextMatch.seed)
+      const matchDifficultyKey = nextMatch?.difficultyKey || requestedDifficultyKey || ''
+      const generated = generatePvpBoard(nextMatch.seed, matchDifficultyKey)
       const nextBoard = nextMatch.myGame.boardState.map((row) => [...row])
       const currentSelectedCell = selectedCellRef.current
       const shouldKeepCurrentSelection =
@@ -455,7 +464,14 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   }
 
   function handleHintUnavailable() {
-    setStatus('Las pistas no estan disponibles en PvP.')
+    if (!difficulty) {
+      setStatus('Las pistas no estan disponibles en PvP.')
+      return
+    }
+
+    setStatus(
+      `Las pistas no estan disponibles en PvP. En single player, ${difficulty.label} permite ${hintLimit} pista(s).`,
+    )
   }
 
   const myGame = match?.myGame || null
@@ -498,6 +514,10 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
         <div className={`board-card sudoku-game-card pvp-game-card${loading ? ' is-loading' : ''}`}>
           <div className="sudoku-top-row">
             <div className="difficulty-wrap">
+              <span className="difficulty-label">Dificultad: {difficulty?.label || 'Clasica'}</span>
+              <span className="difficulty-label">
+                Pistas en single player: {hintLimit ?? '--'}
+              </span>
               <span className="difficulty-label">Jugador: {user?.email || 'Sesion activa'}</span>
               <span className="difficulty-label">Estado: {match?.estado || 'Cargando'}</span>
               <span className="difficulty-label">Tu puntaje: {myGame?.score ?? 0}</span>
@@ -518,6 +538,10 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
             <div className="pvp-waiting-card">
               <h2>Esperando rival</h2>
               <p>Comparte este enlace para que otro jugador entre desde otro navegador.</p>
+              <p>
+                Tablero configurado en {difficulty?.label || 'dificultad clasica'}.
+                {difficulty ? ` En single player permite ${hintLimit} pista(s).` : ''}
+              </p>
               <div className="pvp-invite-box">
                 <code>{inviteLink}</code>
               </div>

@@ -20,6 +20,7 @@ const LEGACY_ROW_JOIN = -1;
 const LEGACY_ROW_FORFEIT = -2;
 const LEGACY_ROW_FINISHED = -3;
 const STANDALONE_MATCH_PREFIX = 'standalone:';
+const DEFAULT_PVP_DIFFICULTY_KEY = 'medio';
 
 interface MatchRecord {
   _id?: string;
@@ -64,6 +65,7 @@ interface MatchState {
   _id: string;
   torneoId: string | null;
   inviteToken: string | null;
+  difficultyKey: string | null;
   jugador1Id: string;
   jugador2Id: string | null;
   estado: 'WAITING' | 'ACTIVE' | 'FINISHED' | 'FORFEIT';
@@ -96,6 +98,11 @@ interface LegacyInferredState {
   ganadorId: string | null;
   fechaInicio: string | null;
   fechaFin: string | null;
+}
+
+interface StandaloneMatchScope {
+  inviteToken: string;
+  difficultyKey: string | null;
 }
 
 function normalizeStoredBoolean(value: unknown): boolean {
@@ -148,16 +155,34 @@ export class MatchService {
     return randomBytes(12).toString('hex');
   }
 
-  private buildStandaloneScopeId(inviteToken: string): string {
-    return `${STANDALONE_MATCH_PREFIX}${inviteToken}`;
+  private buildStandaloneScopeId(
+    inviteToken: string,
+    difficultyKey?: string | null,
+  ): string {
+    const normalizedDifficultyKey =
+      this.sudokuService.normalizeDifficultyKey(difficultyKey);
+    return normalizedDifficultyKey
+      ? `${STANDALONE_MATCH_PREFIX}${inviteToken}:${normalizedDifficultyKey}`
+      : `${STANDALONE_MATCH_PREFIX}${inviteToken}`;
   }
 
-  private extractStandaloneInviteToken(torneoId: string | null): string | null {
+  private parseStandaloneScope(
+    torneoId: string | null,
+  ): StandaloneMatchScope | null {
     const normalized = this.normalizeOptionalString(torneoId);
     if (!normalized?.startsWith(STANDALONE_MATCH_PREFIX)) return null;
 
-    const inviteToken = normalized.slice(STANDALONE_MATCH_PREFIX.length).trim();
-    return inviteToken || null;
+    const scope = normalized.slice(STANDALONE_MATCH_PREFIX.length).trim();
+    if (!scope) return null;
+
+    const [inviteTokenRaw, difficultyKeyRaw] = scope.split(':', 2);
+    const inviteToken = this.normalizeOptionalString(inviteTokenRaw);
+    if (!inviteToken) return null;
+
+    return {
+      inviteToken,
+      difficultyKey: this.sudokuService.normalizeDifficultyKey(difficultyKeyRaw),
+    };
   }
 
   private ensureContenedor1Enabled() {
@@ -330,6 +355,7 @@ export class MatchService {
       _id: safe._id,
       torneoId: safe.torneoId,
       inviteToken: safe.inviteToken,
+      difficultyKey: safe.difficultyKey,
       jugador1Id: safe.jugador1Id,
       jugador2Id: safe.jugador2Id,
       estado: safe.estado,
@@ -485,7 +511,13 @@ export class MatchService {
 
     const legacy = this.inferLegacyState(base, movimientos);
 
-    const { board } = this.sudokuService.generateBoard(Number(base.seed));
+    const storedTorneoId = this.normalizeOptionalString(base.torneoId);
+    const standaloneScope = this.parseStandaloneScope(storedTorneoId);
+    const difficultyKey = standaloneScope?.difficultyKey ?? null;
+    const { board } = this.sudokuService.generateBoard(
+      Number(base.seed),
+      difficultyKey ?? undefined,
+    );
     const startedAt = legacy.fechaInicio ?? base.fechaCreacion;
     const player1 = this.calculatePlayerProgress(
       base.jugador1Id,
@@ -504,14 +536,11 @@ export class MatchService {
         )
       : null;
 
-    const storedTorneoId = this.normalizeOptionalString(base.torneoId);
-    const standaloneInviteToken =
-      this.extractStandaloneInviteToken(storedTorneoId);
-
     const state: MatchState = {
       _id: base._id!,
-      torneoId: standaloneInviteToken ? null : storedTorneoId,
-      inviteToken: standaloneInviteToken,
+      torneoId: standaloneScope ? null : storedTorneoId,
+      inviteToken: standaloneScope?.inviteToken ?? null,
+      difficultyKey,
       jugador1Id: base.jugador1Id,
       jugador2Id: legacy.jugador2Id,
       estado: legacy.estado,
@@ -605,10 +634,14 @@ export class MatchService {
     usuarioId: string,
     token: string,
     tokenC1?: string,
+    difficultyKey?: string,
   ) {
     this.cacheUserToken(usuarioId, token);
     const normalizedTorneoId = this.normalizeOptionalString(torneoId);
     const normalizedTokenC1 = this.normalizeOptionalString(tokenC1);
+    const normalizedDifficultyKey =
+      this.sudokuService.normalizeDifficultyKey(difficultyKey) ??
+      DEFAULT_PVP_DIFFICULTY_KEY;
 
     if (normalizedTorneoId) {
       if (!normalizedTokenC1) {
@@ -621,11 +654,14 @@ export class MatchService {
     }
 
     const seed = Math.floor(Math.random() * 1000000);
-    const { solution } = this.sudokuService.generateBoard(seed);
+    const { solution } = this.sudokuService.generateBoard(
+      seed,
+      normalizedDifficultyKey,
+    );
     const inviteToken = this.generateInviteToken();
     const storedTorneoId = normalizedTorneoId
       ? normalizedTorneoId
-      : this.buildStandaloneScopeId(inviteToken);
+      : this.buildStandaloneScopeId(inviteToken, normalizedDifficultyKey);
 
     const result = await this.roble.insert<MatchRecord>(token, 'Matches', [
       {
@@ -743,7 +779,10 @@ export class MatchService {
       throw new BadRequestException('Ya terminaste tu partida');
     }
 
-    const { board } = this.sudokuService.generateBoard(state.seed);
+    const { board } = this.sudokuService.generateBoard(
+      state.seed,
+      state.difficultyKey ?? undefined,
+    );
     if (board[row][col] !== 0) {
       throw new BadRequestException('No puedes modificar una celda fija');
     }

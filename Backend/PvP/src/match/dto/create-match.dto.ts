@@ -1,5 +1,14 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsIn, IsOptional, IsString } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
+
+const PVP_DIFFICULTY_KEYS = [
+  'muy-facil',
+  'facil',
+  'medio',
+  'dificil',
+  'experto',
+  'maestro',
+] as const;
 
 export class CreateMatchDto {
   @ApiPropertyOptional({
@@ -18,4 +27,15 @@ export class CreateMatchDto {
   @IsOptional()
   @IsString()
   tokenC1?: string;
+
+  @ApiPropertyOptional({
+    example: 'medio',
+    description:
+      'Dificultad deseada para el tablero PvP. Usa las mismas claves del modo single player.',
+    enum: PVP_DIFFICULTY_KEYS,
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(PVP_DIFFICULTY_KEYS)
+  difficultyKey?: string;
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
+import { difficultyLevels, getDifficultyByKey, getHintLimit } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
 
 const pvpFeatures = [
@@ -14,6 +15,10 @@ function SimulationPage() {
   const { isAuthenticated, session } = useAuth()
   const [creating, setCreating] = useState(false)
   const [status, setStatus] = useState('')
+  const [difficultyKey, setDifficultyKey] = useState(difficultyLevels[2].key)
+
+  const difficulty = getDifficultyByKey(difficultyKey)
+  const hintLimit = getHintLimit(difficulty)
 
   if (!isAuthenticated) return null
 
@@ -24,12 +29,13 @@ function SimulationPage() {
     }
 
     setCreating(true)
-    setStatus('Creando match PvP...')
+    setStatus(`Creando match PvP en dificultad ${difficulty.label}...`)
 
     try {
-      const created = await apiClient.createPvpMatch({}, session.c2AccessToken)
+      const created = await apiClient.createPvpMatch({ difficultyKey }, session.c2AccessToken)
       const params = new URLSearchParams()
       if (created?.inviteToken) params.set('inviteToken', created.inviteToken)
+      if (created?.difficultyKey) params.set('difficultyKey', created.difficultyKey)
 
       navigate(`/pvp/${created._id}${params.size ? `?${params.toString()}` : ''}`, {
         replace: true,
@@ -59,6 +65,29 @@ function SimulationPage() {
               <li key={feature}>{feature}</li>
             ))}
           </ul>
+
+          <div className="difficulty-wrap">
+            <label htmlFor="pvp-difficulty-select">Dificultad:</label>
+            <div className="difficulty-select-shell">
+              <select
+                id="pvp-difficulty-select"
+                className="difficulty-select"
+                value={difficultyKey}
+                onChange={(event) => setDifficultyKey(event.target.value)}
+                disabled={creating}
+              >
+                {difficultyLevels.map((level) => (
+                  <option key={level.key} value={level.key}>
+                    {level.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <span className="difficulty-label">Tablero PvP: {difficulty.label}</span>
+            <span className="difficulty-label">
+              En single player esta dificultad permite {hintLimit} pista(s). En PvP las pistas siguen deshabilitadas para ambos jugadores.
+            </span>
+          </div>
 
           <button className="btn primary simulation-cta" type="button" disabled={creating} onClick={handleCreateMatch}>
             {creating ? 'Creando...' : 'Buscar rival'}
