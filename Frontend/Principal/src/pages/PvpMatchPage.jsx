@@ -12,7 +12,12 @@ import {
 import { useAuth } from '../context/AuthContext.jsx'
 import { useSudokuKeyboardControls } from '../hooks/useSudokuKeyboardControls.js'
 import { generatePvpBoard } from '../lib/pvpSudoku.js'
-import { clearNotesCell, createEmptyNotes, getDifficultyByKey, getHintLimit } from '../lib/sudoku.js'
+import {
+  clearNotesCell,
+  createEmptyNotes,
+  getDifficultyByKey,
+  getHintLimit,
+} from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
 
 function buildInviteLink(matchId, { inviteToken = '', tournamentId = '', difficultyKey = '' } = {}) {
@@ -84,6 +89,7 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   const initializedBoardRef = useRef(false)
   const pollingInFlightRef = useRef(false)
   const selectedCellRef = useRef(null)
+  const opponentFinishedRef = useRef(false)
 
   const {
     puzzle,
@@ -328,6 +334,13 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
     return () => window.clearInterval(interval)
   }, [])
 
+  const myGame = match?.myGame || null
+  const opponent = match?.opponent || null
+  const startedAt = match?.fechaInicio ? new Date(match.fechaInicio).getTime() : null
+  const elapsedSeconds = startedAt ? Math.floor((clockNow - startedAt) / 1000) : 0
+  const isWaiting = match?.estado === 'WAITING'
+  const isActive = match?.estado === 'ACTIVE'
+
   useEffect(() => {
     if (!match || redirectScheduled) return
     if (match.estado !== 'FINISHED' && match.estado !== 'FORFEIT') return
@@ -338,6 +351,17 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
       isForfeit ? 250 : 2000,
     )
   }, [match, redirectScheduled])
+
+  useEffect(() => {
+    if (!opponent?.finished) {
+      opponentFinishedRef.current = false
+      return
+    }
+    if (opponentFinishedRef.current) return
+
+    opponentFinishedRef.current = true
+    setStatus('Tu rival termino su tablero. Completa el tuyo para cerrar la partida.', true)
+  }, [opponent?.finished, setStatus])
 
   async function handleCopyInviteLink() {
     try {
@@ -360,6 +384,7 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
     }
 
     const { row, col } = selectedCell
+    const previousValue = board[row]?.[col] ?? 0
     if (puzzle[row]?.[col] !== 0) {
       setStatus('No puedes modificar una celda fija.')
       return
@@ -380,61 +405,51 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
       clearNotesCell(nextNotes, row, col)
       return nextNotes
     })
-
-    if (solution[row]?.[col] !== num) {
+    const expectedCorrectness = solution[row]?.[col] === num
+    if (!expectedCorrectness) {
       markCellError(row, col, true)
-      updateLocalMyGame((currentMyGame) => ({
-        ...currentMyGame,
-        score: (currentMyGame.score ?? 0) - 1,
-        mistakes: (currentMyGame.mistakes ?? 0) + 1,
-      }))
-      setErrorCount((current) => current + 1)
-
-      try {
-        await apiClient.makePvpMove(
-          matchId,
-          { row, col, value: num, esCorrecta: false },
-          c2AccessToken,
-        )
-      } catch (error) {
-        updateLocalMyGame((currentMyGame) => ({
-          ...currentMyGame,
-          score: (currentMyGame.score ?? 0) + 1,
-          mistakes: Math.max(0, (currentMyGame.mistakes ?? 0) - 1),
-        }))
-        setErrorCount((current) => Math.max(0, current - 1))
-        setStatus(error.message || 'No se pudo registrar la jugada.')
-        return
-      }
-      setStatus('Movimiento incorrecto.')
-      return
     }
 
     setSubmittingMove(true)
     try {
-      const result = await apiClient.makePvpMove(matchId, { row, col, value: num, esCorrecta: true }, c2AccessToken)
+      const result = await apiClient.makePvpMove(
+        matchId,
+        { row, col, value: num, esCorrecta: expectedCorrectness },
+        c2AccessToken,
+      )
       updateLocalMyGame((currentMyGame) => ({
         ...currentMyGame,
-        score: typeof result?.myScore === 'number' ? result.myScore : (currentMyGame.score ?? 0) + 1,
+        score: typeof result?.myScore === 'number' ? result.myScore : currentMyGame.score ?? 0,
         mistakes: typeof result?.myMistakes === 'number' ? result.myMistakes : currentMyGame.mistakes ?? 0,
       }))
       if (typeof result?.myMistakes === 'number') {
         setErrorCount(result.myMistakes)
       }
-      onConfirmedBoardChange((currentBoard) => {
-        const nextBoard = currentBoard.map((line) => [...line])
-        nextBoard[row][col] = num
-        return nextBoard
-      })
-      clearCellError(row, col)
+
+      if (result?.esCorrecta) {
+        onConfirmedBoardChange((currentBoard) => {
+          const nextBoard = currentBoard.map((line) => [...line])
+          nextBoard[row][col] = num
+          return nextBoard
+        })
+        clearCellError(row, col)
+      } else {
+        markCellError(row, col, true)
+      }
 
       if (result?.matchTerminado) {
         scheduleHomeRedirect('Sudoku completado. Volviendo al inicio...')
       } else {
-        setStatus('Movimiento correcto.', true)
+        setStatus(result?.esCorrecta ? 'Movimiento correcto.' : 'Movimiento incorrecto.', Boolean(result?.esCorrecta))
       }
       await fetchMatch()
     } catch (error) {
+      setBoard((currentBoard) => {
+        const nextBoard = currentBoard.map((line) => [...line])
+        nextBoard[row][col] = previousValue
+        return nextBoard
+      })
+      clearCellError(row, col)
       setStatus(error.message || 'No se pudo registrar la jugada.')
     } finally {
       setSubmittingMove(false)
@@ -473,18 +488,12 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
       `Las pistas no estan disponibles en PvP. En single player, ${difficulty.label} permite ${hintLimit} pista(s).`,
     )
   }
-
-  const myGame = match?.myGame || null
-  const opponent = match?.opponent || null
-  const startedAt = match?.fechaInicio ? new Date(match.fechaInicio).getTime() : null
-  const elapsedSeconds = startedAt ? Math.floor((clockNow - startedAt) / 1000) : 0
-  const isWaiting = match?.estado === 'WAITING'
-  const isActive = match?.estado === 'ACTIVE'
   const editableCellCount = useMemo(() => countEditableCells(puzzle), [puzzle])
+  const localResolvedCellCount = useMemo(() => countResolvedCells(puzzle, confirmedBoard), [confirmedBoard, puzzle])
   const resolvedCellCount = useMemo(() => {
-    if (typeof myGame?.correctCells === 'number') return myGame.correctCells
-    return countResolvedCells(puzzle, confirmedBoard)
-  }, [confirmedBoard, myGame?.correctCells, puzzle])
+    const serverResolved = typeof myGame?.correctCells === 'number' ? myGame.correctCells : 0
+    return Math.max(serverResolved, localResolvedCellCount)
+  }, [localResolvedCellCount, myGame?.correctCells])
   const progressPercentage = editableCellCount > 0 ? Math.round((resolvedCellCount / editableCellCount) * 100) : 0
 
   useSudokuKeyboardControls({
@@ -520,14 +529,12 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
               </span>
               <span className="difficulty-label">Jugador: {user?.email || 'Sesion activa'}</span>
               <span className="difficulty-label">Estado: {match?.estado || 'Cargando'}</span>
-              <span className="difficulty-label">Tu puntaje: {myGame?.score ?? 0}</span>
               <span className="difficulty-label">Errores: {errorCount}</span>
             </div>
 
             <div className="sudoku-top-right">
               <span className="timer-display">{formatSudokuTime(elapsedSeconds)}</span>
-              <span className="stat-chip">Rival: {opponent?.score ?? 0}</span>
-              <span className="stat-chip">{opponent?.finished ? 'Rival listo' : 'Rival en juego'}</span>
+              {opponent?.finished ? <span className="stat-chip">Rival termino su tablero</span> : null}
               <button className="btn btn-new-game" type="button" disabled={!isActive || forfeiting} onClick={handleForfeit}>
                 {forfeiting ? 'Abandonando...' : 'Abandonar'}
               </button>
@@ -577,10 +584,11 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
               >
                 <div className="pvp-opponent-card">
                   <h3>Rival</h3>
-                  <p>Puntaje: {opponent?.score ?? 0}</p>
-                  <p>Errores: {opponent?.mistakes ?? 0}</p>
-                  <p>Celdas correctas: {opponent?.correctCells ?? 0}</p>
-                  <p>{opponent?.finished ? 'Termino su tablero' : 'Sigue jugando'}</p>
+                  <p>
+                    {opponent?.finished
+                      ? 'Tu rival ya termino su tablero.'
+                      : 'Recibiras un aviso cuando tu rival termine.'}
+                  </p>
                 </div>
               </SudokuControlsPanel>
             </div>

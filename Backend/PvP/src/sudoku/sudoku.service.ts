@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 
 const PVP_DIFFICULTY_LEVELS = [
-  { key: 'muy-facil', holes: 20 },
-  { key: 'facil', holes: 40 },
-  { key: 'medio', holes: 40 },
-  { key: 'dificil', holes: 45 },
-  { key: 'experto', holes: 50 },
-  { key: 'maestro', holes: 60 },
+  { key: 'muy-facil', label: 'Principiante', holes: 20, completionBonus: 100 },
+  { key: 'facil', label: 'Iniciado', holes: 40, completionBonus: 200 },
+  { key: 'medio', label: 'Intermedio', holes: 40, completionBonus: 300 },
+  { key: 'dificil', label: 'Avanzado', holes: 45, completionBonus: 450 },
+  { key: 'experto', label: 'Experto', holes: 50, completionBonus: 600 },
+  { key: 'maestro', label: 'Profesional', holes: 60, completionBonus: 800 },
 ] as const;
 
 const DIGITS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
@@ -41,6 +41,14 @@ type Board = number[][];
 
 @Injectable()
 export class SudokuService {
+  private getDifficultyConfig(difficultyKey?: string | null) {
+    const normalizedDifficultyKey = this.normalizeDifficultyKey(difficultyKey);
+    return (
+      PVP_DIFFICULTY_LEVELS.find((level) => level.key === normalizedDifficultyKey) ??
+      PVP_DIFFICULTY_LEVELS[2]
+    );
+  }
+
   normalizeDifficultyKey(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const normalized = value.trim();
@@ -71,14 +79,50 @@ export class SudokuService {
     col: number,
     value: number,
   ): boolean {
-    return solution[row][col] === value;
+    return Number(solution?.[row]?.[col]) === Number(value);
+  }
+
+  getDifficultyLabel(difficultyKey?: string | null): string {
+    return this.getDifficultyConfig(difficultyKey).label;
+  }
+
+  getDifficultyCompletionBonus(difficultyKey?: string | null): number {
+    return this.getDifficultyConfig(difficultyKey).completionBonus;
+  }
+
+  calculateScoreFromProgress(params: {
+    solvedEditableCells: number;
+    elapsedMs: number;
+    errorCount: number;
+    hintsUsed?: number;
+    difficultyKey?: string | null;
+  }): number {
+    const pointsPerCorrectMove = 100;
+    const timePenaltyPerSecond = 2;
+    const errorPenalty = 50;
+    const hintPenalty = 100;
+    const solvedEditableCells = Math.max(
+      0,
+      Number(params.solvedEditableCells) || 0,
+    );
+    const seconds = Math.max(
+      0,
+      Math.floor((Number(params.elapsedMs) || 0) / 1000),
+    );
+    const errorCount = Math.max(0, Number(params.errorCount) || 0);
+    const hintsUsed = Math.max(0, Number(params.hintsUsed) || 0);
+    const earnedPoints =
+      solvedEditableCells * pointsPerCorrectMove +
+      this.getDifficultyCompletionBonus(params.difficultyKey);
+    const penalty =
+      seconds * timePenaltyPerSecond +
+      errorCount * errorPenalty +
+      hintsUsed * hintPenalty;
+    return Math.max(0, earnedPoints - penalty);
   }
 
   private getHolesForDifficulty(difficultyKey: string): number {
-    return (
-      PVP_DIFFICULTY_LEVELS.find((level) => level.key === difficultyKey)?.holes ??
-      PVP_DIFFICULTY_LEVELS[2].holes
-    );
+    return this.getDifficultyConfig(difficultyKey).holes;
   }
 
   private cloneBoard(board: Board): Board {

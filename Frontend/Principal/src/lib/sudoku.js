@@ -264,13 +264,33 @@ export function calculateProgress(puzzle, board, solution) {
   return { correct, editable, percentage }
 }
 
-export function calculateScore({ puzzle, board, solution, seconds, errorCount, hintsUsed, difficulty }) {
+export function calculateScoreFromProgress({
+  solvedEditableCells,
+  seconds,
+  errorCount,
+  hintsUsed,
+  difficulty,
+}) {
   const pointsPerCorrectMove = 100
   const timePenaltyPerSecond = 2
   const errorPenalty = 50
   const hintPenalty = 100
-  const solvedEditableCells = countSolvedEditableCells(puzzle, board, solution)
-  const earnedPoints = solvedEditableCells * pointsPerCorrectMove + getDifficultyCompletionBonus(difficulty)
-  const penalty = seconds * timePenaltyPerSecond + errorCount * errorPenalty + hintsUsed * hintPenalty
+  const safeSolvedEditableCells = Math.max(0, Number(solvedEditableCells) || 0)
+  const safeSeconds = Math.max(0, Number(seconds) || 0)
+  const safeErrorCount = Math.max(0, Number(errorCount) || 0)
+  const safeHintsUsed = Math.max(0, Number(hintsUsed) || 0)
+  const earnedPoints = safeSolvedEditableCells * pointsPerCorrectMove + getDifficultyCompletionBonus(difficulty)
+  const penalty = safeSeconds * timePenaltyPerSecond + safeErrorCount * errorPenalty + safeHintsUsed * hintPenalty
   return Math.max(0, earnedPoints - penalty)
+}
+
+export function calculateScore({ puzzle, board, solution, seconds, errorCount, hintsUsed, difficulty }) {
+  const solvedEditableCells = countSolvedEditableCells(puzzle, board, solution)
+  return calculateScoreFromProgress({
+    solvedEditableCells,
+    seconds,
+    errorCount,
+    hintsUsed,
+    difficulty,
+  })
 }

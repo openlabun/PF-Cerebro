@@ -29,7 +29,7 @@ interface MatchRecord {
   jugador2Id: string | null;
   estado: string;
   seed: number;
-  solution: number[][];
+  solution: number[][] | string;
   puntaje1: number;
   puntaje2: number;
   ganadorId: string | null;
@@ -419,13 +419,13 @@ export class MatchService {
   private calculatePlayerProgress(
     playerId: string,
     baseBoard: number[][],
-    solution: number[][],
+    difficultyKey: string | null,
     allMoves: MovimientoRecord[],
-    startedAt: string,
+    startedAt: string | null,
+    referenceNowMs: number,
   ): PlayerProgress {
     const boardState = this.cloneBoard(baseBoard);
     const emptyCells = baseBoard.flat().filter((c) => c === 0).length;
-    let score = 0;
     let mistakes = 0;
     let correctCells = 0;
     let finished = false;
@@ -448,27 +448,35 @@ export class MatchService {
       if (baseBoard[row][col] !== 0) continue;
       if (boardState[row][col] !== 0) continue;
 
-      // Temporalmente confiamos en la validacion del cliente.
-      // El score y el progreso deben respetar el veredicto almacenado.
       const isCorrect = normalizeStoredBoolean(mov.esCorrecta);
       if (isCorrect) {
         boardState[row][col] = value;
         correctCells += 1;
-        score += 1;
         if (!finished && correctCells === emptyCells) {
           finished = true;
           finishedAt = mov.timestamp;
         }
       } else {
         mistakes += 1;
-        score -= 1;
       }
     }
 
     const startedMs = this.parseDateMs(startedAt);
     const finishedMs = this.parseDateMs(finishedAt);
     const durationMs =
-      startedMs !== null && finishedMs !== null ? finishedMs - startedMs : null;
+      startedMs !== null && finishedMs !== null
+        ? Math.max(0, finishedMs - startedMs)
+        : null;
+    const elapsedMsForScore =
+      durationMs ??
+      (startedMs !== null ? Math.max(0, referenceNowMs - startedMs) : 0);
+    const score = this.sudokuService.calculateScoreFromProgress({
+      solvedEditableCells: correctCells,
+      elapsedMs: elapsedMsForScore,
+      errorCount: mistakes,
+      hintsUsed: 0,
+      difficultyKey,
+    });
 
     return {
       playerId,
@@ -514,25 +522,28 @@ export class MatchService {
     const storedTorneoId = this.normalizeOptionalString(base.torneoId);
     const standaloneScope = this.parseStandaloneScope(storedTorneoId);
     const difficultyKey = standaloneScope?.difficultyKey ?? null;
-    const { board } = this.sudokuService.generateBoard(
+    const { board, solution } = this.sudokuService.generateBoard(
       Number(base.seed),
       difficultyKey ?? undefined,
     );
-    const startedAt = legacy.fechaInicio ?? base.fechaCreacion;
+    const referenceNowMs = Date.now();
+    const startedAt = legacy.fechaInicio ?? base.fechaInicio ?? null;
     const player1 = this.calculatePlayerProgress(
       base.jugador1Id,
       board,
-      base.solution,
+      difficultyKey,
       movimientos,
       startedAt,
+      referenceNowMs,
     );
     const player2 = legacy.jugador2Id
       ? this.calculatePlayerProgress(
           legacy.jugador2Id,
           board,
-          base.solution,
+          difficultyKey,
           movimientos,
           startedAt,
+          referenceNowMs,
         )
       : null;
 
@@ -545,7 +556,7 @@ export class MatchService {
       jugador2Id: legacy.jugador2Id,
       estado: legacy.estado,
       seed: Number(base.seed),
-      solution: base.solution,
+      solution,
       puntaje1: player1.score,
       puntaje2: player2?.score ?? 0,
       ganadorId: null,
@@ -790,6 +801,19 @@ export class MatchService {
       throw new BadRequestException('Esa celda ya fue resuelta por ti');
     }
 
+    const clientReportedCorrectness = normalizeStoredBoolean(esCorrecta);
+    const isCorrect = this.sudokuService.validateMove(
+      state.solution,
+      row,
+      col,
+      value,
+    );
+    if (clientReportedCorrectness !== isCorrect) {
+      this.logger.warn(
+        `Client correctness mismatch for match=${matchId} user=${usuarioId} row=${row} col=${col} value=${value}`,
+      );
+    }
+
     await this.roble.insert<MovimientoRecord>(token, 'MovimientosPvP', [
       {
         matchId: state._id,
@@ -797,7 +821,7 @@ export class MatchService {
         row,
         col,
         value,
-        esCorrecta: normalizeStoredBoolean(esCorrecta),
+        esCorrecta: isCorrect,
         timestamp: new Date().toISOString(),
       },
     ]);
@@ -902,7 +926,7 @@ export class MatchService {
         .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
 
       return {
-        esCorrecta,
+        esCorrecta: isCorrect,
         matchTerminado: true,
         ganadorId,
         puntaje1: p1.score,
@@ -912,7 +936,7 @@ export class MatchService {
     }
 
     return {
-      esCorrecta,
+      esCorrecta: isCorrect,
       matchTerminado: false,
       puntaje1: updated.player1.score,
       puntaje2: updated.player2?.score ?? 0,
