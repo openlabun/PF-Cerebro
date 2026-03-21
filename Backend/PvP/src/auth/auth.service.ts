@@ -19,6 +19,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly baseUrl: string;
+  private readonly refreshPath: string;
 
   constructor(
     private readonly http: HttpService,
@@ -31,6 +32,7 @@ export class AuthService {
 
     if (contenedor1BaseUrl) {
       this.baseUrl = `${contenedor1BaseUrl}/auth`;
+      this.refreshPath = 'refresh';
       return;
     }
 
@@ -40,6 +42,7 @@ export class AuthService {
       .replace(/\/+$/, '');
     const robleDbName = this.config.getOrThrow<string>('ROBLE_DBNAME');
     this.baseUrl = `${robleAuthBase}/${robleDbName}`;
+    this.refreshPath = 'refresh-token';
   }
 
   private handleRobleError(err: any): never {
@@ -72,7 +75,7 @@ export class AuthService {
     try {
       const response = await firstValueFrom(
         this.http.post<RobleRefreshResponse>(
-          `${this.baseUrl}/refresh-token`,
+          `${this.baseUrl}/${this.refreshPath}`,
           dto,
         ),
       );

@@ -47,12 +47,32 @@ function getPayloadErrorMessage(payload, status) {
   return `Request failed with status ${status}`
 }
 
-export async function request(path, options = {}) {
+function getStoredAccessTokenForBase(baseUrl) {
+  const session = authStorage.getSession()
+  if (!session) return null
+
+  if (baseUrl === 'auth') {
+    return session.c1AccessToken || session.accessToken || null
+  }
+
+  if (baseUrl === 'pvp' || baseUrl === 'pvp-auth' || baseUrl === 'pvp-webhook') {
+    return session.c2AccessToken || null
+  }
+
+  return null
+}
+
+function resolveRequestToken(baseUrl, explicitToken) {
+  if (!explicitToken) return null
+  return getStoredAccessTokenForBase(baseUrl) || explicitToken
+}
+
+async function performRequest(path, options = {}, tokenOverride = null) {
   const method = options.method || 'GET'
   const body = options.body
-  const token = options.token
-  const signal = options.signal
   const baseUrl = options.baseUrl || 'auth'
+  const token = tokenOverride ?? resolveRequestToken(baseUrl, options.token)
+  const signal = options.signal
 
   const headers = {
     Accept: 'application/json',
@@ -84,6 +104,79 @@ export async function request(path, options = {}) {
   }
 
   return payload
+}
+
+async function refreshSessionForBase(baseUrl) {
+  const session = authStorage.getSession()
+  if (!session) return null
+
+  if (baseUrl === 'auth') {
+    const refreshToken = session.c1RefreshToken || session.refreshToken
+    if (!refreshToken) return null
+
+    const refreshed = await performRequest('auth/refresh', {
+      method: 'POST',
+      baseUrl: 'auth',
+      body: { refreshToken },
+    })
+
+    const nextSession = {
+      ...session,
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken || refreshToken,
+      c1AccessToken: refreshed.accessToken,
+      c1RefreshToken: refreshed.refreshToken || refreshToken,
+      user: refreshed.user || session.user,
+    }
+    authStorage.setSession(nextSession)
+    return nextSession.c1AccessToken
+  }
+
+  if (baseUrl === 'pvp' || baseUrl === 'pvp-auth' || baseUrl === 'pvp-webhook') {
+    const refreshToken = session.c2RefreshToken
+    if (!refreshToken) return null
+
+    const refreshed = await performRequest('refresh', {
+      method: 'POST',
+      baseUrl: 'pvp-auth',
+      body: { refreshToken },
+    })
+
+    const nextSession = {
+      ...session,
+      c2AccessToken: refreshed.accessToken,
+      c2RefreshToken: refreshed.refreshToken || refreshToken,
+      user: refreshed.user || session.user,
+    }
+    authStorage.setSession(nextSession)
+    return nextSession.c2AccessToken
+  }
+
+  return null
+}
+
+export async function request(path, options = {}) {
+  const baseUrl = options.baseUrl || 'auth'
+
+  try {
+    return await performRequest(path, options)
+  } catch (error) {
+    const shouldTryRefresh =
+      !options.skipAuthRefresh &&
+      error?.status === 401 &&
+      Boolean(options.token)
+
+    if (!shouldTryRefresh) {
+      throw error
+    }
+
+    const refreshedToken = await refreshSessionForBase(baseUrl).catch(() => null)
+    if (!refreshedToken) {
+      throw error
+    }
+
+    return performRequest(path, options, refreshedToken)
+  }
 }
 
 export const authStorage = {
@@ -155,6 +248,7 @@ export const apiClient = {
     return request('auth/refresh', {
       method: 'POST',
       baseUrl: 'auth',
+      skipAuthRefresh: true,
       body: { refreshToken },
     })
   },
@@ -187,6 +281,7 @@ export const apiClient = {
     return request('refresh', {
       method: 'POST',
       baseUrl: 'pvp-auth',
+      skipAuthRefresh: true,
       body: { refreshToken },
     })
   },
@@ -393,6 +488,18 @@ export const apiClient = {
     if (excludeSessionId) query.set('excludeSessionId', excludeSessionId)
 
     return request(`game-sessions/latest?${query.toString()}`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getSudokuSeed(accessToken, difficultyLabel) {
+    const query = new URLSearchParams({
+      dificultad: String(difficultyLabel || '').trim(),
+    })
+
+    return request(`game-sessions/sudoku-seed?${query.toString()}`, {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,

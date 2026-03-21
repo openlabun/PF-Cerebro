@@ -305,11 +305,15 @@ export class AdminService {
 
       const singlePlayerAggregate = new Map<string, { total: number; count: number }>();
       for (const sesion of sesiones) {
-        const seedId = this.normalizeUserId(sesion?.idseed);
-        if (!seedId || !seedMetaById.has(seedId)) continue;
+        const sessionSeedRef = this.normalizeUserId(sesion?.idseed);
+        const sessionSeedValue = this.normalizeSeedValue(sesion?.idseed);
+        const seedMeta =
+          seedMetaById.get(sessionSeedRef) ||
+          seedMetaBySeed.get(sessionSeedValue);
+        if (!seedMeta) continue;
         const tiempo = Number(sesion?.tiempo);
         if (!Number.isFinite(tiempo) || tiempo < 0) continue;
-        const seedValue = this.normalizeSeedValue(seedMetaById.get(seedId)?.seed);
+        const seedValue = this.normalizeSeedValue(seedMeta.seed);
         if (!seedValue) continue;
         const current = singlePlayerAggregate.get(seedValue) || { total: 0, count: 0 };
         current.total += tiempo;
@@ -683,19 +687,27 @@ export class AdminService {
         : [];
 
       const dificultadBySeedId = new Map<string, string>();
+      const dificultadBySeedValue = new Map<string, string>();
       for (const row of seeds) {
         const id = this.normalizeUserId(row?.id) || this.normalizeUserId(row?._id);
+        const seedValue = this.normalizeSeedValue(row?.seed);
         const dificultad = this.resolveBoardDifficultyLabel(row?.dificultad);
         if (!id || !dificultad) continue;
         dificultadBySeedId.set(id, dificultad);
+        if (seedValue) {
+          dificultadBySeedValue.set(seedValue, dificultad);
+        }
       }
 
       const aggregate = new Map<string, { total: number; count: number }>();
       for (const sesion of sesiones) {
         const idSeed = this.normalizeUserId(sesion?.idseed);
-        if (!idSeed) continue;
+        const seedValue = this.normalizeSeedValue(sesion?.idseed);
+        if (!idSeed && !seedValue) continue;
 
-        const dificultad = dificultadBySeedId.get(idSeed);
+        const dificultad =
+          dificultadBySeedId.get(idSeed) ||
+          dificultadBySeedValue.get(seedValue);
         if (!dificultad) continue;
 
         const tiempo = Number(sesion?.tiempo);
