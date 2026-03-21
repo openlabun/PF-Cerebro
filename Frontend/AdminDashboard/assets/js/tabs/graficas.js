@@ -73,9 +73,10 @@ function drawEmpty(svg, message) {
   svg.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="#6b7297" font-size="16">${message}</text>`;
 }
 
-function normalizeUsersByGame(mapData) {
+function normalizeActivityByGame(mapData) {
   const source = mapData && typeof mapData === "object" ? mapData : {};
   const normalized = {
+    sudoku: 0,
     pvp: 0,
     torneos: 0,
   };
@@ -85,7 +86,10 @@ function normalizeUsersByGame(mapData) {
     const value = Number(rawValue) || 0;
     if (!key) return;
 
-    if (key === "sudoku" || key === "singleplayer" || key === "single_player" || key === "single-player") return;
+    if (key === "sudoku" || key === "singleplayer" || key === "single_player" || key === "single-player") {
+      normalized.sudoku += value;
+      return;
+    }
     if (key === "pvp") {
       normalized.pvp += value;
       return;
@@ -177,13 +181,12 @@ function renderBarChart(svgId, mapData) {
   const svg = document.getElementById(svgId);
   if (!svg) return;
   svg.innerHTML = "";
-  const normalized = normalizeUsersByGame(mapData);
-  const primaryOrder = ["pvp", "torneos"];
+  const normalized = normalizeActivityByGame(mapData);
+  const primaryOrder = ["sudoku", "pvp", "torneos"];
   const knownEntries = primaryOrder.map((key) => [key, Number(normalized[key]) || 0]);
   const extraEntries = Object.entries(normalized).filter(
     ([key]) =>
       !primaryOrder.includes(key) &&
-      key !== "sudoku" &&
       key !== "singleplayer" &&
       key !== "single_player" &&
       key !== "single-player",
@@ -243,7 +246,10 @@ function renderDifficultyMatchesChart(svgId, rows) {
 
   const source = Array.isArray(rows) ? rows : [];
   const entries = source
-    .map((row) => [String(row?.dificultad || "").trim(), Number(row?.sessionsCount) || 0])
+    .map((row) => [
+      String(row?.dificultad || "").trim(),
+      Number(row?.totalUsagesCount ?? row?.sessionsCount) || 0,
+    ])
     .filter(([label]) => Boolean(label));
 
   if (!entries.length) {
@@ -302,11 +308,17 @@ async function loadGraficas() {
     const timeseries = snapshot.usersTimeseries || {};
     const avgTimeByDifficulty = snapshot.avgTimeByDifficulty || {};
     const aggregatedTimeseries = aggregateTimeseries(timeseries.data || [], selectedBucket);
+    const activityByGame =
+      overview.activityByGame || {
+        sudoku: overview.sudokuMatchesPlayed ?? 0,
+        pvp: overview.pvpMatchesPlayed ?? 0,
+        torneos: 0,
+      };
 
     setText("metricUsers", usersTotal.totalUsers ?? overview.totalUsers ?? "-");
     setText("metricParticipations", overview.totalGameParticipations ?? "-");
     renderLineChart("timeseriesChart", aggregatedTimeseries, "label", "users");
-    renderBarChart("gamesChart", overview.usersByGame || {});
+    renderBarChart("gamesChart", activityByGame);
     renderDifficultyMatchesChart("difficultyMatchesChart", avgTimeByDifficulty.data || []);
   } catch (error) {
     setText("metricUsers", "Error");

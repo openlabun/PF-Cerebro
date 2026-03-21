@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Admin Dashboard - Tiempo por Seed</title>
+    <title>Admin Dashboard - Uso por Seed</title>
     <link rel="stylesheet" href="/assets/css/tabs/seed-tiempo-detalle.css?v=20260309-1" />
   </head>
   <body>
@@ -24,7 +24,7 @@
     <main class="layout">
       <section class="card">
         <div class="card-head">
-          <h2 id="title">Promedio de tiempo por seed</h2>
+          <h2 id="title">Uso por seed</h2>
           <a class="link-back" href="/tabs/datos.html">Volver a datos</a>
         </div>
         <p id="detailStatus" class="status-text">Cargando...</p>
@@ -34,8 +34,11 @@
               <tr>
                 <th>Seed ID</th>
                 <th>Seed</th>
-                <th>Promedio (seg)</th>
-                <th>Sesiones</th>
+                <th>SP promedio (seg)</th>
+                <th>SP sesiones</th>
+                <th>PvP promedio (seg)</th>
+                <th>PvP partidas</th>
+                <th>Total usos</th>
               </tr>
             </thead>
             <tbody id="seedTimesBody"></tbody>
@@ -44,7 +47,7 @@
       </section>
     </main>
 
-    <script src="/assets/js/auth.js?v=20260320-1"></script>
-    <script src="/assets/js/tabs/seed-tiempo-detalle.js?v=20260320-1"></script>
+    <script src="/assets/js/auth.js?v=20260320-2"></script>
+    <script src="/assets/js/tabs/seed-tiempo-detalle.js?v=20260320-2"></script>
   </body>
 </html>

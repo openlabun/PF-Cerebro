@@ -19,6 +19,23 @@ type RankingRecord = {
   fechaActualizacion?: string;
 };
 
+type PvpMatchRecord = {
+  id?: string | number;
+  _id?: string;
+  seed?: string | number | null;
+  difficulty_key?: string | null;
+  status?: string;
+  created_at?: string | number | null;
+  started_at?: string | number | null;
+  finished_at?: string | number | null;
+  duration_ms?: string | number | null;
+};
+
+type PvpMatchPlayerRecord = {
+  match_id?: string | number;
+  user_id?: string;
+};
+
 type SesionJuegoRecord = {
   idseed?: string;
   tiempo?: string | number | null;
@@ -47,6 +64,8 @@ type AverageTimeByDifficultyRow = {
   dificultad: string;
   avgSeconds: number;
   sessionsCount: number;
+  pvpMatchesCount?: number;
+  totalUsagesCount?: number;
 };
 
 type AverageTimeBySeedRow = {
@@ -55,6 +74,11 @@ type AverageTimeBySeedRow = {
   dificultad: string;
   avgSeconds: number;
   sessionsCount: number;
+  singlePlayerAvgSeconds?: number;
+  singlePlayerSessionsCount?: number;
+  pvpAvgSeconds?: number;
+  pvpMatchesCount?: number;
+  totalUsagesCount?: number;
 };
 
 type AggregatedSnapshot = {
@@ -67,7 +91,9 @@ type AggregatedSnapshot = {
     totalUsers: number;
     totalGameParticipations: number;
     sudokuMatchesPlayed: number;
+    pvpMatchesPlayed: number;
     usersByGame: Record<string, number>;
+    activityByGame: Record<string, number>;
     source: string;
   };
   usersTotal: {
@@ -104,6 +130,14 @@ export class AdminService {
     'Experto',
     'Profesional',
   ];
+  private readonly pvpDifficultyLabelsByKey: Record<string, string> = {
+    'muy-facil': 'Principiante',
+    facil: 'Iniciado',
+    medio: 'Intermedio',
+    dificil: 'Avanzado',
+    experto: 'Experto',
+    maestro: 'Profesional',
+  };
 
   async buildOverview(accessToken: string) {
     const snapshot = await this.getAggregatedSnapshot(accessToken);
@@ -206,7 +240,7 @@ export class AdminService {
     const snapshot = await this.getAggregatedSnapshot(accessToken);
     return {
       data: snapshot.averageTimeByDifficulty,
-      source: 'SesionJuego-seedsSudoku',
+      source: 'SesionJuego-seedsSudoku-pvp_matches',
     };
   }
 
@@ -216,14 +250,15 @@ export class AdminService {
       return {
         dificultad: '',
         data: [] as AverageTimeBySeedRow[],
-        source: 'SesionJuego-seedsSudoku',
+        source: 'SesionJuego-seedsSudoku-pvp_matches',
       };
     }
 
     try {
-      const [sesionesRaw, seedsRaw] = await Promise.all([
+      const [sesionesRaw, seedsRaw, pvpMatchesRaw] = await Promise.all([
         this.requestRobleRead(accessToken, 'SesionJuego'),
         this.requestRobleRead(accessToken, 'seedsSudoku'),
+        this.requestRobleRead(accessToken, 'pvp_matches'),
       ]);
 
       const sesiones = Array.isArray(sesionesRaw)
@@ -232,58 +267,150 @@ export class AdminService {
       const seeds = Array.isArray(seedsRaw)
         ? (seedsRaw as SeedSudokuRecord[])
         : [];
+      const pvpMatches = Array.isArray(pvpMatchesRaw)
+        ? (pvpMatchesRaw as PvpMatchRecord[])
+        : [];
+
+      const normalizedRequestedDifficulty = this.normalizeBoardDifficulty(dificultad);
+      const resolvedDifficultyLabel =
+        this.resolveBoardDifficultyLabel(dificultad) || dificultad;
 
       const seedsForDifficulty = seeds.filter((row) => {
-        return this.normalizeDifficulty(row?.dificultad) === this.normalizeDifficulty(dificultad);
+        return (
+          this.normalizeBoardDifficulty(row?.dificultad) ===
+          normalizedRequestedDifficulty
+        );
       });
 
       const seedMetaById = new Map<string, { seed: string; dificultad: string }>();
+      const seedMetaBySeed = new Map<string, { seedId: string; seed: string; dificultad: string }>();
       for (const row of seedsForDifficulty) {
         const id = this.normalizeUserId(row?.id) || this.normalizeUserId(row?._id);
+        const seedValue = this.normalizeSeedValue(row?.seed);
         if (!id) continue;
         seedMetaById.set(id, {
-          seed: String(row?.seed ?? ''),
-          dificultad: String(row?.dificultad ?? dificultad),
+          seed: seedValue,
+          dificultad: this.resolveBoardDifficultyLabel(row?.dificultad) || resolvedDifficultyLabel,
         });
+        if (seedValue) {
+          seedMetaBySeed.set(seedValue, {
+            seedId: id,
+            seed: seedValue,
+            dificultad:
+              this.resolveBoardDifficultyLabel(row?.dificultad) ||
+              resolvedDifficultyLabel,
+          });
+        }
       }
 
-      const aggregate = new Map<string, { total: number; count: number }>();
+      const singlePlayerAggregate = new Map<string, { total: number; count: number }>();
       for (const sesion of sesiones) {
         const seedId = this.normalizeUserId(sesion?.idseed);
         if (!seedId || !seedMetaById.has(seedId)) continue;
         const tiempo = Number(sesion?.tiempo);
         if (!Number.isFinite(tiempo) || tiempo < 0) continue;
-        const current = aggregate.get(seedId) || { total: 0, count: 0 };
+        const seedValue = this.normalizeSeedValue(seedMetaById.get(seedId)?.seed);
+        if (!seedValue) continue;
+        const current = singlePlayerAggregate.get(seedValue) || { total: 0, count: 0 };
         current.total += tiempo;
         current.count += 1;
-        aggregate.set(seedId, current);
+        singlePlayerAggregate.set(seedValue, current);
       }
 
-      const data = Array.from(seedMetaById.entries())
-        .map(([seedId, meta]) => {
-          const stats = aggregate.get(seedId) || { total: 0, count: 0 };
-          const avgSeconds =
-            stats.count > 0 ? Math.round((stats.total / stats.count) * 100) / 100 : 0;
+      const pvpAggregate = new Map<
+        string,
+        { matchesCount: number; durationTotalMs: number; durationCount: number }
+      >();
+      for (const match of pvpMatches) {
+        if (!this.isPlayedPvpMatch(match)) continue;
+        if (
+          this.normalizeBoardDifficulty(match?.difficulty_key) !==
+          normalizedRequestedDifficulty
+        ) {
+          continue;
+        }
+
+        const seedValue = this.normalizeSeedValue(match?.seed);
+        if (!seedValue) continue;
+
+        const current = pvpAggregate.get(seedValue) || {
+          matchesCount: 0,
+          durationTotalMs: 0,
+          durationCount: 0,
+        };
+        current.matchesCount += 1;
+
+        const durationMs = Number(match?.duration_ms);
+        if (Number.isFinite(durationMs) && durationMs >= 0) {
+          current.durationTotalMs += durationMs;
+          current.durationCount += 1;
+        }
+
+        pvpAggregate.set(seedValue, current);
+      }
+
+      const allSeedValues = new Set<string>([
+        ...seedMetaBySeed.keys(),
+        ...singlePlayerAggregate.keys(),
+        ...pvpAggregate.keys(),
+      ]);
+
+      const data = Array.from(allSeedValues)
+        .map((seedValue) => {
+          const meta = seedMetaBySeed.get(seedValue) || {
+            seedId: '',
+            seed: seedValue,
+            dificultad: resolvedDifficultyLabel,
+          };
+          const singleStats = singlePlayerAggregate.get(seedValue) || { total: 0, count: 0 };
+          const pvpStats = pvpAggregate.get(seedValue) || {
+            matchesCount: 0,
+            durationTotalMs: 0,
+            durationCount: 0,
+          };
+          const singlePlayerAvgSeconds =
+            singleStats.count > 0
+              ? Math.round((singleStats.total / singleStats.count) * 100) / 100
+              : 0;
+          const pvpAvgSeconds =
+            pvpStats.durationCount > 0
+              ? Math.round(
+                  ((pvpStats.durationTotalMs / pvpStats.durationCount) / 1000) * 100,
+                ) / 100
+              : 0;
+
           return {
-            seedId,
+            seedId: meta.seedId,
             seed: meta.seed,
             dificultad: meta.dificultad,
-            avgSeconds,
-            sessionsCount: stats.count,
+            avgSeconds: singlePlayerAvgSeconds,
+            sessionsCount: singleStats.count,
+            singlePlayerAvgSeconds,
+            singlePlayerSessionsCount: singleStats.count,
+            pvpAvgSeconds,
+            pvpMatchesCount: pvpStats.matchesCount,
+            totalUsagesCount: singleStats.count + pvpStats.matchesCount,
           };
         })
-        .sort((a, b) => Number(a.seed || 0) - Number(b.seed || 0));
+        .sort((a, b) => {
+          const numericA = Number(a.seed || 0);
+          const numericB = Number(b.seed || 0);
+          if (Number.isFinite(numericA) && Number.isFinite(numericB)) {
+            return numericA - numericB;
+          }
+          return String(a.seed || '').localeCompare(String(b.seed || ''));
+        });
 
       return {
-        dificultad,
+        dificultad: resolvedDifficultyLabel,
         data,
-        source: 'SesionJuego-seedsSudoku',
+        source: 'SesionJuego-seedsSudoku-pvp_matches',
       };
     } catch {
       return {
         dificultad,
         data: [] as AverageTimeBySeedRow[],
-        source: 'SesionJuego-seedsSudoku',
+        source: 'SesionJuego-seedsSudoku-pvp_matches',
       };
     }
   }
@@ -385,9 +512,17 @@ export class AdminService {
   }
 
   private async buildAggregatedSnapshot(accessToken: string) {
-    const [torneos, ranking, sudokuMatchesPlayed, totalProfiles, averageTimeByDifficulty] = await Promise.all([
+    const [
+      torneos,
+      pvpMatches,
+      pvpMatchPlayers,
+      sudokuMatchesPlayed,
+      totalProfiles,
+      averageTimeByDifficulty,
+    ] = await Promise.all([
       this.getTorneosListFromContenedor1(accessToken),
-      this.getTopRankingFromContenedor2(accessToken),
+      this.getPvpMatchesFromRoble(accessToken),
+      this.getPvpMatchPlayersFromRoble(accessToken),
       this.getSudokuMatchesPlayed(accessToken),
       this.getProfilesCountFromContenedor1(accessToken),
       this.getAverageTimeByDifficultyFromRoble(accessToken),
@@ -447,12 +582,34 @@ export class AdminService {
       }
     }
 
-    for (const row of ranking) {
-      const userId = this.normalizeUserId(row.usuarioId);
-      const date = this.parseDateSafe(row.fechaActualizacion);
+    const playedPvpMatchIds = new Set<string>();
+    const pvpMatchDateById = new Map<string, Date>();
+
+    for (const match of pvpMatches) {
+      const matchId = this.normalizeRecordId(match.id) || this.normalizeRecordId(match._id);
+      if (!matchId) continue;
+
+      const matchDate =
+        this.parseDateSafe(match.started_at) ||
+        this.parseDateSafe(match.finished_at) ||
+        this.parseDateSafe(match.created_at);
+      if (matchDate) {
+        pvpMatchDateById.set(matchId, matchDate);
+      }
+
+      if (!this.isPlayedPvpMatch(match)) continue;
+      playedPvpMatchIds.add(matchId);
+    }
+
+    for (const row of pvpMatchPlayers) {
+      const matchId = this.normalizeRecordId(row.match_id);
+      if (!matchId || !playedPvpMatchIds.has(matchId)) continue;
+
+      const userId = this.normalizeUserId(row.user_id);
       if (!userId) continue;
 
       this.addUserGame(perUserGames, userId, 'pvp');
+      const date = pvpMatchDateById.get(matchId);
       if (date) this.setMinDate(firstSeenByUserMap, userId, date);
     }
 
@@ -468,12 +625,18 @@ export class AdminService {
       (acc, row) => acc + row.gamesPlayedCount,
       0,
     );
+    const pvpMatchesPlayed = playedPvpMatchIds.size;
     const usersByGame = gamesByUser.reduce<Record<string, number>>((acc, row) => {
       for (const game of row.games) {
         acc[game] = (acc[game] || 0) + 1;
       }
       return acc;
     }, {});
+    const activityByGame: Record<string, number> = {
+      sudoku: sudokuMatchesPlayed,
+      pvp: pvpMatchesPlayed,
+      torneos: torneos.length,
+    };
 
     const firstSeenByUser = Array.from(firstSeenByUserMap.entries()).map(
       ([userId, date]) => ({ userId, date }),
@@ -489,7 +652,9 @@ export class AdminService {
         totalUsers,
         totalGameParticipations,
         sudokuMatchesPlayed,
+        pvpMatchesPlayed,
         usersByGame,
+        activityByGame,
         source: 'contenedor1-contenedor2',
       },
       usersTotal: {
@@ -501,9 +666,10 @@ export class AdminService {
 
   private async getAverageTimeByDifficultyFromRoble(accessToken: string) {
     try {
-      const [sesionesRaw, seedsRaw] = await Promise.all([
+      const [sesionesRaw, seedsRaw, pvpMatchesRaw] = await Promise.all([
         this.requestRobleRead(accessToken, 'SesionJuego'),
         this.requestRobleRead(accessToken, 'seedsSudoku'),
+        this.requestRobleRead(accessToken, 'pvp_matches'),
       ]);
 
       const sesiones = Array.isArray(sesionesRaw)
@@ -512,11 +678,14 @@ export class AdminService {
       const seeds = Array.isArray(seedsRaw)
         ? (seedsRaw as SeedSudokuRecord[])
         : [];
+      const pvpMatches = Array.isArray(pvpMatchesRaw)
+        ? (pvpMatchesRaw as PvpMatchRecord[])
+        : [];
 
       const dificultadBySeedId = new Map<string, string>();
       for (const row of seeds) {
         const id = this.normalizeUserId(row?.id) || this.normalizeUserId(row?._id);
-        const dificultad = String(row?.dificultad || '').trim();
+        const dificultad = this.resolveBoardDifficultyLabel(row?.dificultad);
         if (!id || !dificultad) continue;
         dificultadBySeedId.set(id, dificultad);
       }
@@ -538,6 +707,14 @@ export class AdminService {
         aggregate.set(dificultad, current);
       }
 
+      const pvpByDifficulty = new Map<string, number>();
+      for (const match of pvpMatches) {
+        if (!this.isPlayedPvpMatch(match)) continue;
+        const dificultad = this.resolveBoardDifficultyLabel(match?.difficulty_key);
+        if (!dificultad) continue;
+        pvpByDifficulty.set(dificultad, (pvpByDifficulty.get(dificultad) || 0) + 1);
+      }
+
       const rows = Array.from(aggregate.entries()).map(([dificultad, stats]) => ({
         dificultad,
         avgSeconds:
@@ -550,25 +727,51 @@ export class AdminService {
       const byDifficulty = new Map(rows.map((row) => [this.normalizeDifficulty(row.dificultad), row]));
       return this.sudokuDifficulties.map((dificultad) => {
         const found = byDifficulty.get(this.normalizeDifficulty(dificultad));
-        return (
-          found || {
-            dificultad,
-            avgSeconds: 0,
-            sessionsCount: 0,
-          }
-        );
+        const sessionsCount = found?.sessionsCount ?? 0;
+        const pvpMatchesCount = pvpByDifficulty.get(dificultad) || 0;
+        return {
+          dificultad,
+          avgSeconds: found?.avgSeconds ?? 0,
+          sessionsCount,
+          pvpMatchesCount,
+          totalUsagesCount: sessionsCount + pvpMatchesCount,
+        };
       });
     } catch {
       return this.sudokuDifficulties.map((dificultad) => ({
         dificultad,
         avgSeconds: 0,
         sessionsCount: 0,
+        pvpMatchesCount: 0,
+        totalUsagesCount: 0,
       }));
     }
   }
 
   private normalizeDifficulty(value: unknown) {
     return String(value || '').trim().toLowerCase();
+  }
+
+  private resolveBoardDifficultyLabel(value: unknown) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const normalized = this.normalizeDifficulty(raw);
+    return this.pvpDifficultyLabelsByKey[normalized] || raw;
+  }
+
+  private normalizeBoardDifficulty(value: unknown) {
+    return this.normalizeDifficulty(this.resolveBoardDifficultyLabel(value));
+  }
+
+  private normalizeSeedValue(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(Math.trunc(value));
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      return normalized;
+    }
+    return '';
   }
 
   private invalidateSnapshotCache() {
@@ -596,8 +799,26 @@ export class AdminService {
   }
 
   private parseDateSafe(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      const parsedFromNumber = new Date(value);
+      return Number.isNaN(parsedFromNumber.getTime()) ? null : parsedFromNumber;
+    }
+
     if (typeof value !== 'string') return null;
-    const parsed = new Date(value);
+    const normalized = value.trim();
+    if (!normalized) return null;
+
+    if (/^\d+$/.test(normalized)) {
+      const numericValue = Number(normalized);
+      if (Number.isFinite(numericValue)) {
+        const parsedFromNumericString = new Date(numericValue);
+        if (!Number.isNaN(parsedFromNumericString.getTime())) {
+          return parsedFromNumericString;
+        }
+      }
+    }
+
+    const parsed = new Date(normalized);
     if (Number.isNaN(parsed.getTime())) return null;
     return parsed;
   }
@@ -609,6 +830,27 @@ export class AdminService {
       return '';
     }
     return normalized;
+  }
+
+  private normalizeRecordId(value: unknown) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return String(Math.trunc(value));
+    }
+    if (typeof value === 'string') {
+      const normalized = value.trim();
+      if (normalized) return normalized;
+    }
+    return '';
+  }
+
+  private isPlayedPvpMatch(match: PvpMatchRecord) {
+    const status = String(match?.status || '')
+      .trim()
+      .toUpperCase();
+    if (status && status !== 'WAITING') {
+      return true;
+    }
+    return Boolean(this.parseDateSafe(match?.started_at));
   }
 
   private *iterateDays(from: Date, to: Date) {
@@ -741,6 +983,24 @@ export class AdminService {
       return [] as RankingRecord[];
     } catch {
       return [] as RankingRecord[];
+    }
+  }
+
+  private async getPvpMatchesFromRoble(accessToken: string) {
+    try {
+      const payload = await this.requestRobleRead(accessToken, 'pvp_matches');
+      return Array.isArray(payload) ? (payload as PvpMatchRecord[]) : [];
+    } catch {
+      return [] as PvpMatchRecord[];
+    }
+  }
+
+  private async getPvpMatchPlayersFromRoble(accessToken: string) {
+    try {
+      const payload = await this.requestRobleRead(accessToken, 'pvp_match_players');
+      return Array.isArray(payload) ? (payload as PvpMatchPlayerRecord[]) : [];
+    } catch {
+      return [] as PvpMatchPlayerRecord[];
     }
   }
 

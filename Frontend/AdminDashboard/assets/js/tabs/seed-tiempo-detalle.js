@@ -26,7 +26,7 @@ function renderRows(rows) {
 
   body.innerHTML = "";
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="4">No hay seeds o sesiones para esta dificultad.</td></tr>';
+    body.innerHTML = '<tr><td colspan="7">No hay seeds ni partidas registradas para esta dificultad.</td></tr>';
     return;
   }
 
@@ -35,8 +35,11 @@ function renderRows(rows) {
     tr.innerHTML = `
       <td>${escapeHtml(row.seedId || "-")}</td>
       <td>${escapeHtml(row.seed || "-")}</td>
-      <td>${Number(row.avgSeconds ?? 0).toFixed(2)}</td>
-      <td>${row.sessionsCount ?? 0}</td>
+      <td>${Number(row.singlePlayerAvgSeconds ?? row.avgSeconds ?? 0).toFixed(2)}</td>
+      <td>${row.singlePlayerSessionsCount ?? row.sessionsCount ?? 0}</td>
+      <td>${Number(row.pvpAvgSeconds ?? 0).toFixed(2)}</td>
+      <td>${row.pvpMatchesCount ?? 0}</td>
+      <td>${row.totalUsagesCount ?? ((row.sessionsCount ?? 0) + (row.pvpMatchesCount ?? 0))}</td>
     `;
     body.appendChild(tr);
   });
@@ -45,7 +48,7 @@ function renderRows(rows) {
 async function loadDetails() {
   const params = new URLSearchParams(window.location.search);
   const dificultad = (params.get("dificultad") || "").trim();
-  setText("title", `Promedio de tiempo por seed - ${dificultad || "N/A"}`);
+  setText("title", `Uso por seed - ${dificultad || "N/A"}`);
 
   if (!dificultad) {
     setText("detailStatus", "No se recibio una dificultad valida.");
@@ -57,8 +60,20 @@ async function loadDetails() {
     const payload = await getJson(
       `${endpoints.seedsTimes}?dificultad=${encodeURIComponent(dificultad)}`,
     );
-    renderRows(payload?.data || []);
-    setText("detailStatus", `Dificultad: ${dificultad}. Seeds: ${(payload?.data || []).length}.`);
+    const rows = payload?.data || [];
+    renderRows(rows);
+    const totalSinglePlayerSessions = rows.reduce(
+      (acc, row) => acc + (Number(row?.singlePlayerSessionsCount ?? row?.sessionsCount) || 0),
+      0,
+    );
+    const totalPvpMatches = rows.reduce(
+      (acc, row) => acc + (Number(row?.pvpMatchesCount) || 0),
+      0,
+    );
+    setText(
+      "detailStatus",
+      `Dificultad: ${payload?.dificultad || dificultad}. Seeds: ${rows.length}. SP sesiones: ${totalSinglePlayerSessions}. PvP partidas: ${totalPvpMatches}.`,
+    );
   } catch (error) {
     setText("detailStatus", `No disponible: ${error.message}`);
     renderRows([]);

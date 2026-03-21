@@ -476,7 +476,9 @@ export class MatchService {
     return {
       externalMatchId: state._id,
       seed: state.seed,
-      difficultyKey: state.difficultyKey ?? DEFAULT_PVP_DIFFICULTY_KEY,
+      difficultyKey: this.sudokuService.getDifficultyLabel(
+        state.difficultyKey ?? DEFAULT_PVP_DIFFICULTY_KEY,
+      ),
       mode: state.torneoId ? 'torneo' : 'standalone',
       torneoId: state.torneoId,
       status: state.estado,
