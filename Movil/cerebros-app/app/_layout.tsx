@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
 import { PaperProvider } from 'react-native-paper';
 
+import { AuthProvider } from '@/context';
 import { ThemeMode, ThemeModeContext, darkTheme, lightTheme } from '@/constants/theme';
 import { rootStackScreens } from '@/routes';
 
@@ -28,21 +29,23 @@ export default function RootLayout() {
         toggleTheme: () => setMode((currentMode) => (currentMode === 'dark' ? 'light' : 'dark')),
       }}
     >
-      <PaperProvider theme={theme}>
-        <StatusBar style={isDark ? 'light' : 'dark'} />
-        <Stack
-          screenOptions={{
-            contentStyle: { backgroundColor: theme.colors.background },
-            headerShadowVisible: false,
-            headerStyle: { backgroundColor: theme.colors.surface },
-            headerTintColor: theme.colors.onSurface,
-          }}
-        >
-          {rootStackScreens.map((screen) => (
-            <Stack.Screen key={screen.name} name={screen.name} options={screen.options} />
-          ))}
-        </Stack>
-      </PaperProvider>
+      <AuthProvider>
+        <PaperProvider theme={theme}>
+          <StatusBar style={isDark ? 'light' : 'dark'} />
+          <Stack
+            screenOptions={{
+              contentStyle: { backgroundColor: theme.colors.background },
+              headerShadowVisible: false,
+              headerStyle: { backgroundColor: theme.colors.surface },
+              headerTintColor: theme.colors.onSurface,
+            }}
+          >
+            {rootStackScreens.map((screen) => (
+              <Stack.Screen key={screen.name} name={screen.name} options={screen.options} />
+            ))}
+          </Stack>
+        </PaperProvider>
+      </AuthProvider>
     </ThemeModeContext.Provider>
   );
 }
