@@ -95,13 +95,15 @@ function renderAverageTimeByDifficultyTable(data) {
       dificultad: difficulty,
       avgSeconds: 0,
       sessionsCount: 0,
+      totalUsagesCount: 0,
     };
+    const totalUsagesCount = row.totalUsagesCount ?? row.sessionsCount ?? 0;
     const encoded = encodeURIComponent(difficulty);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(row.dificultad || "-")}</td>
       <td>${Number(row.avgSeconds ?? 0).toFixed(2)}</td>
-      <td>${row.sessionsCount ?? 0}</td>
+      <td>${totalUsagesCount}</td>
       <td><a class="row-action" href="/tabs/seed-tiempo-detalle.html?dificultad=${encoded}">Ver seeds</a></td>
     `;
     body.appendChild(tr);
@@ -378,7 +380,7 @@ async function loadDatos() {
     setText("kpiParticipations", overview.totalGameParticipations ?? "-");
     setText("kpiSudokuCount", overview.sudokuMatchesPlayed ?? 0);
     setText("kpiTorneosCount", torneos.count ?? 0);
-    setText("kpiPvpCount", (overview.usersByGame || {}).pvp ?? 0);
+    setText("kpiPvpCount", overview.pvpMatchesPlayed ?? 0);
     renderAverageTimeByDifficultyTable(avgTimeByDifficulty.data || []);
     setTorneosData(torneos.data || []);
 

@@ -41,6 +41,12 @@ function Header() {
         >
           PvP
         </NavLink>
+        <NavLink
+          to="/torneos"
+          className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
+        >
+          Torneos
+        </NavLink>
       </nav>
       <div className="session-actions">
         <button

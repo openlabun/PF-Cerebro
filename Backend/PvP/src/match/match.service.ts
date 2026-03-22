@@ -14,6 +14,11 @@ import { SudokuService } from '../sudoku/sudoku.service';
 import { WebhookService } from '../webhook/webhook.service';
 import { RankingService } from '../ranking/ranking.service';
 import { getUserIdFromAccessToken } from '../common/utils/jwt.utils';
+import {
+  CerebroPvpSyncMatchSnapshot,
+  CerebroPvpSyncPlayerSnapshot,
+  CerebroPvpSyncService,
+} from './cerebro-pvp-sync.service';
 
 // Compatibilidad con registros historicos que usaban sentinels en MovimientosPvP.
 const LEGACY_ROW_JOIN = -1;
@@ -130,6 +135,7 @@ export class MatchService {
     private readonly sudokuService: SudokuService,
     private readonly webhookService: WebhookService,
     private readonly rankingService: RankingService,
+    private readonly cerebroPvpSyncService: CerebroPvpSyncService,
   ) {
     this.contenedor1Url =
       this.config.get<string>('CONTENEDOR1_BASE_URL')?.trim() ?? '';
@@ -379,6 +385,131 @@ export class MatchService {
     if (!isoDate) return null;
     const ms = new Date(isoDate).getTime();
     return Number.isFinite(ms) ? ms : null;
+  }
+
+  private calculateDurationMs(
+    startedAt: string | null,
+    finishedAt: string | null,
+  ): number | null {
+    const startedMs = this.parseDateMs(startedAt);
+    const finishedMs = this.parseDateMs(finishedAt);
+    if (startedMs === null || finishedMs === null) return null;
+    return Math.max(0, finishedMs - startedMs);
+  }
+
+  private getCerebroPlayerResult(
+    state: MatchState,
+    playerId: string,
+    forfeitedByUserId: string | null,
+  ): string {
+    if (state.estado === 'FINISHED') {
+      return state.ganadorId === playerId ? 'WIN' : 'LOSS';
+    }
+    if (state.estado === 'FORFEIT') {
+      if (forfeitedByUserId && forfeitedByUserId === playerId) {
+        return 'ABANDONED';
+      }
+      return state.ganadorId === playerId ? 'WIN' : 'LOSS';
+    }
+    if (state.estado === 'ACTIVE') {
+      return 'IN_PROGRESS';
+    }
+    return 'PENDING';
+  }
+
+  private buildCerebroPlayerSnapshot(
+    state: MatchState,
+    player: PlayerProgress,
+    slot: number,
+    forfeitedByUserId: string | null,
+    eloAfterByUserId?: Record<string, number | null>,
+  ): CerebroPvpSyncPlayerSnapshot {
+    return {
+      userId: player.playerId,
+      slot,
+      result: this.getCerebroPlayerResult(
+        state,
+        player.playerId,
+        forfeitedByUserId,
+      ),
+      finalScore: player.score,
+      mistakes: player.mistakes,
+      correctCells: player.correctCells,
+      finished: player.finished,
+      finishedAt: player.finishedAt,
+      durationMs: player.durationMs,
+      eloBefore: null,
+      eloAfter: eloAfterByUserId?.[player.playerId] ?? null,
+    };
+  }
+
+  private buildCerebroMatchSnapshot(
+    state: MatchState,
+    options?: {
+      endedReason?: string | null;
+      forfeitedByUserId?: string | null;
+      eloAfterByUserId?: Record<string, number | null>;
+    },
+  ): CerebroPvpSyncMatchSnapshot {
+    const players: CerebroPvpSyncPlayerSnapshot[] = [
+      this.buildCerebroPlayerSnapshot(
+        state,
+        state.player1,
+        1,
+        options?.forfeitedByUserId ?? null,
+        options?.eloAfterByUserId,
+      ),
+    ];
+
+    if (state.player2) {
+      players.push(
+        this.buildCerebroPlayerSnapshot(
+          state,
+          state.player2,
+          2,
+          options?.forfeitedByUserId ?? null,
+          options?.eloAfterByUserId,
+        ),
+      );
+    }
+
+    return {
+      externalMatchId: state._id,
+      seed: state.seed,
+      difficultyKey: this.sudokuService.getDifficultyLabel(
+        state.difficultyKey ?? DEFAULT_PVP_DIFFICULTY_KEY,
+      ),
+      mode: state.torneoId ? 'torneo' : 'standalone',
+      torneoId: state.torneoId,
+      status: state.estado,
+      winnerUserId: state.ganadorId,
+      createdAt: state.fechaCreacion,
+      startedAt: state.fechaInicio,
+      finishedAt: state.fechaFin,
+      durationMs: this.calculateDurationMs(state.fechaInicio, state.fechaFin),
+      endedReason:
+        options?.endedReason ??
+        (state.estado === 'FINISHED'
+          ? 'completed'
+          : state.estado === 'FORFEIT'
+            ? 'forfeit'
+            : null),
+      forfeitedByUserId: options?.forfeitedByUserId ?? null,
+      players,
+    };
+  }
+
+  private async syncCerebroMatch(
+    state: MatchState,
+    options?: {
+      endedReason?: string | null;
+      forfeitedByUserId?: string | null;
+      eloAfterByUserId?: Record<string, number | null>;
+    },
+  ) {
+    await this.cerebroPvpSyncService.syncMatchSnapshot(
+      this.buildCerebroMatchSnapshot(state, options),
+    );
   }
 
   private inferLegacyState(
@@ -703,6 +834,7 @@ export class MatchService {
 
     this.rememberMatchOwnerToken(created._id!, usuarioId, token);
     const state = await this.rebuildState(created._id!, token);
+    await this.syncCerebroMatch(state);
     return this.stripSolution(state);
   }
 
@@ -761,6 +893,7 @@ export class MatchService {
       .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
 
     const updated = await this.rebuildState(matchId, token);
+    await this.syncCerebroMatch(updated);
     return this.stripSolution(updated);
   }
 
@@ -847,6 +980,8 @@ export class MatchService {
           token,
         )
         .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
+
+      await this.syncCerebroMatch(updated);
     }
 
     if (
@@ -900,6 +1035,14 @@ export class MatchService {
         perdedorId,
         token,
       );
+      const finishedState = await this.rebuildState(matchId, token);
+      await this.syncCerebroMatch(finishedState, {
+        endedReason: 'completed',
+        eloAfterByUserId: {
+          [eloResult.ganador.usuarioId]: eloResult.ganador.nuevoElo,
+          [eloResult.perdedor.usuarioId]: eloResult.perdedor.nuevoElo,
+        },
+      });
 
       this.webhookService
         .emit(
@@ -981,7 +1124,20 @@ export class MatchService {
       await this.insertLegacyForfeitEvent(matchId, usuarioId, token);
     }
 
-    await this.rankingService.updateElo(oponenteId, usuarioId, token);
+    const eloResult = await this.rankingService.updateElo(
+      oponenteId,
+      usuarioId,
+      token,
+    );
+    const finalState = await this.rebuildState(matchId, token);
+    await this.syncCerebroMatch(finalState, {
+      endedReason: 'forfeit',
+      forfeitedByUserId: usuarioId,
+      eloAfterByUserId: {
+        [eloResult.ganador.usuarioId]: eloResult.ganador.nuevoElo,
+        [eloResult.perdedor.usuarioId]: eloResult.perdedor.nuevoElo,
+      },
+    });
 
     this.webhookService
       .emit(

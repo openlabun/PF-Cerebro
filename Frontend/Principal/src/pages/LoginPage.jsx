@@ -11,7 +11,8 @@ function LoginPage() {
   const [message, setMessage] = useState('')
   const [tone, setTone] = useState('info')
 
-  const nextPath = location.state?.from?.pathname || '/'
+  const nextLocation = location.state?.from || { pathname: '/' }
+  const nextPath = `${nextLocation.pathname || '/'}${nextLocation.search || ''}${nextLocation.hash || ''}`
 
   useEffect(() => {
     if (!isAuthenticated) return

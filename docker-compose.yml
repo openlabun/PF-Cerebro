@@ -30,8 +30,14 @@ services:
       dockerfile: Dockerfile
     env_file:
       - "./Backend/PvP/.env"
+      - path: "./Backend/ContenedorAdmin/.env.example"
+      - path: "./Backend/ContenedorAdmin/.env"
+        required: false
     environment:
       CONTENEDOR1_BASE_URL: "http://cerebro-api:3000/api"
+      ROBLE_AUTH_BASE: "https://roble-api.openlab.uninorte.edu.co/auth"
+      ROBLE_DB_BASE: "https://roble-api.openlab.uninorte.edu.co/database"
+      ROBLE_DBNAME: "pvp_db_cerebros_534143495f"
     depends_on:
       - cerebro-api
     restart: unless-stopped

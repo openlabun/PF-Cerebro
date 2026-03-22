@@ -24,9 +24,25 @@ function parseResponse(text) {
   }
 }
 
+function getFriendlyStatusMessage(status) {
+  if (status === 401) {
+    return 'Tu sesion no es valida o expiro. Inicia sesion nuevamente.'
+  }
+
+  if (status === 403) {
+    return 'La solicitud fue rechazada por el servicio (403). Si estabas iniciando sesion, revisa tu red, VPN o filtros de seguridad.'
+  }
+
+  if (status === 502 || status === 503 || status === 504) {
+    return 'No se pudo comunicar correctamente con el servicio externo. Intenta de nuevo.'
+  }
+
+  return `Request failed with status ${status}`
+}
+
 function getPayloadErrorMessage(payload, status) {
   if (typeof payload !== 'object' || payload === null) {
-    return `Request failed with status ${status}`
+    return getFriendlyStatusMessage(status)
   }
 
   const rawMessage = payload.message
@@ -41,18 +57,44 @@ function getPayloadErrorMessage(payload, status) {
 
   if (rawMessage !== undefined && rawMessage !== null) {
     const message = String(rawMessage).trim()
-    if (message) return message
+    if (message) {
+      if (/^Request failed with status code \d+$/i.test(message)) {
+        return getFriendlyStatusMessage(status)
+      }
+
+      return message
+    }
   }
 
-  return `Request failed with status ${status}`
+  return getFriendlyStatusMessage(status)
 }
 
-export async function request(path, options = {}) {
+function getStoredAccessTokenForBase(baseUrl) {
+  const session = authStorage.getSession()
+  if (!session) return null
+
+  if (baseUrl === 'auth') {
+    return session.c1AccessToken || session.accessToken || null
+  }
+
+  if (baseUrl === 'pvp' || baseUrl === 'pvp-auth' || baseUrl === 'pvp-webhook') {
+    return session.c2AccessToken || null
+  }
+
+  return null
+}
+
+function resolveRequestToken(baseUrl, explicitToken) {
+  if (!explicitToken) return null
+  return getStoredAccessTokenForBase(baseUrl) || explicitToken
+}
+
+async function performRequest(path, options = {}, tokenOverride = null) {
   const method = options.method || 'GET'
   const body = options.body
-  const token = options.token
-  const signal = options.signal
   const baseUrl = options.baseUrl || 'auth'
+  const token = tokenOverride ?? resolveRequestToken(baseUrl, options.token)
+  const signal = options.signal
 
   const headers = {
     Accept: 'application/json',
@@ -84,6 +126,79 @@ export async function request(path, options = {}) {
   }
 
   return payload
+}
+
+async function refreshSessionForBase(baseUrl) {
+  const session = authStorage.getSession()
+  if (!session) return null
+
+  if (baseUrl === 'auth') {
+    const refreshToken = session.c1RefreshToken || session.refreshToken
+    if (!refreshToken) return null
+
+    const refreshed = await performRequest('auth/refresh', {
+      method: 'POST',
+      baseUrl: 'auth',
+      body: { refreshToken },
+    })
+
+    const nextSession = {
+      ...session,
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken || refreshToken,
+      c1AccessToken: refreshed.accessToken,
+      c1RefreshToken: refreshed.refreshToken || refreshToken,
+      user: refreshed.user || session.user,
+    }
+    authStorage.setSession(nextSession)
+    return nextSession.c1AccessToken
+  }
+
+  if (baseUrl === 'pvp' || baseUrl === 'pvp-auth' || baseUrl === 'pvp-webhook') {
+    const refreshToken = session.c2RefreshToken
+    if (!refreshToken) return null
+
+    const refreshed = await performRequest('refresh', {
+      method: 'POST',
+      baseUrl: 'pvp-auth',
+      body: { refreshToken },
+    })
+
+    const nextSession = {
+      ...session,
+      c2AccessToken: refreshed.accessToken,
+      c2RefreshToken: refreshed.refreshToken || refreshToken,
+      user: refreshed.user || session.user,
+    }
+    authStorage.setSession(nextSession)
+    return nextSession.c2AccessToken
+  }
+
+  return null
+}
+
+export async function request(path, options = {}) {
+  const baseUrl = options.baseUrl || 'auth'
+
+  try {
+    return await performRequest(path, options)
+  } catch (error) {
+    const shouldTryRefresh =
+      !options.skipAuthRefresh &&
+      error?.status === 401 &&
+      Boolean(options.token)
+
+    if (!shouldTryRefresh) {
+      throw error
+    }
+
+    const refreshedToken = await refreshSessionForBase(baseUrl).catch(() => null)
+    if (!refreshedToken) {
+      throw error
+    }
+
+    return performRequest(path, options, refreshedToken)
+  }
 }
 
 export const authStorage = {
@@ -155,6 +270,7 @@ export const apiClient = {
     return request('auth/refresh', {
       method: 'POST',
       baseUrl: 'auth',
+      skipAuthRefresh: true,
       body: { refreshToken },
     })
   },
@@ -187,6 +303,7 @@ export const apiClient = {
     return request('refresh', {
       method: 'POST',
       baseUrl: 'pvp-auth',
+      skipAuthRefresh: true,
       body: { refreshToken },
     })
   },
@@ -240,9 +357,33 @@ export const apiClient = {
     })
   },
 
+  getTournaments(accessToken) {
+    return request('torneos', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getPublicTournaments() {
+    return request('torneos/public', {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
   createTournament(payload, accessToken) {
     return request('torneos', {
       method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: payload,
+    })
+  },
+
+  updateTournament(tournamentId, payload, accessToken) {
+    return request(`torneos/${tournamentId}`, {
+      method: 'PUT',
       baseUrl: 'auth',
       token: accessToken,
       body: payload,
@@ -266,6 +407,13 @@ export const apiClient = {
     })
   },
 
+  getPublicTournament(tournamentId) {
+    return request(`torneos/public/${tournamentId}`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
   getTournamentParticipants(tournamentId, accessToken) {
     return request(`torneos/${tournamentId}/participantes`, {
       method: 'GET',
@@ -274,12 +422,71 @@ export const apiClient = {
     })
   },
 
-  joinTournament(tournamentId, accessToken) {
+  getPublicTournamentParticipants(tournamentId) {
+    return request(`torneos/public/${tournamentId}/participantes`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
+  getTournamentRanking(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}/ranking`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getPublicTournamentRanking(tournamentId) {
+    return request(`torneos/public/${tournamentId}/ranking`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
+  getTournamentResultsByUser(userId, accessToken) {
+    return request(`torneos/usuarios/${userId}/resultados`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  deleteTournament(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}`, {
+      method: 'DELETE',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  joinTournament(tournamentId, payloadOrToken = {}, maybeAccessToken) {
+    const legacySignature = typeof payloadOrToken === 'string' && maybeAccessToken === undefined
+    const body = legacySignature ? {} : payloadOrToken || {}
+    const accessToken = legacySignature ? payloadOrToken : maybeAccessToken
+
     return request(`torneos/${tournamentId}/unirse`, {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
-      body: {},
+      body,
+    })
+  },
+
+  startTournamentSession(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}/sesiones/iniciar`, {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  finishTournamentSession(tournamentId, sessionId, payload, accessToken) {
+    return request(`torneos/${tournamentId}/sesiones/${sessionId}/finalizar`, {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: payload,
     })
   },
 
@@ -394,6 +601,18 @@ export const apiClient = {
     if (excludeSessionId) query.set('excludeSessionId', excludeSessionId)
 
     return request(`game-sessions/latest?${query.toString()}`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getSudokuSeed(accessToken, difficultyLabel) {
+    const query = new URLSearchParams({
+      dificultad: String(difficultyLabel || '').trim(),
+    })
+
+    return request(`game-sessions/sudoku-seed?${query.toString()}`, {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,

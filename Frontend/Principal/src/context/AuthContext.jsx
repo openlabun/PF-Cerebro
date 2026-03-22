@@ -26,50 +26,34 @@ function normalizeSessionUser(sessionUser = {}, verifiedUser = {}) {
   }
 }
 
-function deriveDisplayName(email = '') {
-  const normalized = String(email || '').trim()
-  return normalized.includes('@') ? normalized.split('@')[0] : normalized || 'Jugador PvP'
-}
+function buildUnifiedSession(sessionLike, verifiedUser = {}) {
+  const accessToken = sessionLike?.c1AccessToken || sessionLike?.accessToken || ''
+  const refreshToken =
+    sessionLike?.c1RefreshToken ||
+    sessionLike?.refreshToken ||
+    sessionLike?.c2RefreshToken ||
+    ''
 
-async function loginPvpWithFallback(credentials) {
-  try {
-    return await apiClient.pvpLogin(credentials)
-  } catch (error) {
-    const message = String(error?.message || '').toLowerCase()
-    const shouldProvision =
-      message.includes('no existe') ||
-      message.includes('not found') ||
-      message.includes('usuario') ||
-      message.includes('user')
-
-    if (!shouldProvision) throw error
-
-    await apiClient.pvpSignupDirect({
-      email: credentials.email,
-      password: credentials.password,
-      name: deriveDisplayName(credentials.email),
-    })
-    return apiClient.pvpLogin(credentials)
+  return {
+    ...sessionLike,
+    accessToken,
+    refreshToken,
+    c1AccessToken: accessToken,
+    c1RefreshToken: refreshToken,
+    c2AccessToken: accessToken,
+    c2RefreshToken: refreshToken,
+    user: normalizeSessionUser(sessionLike?.user, verifiedUser),
   }
 }
 
 async function hydrateSession(session) {
-  if (!session?.c1AccessToken || !session?.c2AccessToken) {
+  const accessToken = session?.c1AccessToken || session?.accessToken
+  if (!accessToken) {
     throw new Error('Session without access token')
   }
 
-  const [verificationC1, verificationC2] = await Promise.all([
-    apiClient.verifyToken(session.c1AccessToken),
-    apiClient.pvpVerifyToken(session.c2AccessToken),
-  ])
-  const verifiedUser = verificationC1?.user || verificationC2?.user || {}
-
-  return {
-    ...session,
-    accessToken: session.c1AccessToken,
-    refreshToken: session.c1RefreshToken || '',
-    user: normalizeSessionUser(session.user, verifiedUser),
-  }
+  const verification = await apiClient.verifyToken(accessToken)
+  return buildUnifiedSession(session, verification?.user || {})
 }
 
 // ========== Lógica de Rachas ==========
@@ -132,7 +116,8 @@ export function AuthProvider({ children }) {
 
     async function restoreSession() {
       const stored = authStorage.getSession()
-      if (!stored?.c1AccessToken || !stored?.c2AccessToken) {
+      const storedAccessToken = stored?.c1AccessToken || stored?.accessToken
+      if (!storedAccessToken) {
         if (mounted) setIsLoading(false)
         return
       }
@@ -143,22 +128,22 @@ export function AuthProvider({ children }) {
         authStorage.setSession(hydrated)
         setSession(hydrated)
       } catch (verifyError) {
-        if (stored?.c1RefreshToken && stored?.c2RefreshToken) {
+        const refreshToken =
+          stored?.c1RefreshToken ||
+          stored?.refreshToken ||
+          stored?.c2RefreshToken
+
+        if (refreshToken) {
           try {
-            const [refreshedC1, refreshedC2] = await Promise.all([
-              apiClient.refresh(stored.c1RefreshToken),
-              apiClient.pvpRefresh(stored.c2RefreshToken),
-            ])
-            const hydrated = await hydrateSession({
+            const refreshed = await apiClient.refresh(refreshToken)
+            const hydrated = await hydrateSession(buildUnifiedSession({
               ...stored,
-              c1AccessToken: refreshedC1.accessToken,
-              c1RefreshToken: refreshedC1.refreshToken || stored.c1RefreshToken,
-              c2AccessToken: refreshedC2.accessToken,
-              c2RefreshToken: refreshedC2.refreshToken || stored.c2RefreshToken,
-              accessToken: refreshedC1.accessToken,
-              refreshToken: refreshedC1.refreshToken || stored.c1RefreshToken,
-              user: refreshedC1.user || refreshedC2.user || stored.user,
-            })
+              c1AccessToken: refreshed.accessToken,
+              c1RefreshToken: refreshed.refreshToken || refreshToken,
+              accessToken: refreshed.accessToken,
+              refreshToken: refreshed.refreshToken || refreshToken,
+              user: refreshed.user || stored.user,
+            }))
 
             if (!mounted) return
             authStorage.setSession(hydrated)
@@ -185,24 +170,26 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function login(credentials) {
-    const [responseC1, responseC2] = await Promise.all([
-      apiClient.login(credentials),
-      loginPvpWithFallback(credentials),
-    ])
+    // Si el usuario decide iniciar sesion otra vez, arrancamos desde un estado local limpio
+    // para no mezclar tokens viejos con una autenticacion nueva tras reinicios de Docker/ROBLE.
+    authStorage.clearSession()
+    setSession(null)
 
-    if (!responseC1?.accessToken || !responseC2?.accessToken) {
+    const response = await apiClient.login(credentials)
+
+    if (!response?.accessToken) {
       throw new Error('Respuesta de login sin accessToken.')
     }
 
-    const hydrated = await hydrateSession({
-      accessToken: responseC1.accessToken,
-      refreshToken: responseC1.refreshToken || '',
-      c1AccessToken: responseC1.accessToken,
-      c1RefreshToken: responseC1.refreshToken || '',
-      c2AccessToken: responseC2.accessToken,
-      c2RefreshToken: responseC2.refreshToken || '',
-      user: responseC1.user || responseC2.user || { email: credentials.email },
-    })
+    const hydrated = await hydrateSession(
+      buildUnifiedSession({
+        accessToken: response.accessToken,
+        refreshToken: response.refreshToken || '',
+        c1AccessToken: response.accessToken,
+        c1RefreshToken: response.refreshToken || '',
+        user: response.user || { email: credentials.email },
+      }),
+    )
 
     authStorage.setSession(hydrated)
     setSession(hydrated)
@@ -214,39 +201,21 @@ export function AuthProvider({ children }) {
   }
 
   async function signup(payload) {
-    const [responseC1, responseC2] = await Promise.allSettled([
-      apiClient.signup(payload),
-      apiClient.pvpSignupDirect(payload),
-    ])
-
-    if (responseC1.status === 'rejected') {
-      throw responseC1.reason
-    }
-
-    const c1Data = responseC1.value
-    if (responseC2.status === 'rejected') {
-      const message = String(responseC2.reason?.message || '').toLowerCase()
-      const alreadyExists = message.includes('ya') && (message.includes('existe') || message.includes('registrado'))
-      if (!alreadyExists) throw responseC2.reason
-    }
+    const c1Data = await apiClient.signup(payload)
 
     if (!c1Data?.accessToken) {
       return { response: c1Data, session: null }
     }
 
-    const pvpLogin = await apiClient.pvpLogin({
-      email: payload.email,
-      password: payload.password,
-    })
-    const hydrated = await hydrateSession({
-      accessToken: c1Data.accessToken,
-      refreshToken: c1Data.refreshToken || '',
-      c1AccessToken: c1Data.accessToken,
-      c1RefreshToken: c1Data.refreshToken || '',
-      c2AccessToken: pvpLogin.accessToken,
-      c2RefreshToken: pvpLogin.refreshToken || '',
-      user: c1Data.user || { name: payload.name, email: payload.email },
-    })
+    const hydrated = await hydrateSession(
+      buildUnifiedSession({
+        accessToken: c1Data.accessToken,
+        refreshToken: c1Data.refreshToken || '',
+        c1AccessToken: c1Data.accessToken,
+        c1RefreshToken: c1Data.refreshToken || '',
+        user: c1Data.user || { name: payload.name, email: payload.email },
+      }),
+    )
 
     authStorage.setSession(hydrated)
     setSession(hydrated)
@@ -255,13 +224,9 @@ export function AuthProvider({ children }) {
 
   async function logout() {
     const c1AccessToken = session?.c1AccessToken
-    const c2AccessToken = session?.c2AccessToken
 
     try {
-      await Promise.allSettled([
-        c1AccessToken ? apiClient.logout(c1AccessToken) : Promise.resolve(),
-        c2AccessToken ? apiClient.pvpLogout(c2AccessToken) : Promise.resolve(),
-      ])
+      await Promise.allSettled([c1AccessToken ? apiClient.logout(c1AccessToken) : Promise.resolve()])
     } catch {
       // El backend puede fallar y aun asi conviene limpiar la sesion local.
     } finally {

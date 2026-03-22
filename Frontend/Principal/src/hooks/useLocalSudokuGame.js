@@ -134,12 +134,34 @@ function revalidateAllNotes(puzzle, board, notes) {
 function buildGame(difficultyKey) {
   const difficulty = getDifficultyByKey(difficultyKey)
   const seed = Math.floor(Math.random() * 1_000_000)
+  const holes = difficulty.holes
   const solution = generateSolution(seed)
-  const puzzle = createPuzzle(solution, difficulty.holes, seed)
+  const puzzle = createPuzzle(solution, holes, seed)
 
   return {
     difficulty,
     seed,
+    seedId: '',
+    solution,
+    puzzle,
+    board: puzzle.map((row) => [...row]),
+    notes: createEmptyNotes(),
+  }
+}
+
+function buildTrackedGame(difficultyKey, remoteSeedConfig = null) {
+  const difficulty = getDifficultyByKey(difficultyKey)
+  const parsedSeed = Number(remoteSeedConfig?.seed)
+  const seed = Number.isFinite(parsedSeed) ? parsedSeed : Math.floor(Math.random() * 1_000_000)
+  const parsedHoles = Number(remoteSeedConfig?.huecos)
+  const holes = Number.isFinite(parsedHoles) && parsedHoles >= 0 ? Math.floor(parsedHoles) : difficulty.holes
+  const solution = generateSolution(seed)
+  const puzzle = createPuzzle(solution, holes, seed)
+
+  return {
+    difficulty,
+    seed,
+    seedId: String(remoteSeedConfig?.seedId || '').trim(),
     solution,
     puzzle,
     board: puzzle.map((row) => [...row]),
@@ -156,11 +178,13 @@ export function useLocalSudokuGame() {
   const [hintsUsed, setHintsUsed] = useState(0)
   const [score, setScore] = useState(0)
   const [seed, setSeed] = useState(0)
+  const [seedId, setSeedId] = useState('')
   const difficulty = getDifficultyByKey(difficultyKey)
-  const { isAuthenticated, accessToken, isVerified, user } = useAuth()
+  const { isAuthenticated, accessToken, isVerified, user, isLoading } = useAuth()
   const latestMetricsRef = useRef({ seconds: 0, errorCount: 0, hintsUsed: 0 })
   const bestSudokuScoreRef = useRef(0)
   const achievementCatalogRef = useRef(new Map())
+  const gameLoadRequestRef = useRef(0)
 
   const [unlockedBadges, setUnlockedBadges] = useState(new Set())
   const [showAchievementPopup, setShowAchievementPopup] = useState(false)
@@ -434,7 +458,7 @@ export function useLocalSudokuGame() {
         resultado,
         cambioElo: eloChange,
         tiempo: seconds,
-        seedId: undefined,
+        seedId: seedId || undefined,
         seed,
       })
 
@@ -452,9 +476,28 @@ export function useLocalSudokuGame() {
     }
   }
 
-  function startNewGame(nextDifficultyKey = difficultyKey) {
-    const nextGame = buildGame(nextDifficultyKey)
+  async function startNewGame(nextDifficultyKey = difficultyKey) {
+    const requestId = gameLoadRequestRef.current + 1
+    gameLoadRequestRef.current = requestId
+    const nextDifficulty = getDifficultyByKey(nextDifficultyKey)
+
     setDifficultyKey(nextDifficultyKey)
+    setStatus('Cargando tablero...')
+
+    let nextGame = buildGame(nextDifficultyKey)
+    if (accessToken) {
+      try {
+        const remoteSeedConfig = await apiClient.getSudokuSeed(accessToken, nextDifficulty.label)
+        nextGame = buildTrackedGame(nextDifficultyKey, remoteSeedConfig)
+      } catch (error) {
+        console.warn('No se pudo cargar una seed oficial de Sudoku:', error)
+      }
+    }
+
+    if (requestId !== gameLoadRequestRef.current) {
+      return
+    }
+
     hydrateGame({
       puzzle: nextGame.puzzle,
       solution: nextGame.solution,
@@ -472,6 +515,7 @@ export function useLocalSudokuGame() {
     setHintsUsed(0)
     setScore(0)
     setSeed(nextGame.seed)
+    setSeedId(nextGame.seedId || '')
     setStatus(`Selecciona una celda para comenzar. Limite de pistas: ${getHintLimit(nextGame.difficulty)}.`)
   }
 
@@ -498,8 +542,9 @@ export function useLocalSudokuGame() {
   }
 
   useEffect(() => {
-    startNewGame(difficultyLevels[2].key)
-  }, [])
+    if (isLoading) return
+    void startNewGame(difficultyLevels[2].key)
+  }, [isLoading])
 
   useEffect(() => {
     latestMetricsRef.current = { seconds, errorCount, hintsUsed }
