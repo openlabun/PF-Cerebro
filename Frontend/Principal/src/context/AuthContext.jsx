@@ -119,6 +119,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function login(credentials) {
+    // Si el usuario decide iniciar sesion otra vez, arrancamos desde un estado local limpio
+    // para no mezclar tokens viejos con una autenticacion nueva tras reinicios de Docker/ROBLE.
+    authStorage.clearSession()
+    setSession(null)
+
     const response = await apiClient.login(credentials)
 
     if (!response?.accessToken) {

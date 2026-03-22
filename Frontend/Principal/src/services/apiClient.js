@@ -24,9 +24,25 @@ function parseResponse(text) {
   }
 }
 
+function getFriendlyStatusMessage(status) {
+  if (status === 401) {
+    return 'Tu sesion no es valida o expiro. Inicia sesion nuevamente.'
+  }
+
+  if (status === 403) {
+    return 'La solicitud fue rechazada por el servicio (403). Si estabas iniciando sesion, revisa tu red, VPN o filtros de seguridad.'
+  }
+
+  if (status === 502 || status === 503 || status === 504) {
+    return 'No se pudo comunicar correctamente con el servicio externo. Intenta de nuevo.'
+  }
+
+  return `Request failed with status ${status}`
+}
+
 function getPayloadErrorMessage(payload, status) {
   if (typeof payload !== 'object' || payload === null) {
-    return `Request failed with status ${status}`
+    return getFriendlyStatusMessage(status)
   }
 
   const rawMessage = payload.message
@@ -41,10 +57,16 @@ function getPayloadErrorMessage(payload, status) {
 
   if (rawMessage !== undefined && rawMessage !== null) {
     const message = String(rawMessage).trim()
-    if (message) return message
+    if (message) {
+      if (/^Request failed with status code \d+$/i.test(message)) {
+        return getFriendlyStatusMessage(status)
+      }
+
+      return message
+    }
   }
 
-  return `Request failed with status ${status}`
+  return getFriendlyStatusMessage(status)
 }
 
 function getStoredAccessTokenForBase(baseUrl) {

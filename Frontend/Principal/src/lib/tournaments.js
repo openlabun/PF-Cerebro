@@ -40,6 +40,44 @@ const COMMON_CONFIG_KEYS = [
   'permitirEmpates',
 ]
 
+const CONFIG_ENTRY_DEFINITIONS = [
+  {
+    key: 'maxParticipantes',
+    label: 'Cupos',
+    format: (value) => String(value),
+  },
+  {
+    key: 'duracionMaximaMin',
+    label: 'Duracion maxima',
+    format: (value) => `${value} min`,
+  },
+  {
+    key: 'intentosMaximos',
+    label: 'Intentos maximos',
+    format: (value) => String(value),
+  },
+  {
+    key: 'pistasMaximas',
+    label: 'Pistas maximas',
+    format: (value) => String(value),
+  },
+  {
+    key: 'dificultad',
+    label: 'Dificultad',
+    format: (value) => String(value),
+  },
+  {
+    key: 'seedFija',
+    label: 'Semilla fija',
+    format: (value) => String(value),
+  },
+  {
+    key: 'permitirEmpates',
+    label: 'Permitir empates',
+    format: (value) => (value ? 'Si' : 'No'),
+  },
+]
+
 const allowedTransitions = {
   BORRADOR: ['PROGRAMADO', 'CANCELADO'],
   PROGRAMADO: ['ACTIVO', 'PAUSADO', 'CANCELADO'],
@@ -287,29 +325,65 @@ export function buildTournamentConfig(commonValues, extraValues = {}) {
 }
 
 export function summarizeTournamentConfig(configuracion) {
+  return describeTournamentConfig(configuracion)
+    .map((item) => `${item.label}: ${item.value}`)
+    .slice(0, 4)
+}
+
+function formatGenericConfigValue(value) {
+  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+  if (value === null || value === undefined || value === '') return 'Sin definir'
+  if (Array.isArray(value)) {
+    return value.length ? value.map((item) => String(item)).join(', ') : '[]'
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return '[objeto]'
+    }
+  }
+
+  return String(value)
+}
+
+export function describeTournamentConfig(configuracion) {
   const config = isPlainObject(configuracion) ? configuracion : {}
-  const summary = []
+  const entries = []
 
-  if (config.maxParticipantes !== undefined) {
-    summary.push(`Cupos: ${config.maxParticipantes}`)
-  }
-  if (config.duracionMaximaMin !== undefined) {
-    summary.push(`Duracion maxima: ${config.duracionMaximaMin} min`)
-  }
-  if (config.intentosMaximos !== undefined) {
-    summary.push(`Intentos: ${config.intentosMaximos}`)
-  }
-  if (config.pistasMaximas !== undefined) {
-    summary.push(`Pistas: ${config.pistasMaximas}`)
-  }
-  if (config.dificultad !== undefined) {
-    summary.push(`Dificultad: ${config.dificultad}`)
-  }
-  if (config.permitirEmpates !== undefined) {
-    summary.push(config.permitirEmpates ? 'Permite empates' : 'Sin empates')
-  }
+  CONFIG_ENTRY_DEFINITIONS.forEach((definition) => {
+    if (!Object.prototype.hasOwnProperty.call(config, definition.key)) {
+      return
+    }
 
-  return summary.slice(0, 4)
+    const rawValue = config[definition.key]
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return
+    }
+
+    entries.push({
+      key: definition.key,
+      label: definition.label,
+      value: definition.format(rawValue),
+    })
+  })
+
+  Object.entries(config)
+    .filter(([key, value]) => {
+      if (COMMON_CONFIG_KEYS.includes(key)) return false
+      if (value === undefined || value === null || value === '') return false
+      return true
+    })
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey, 'es'))
+    .forEach(([key, value]) => {
+      entries.push({
+        key,
+        label: key,
+        value: formatGenericConfigValue(value),
+      })
+    })
+
+  return entries
 }
 
 export function stringifyTournamentExtras(extras) {

@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import {
   buildTournamentInviteLink,
   canManageTournament,
+  describeTournamentConfig,
   formatTournamentDate,
   formatTournamentRecurrence,
   formatTournamentState,
@@ -102,6 +103,7 @@ function TournamentManagePage() {
   const isParticipant = participants.some((participant) => String(participant?.usuarioId || '').trim() === currentUserId)
   const allowedTransitions = getAllowedTournamentTransitions(tournament?.estado)
   const configSummary = summarizeTournamentConfig(tournament?.configuracion)
+  const configDetails = describeTournamentConfig(tournament?.configuracion)
   const currentState = String(tournament?.estado || '').trim().toUpperCase()
   const currentType = String(tournament?.tipo || '').trim().toUpperCase()
   const isClosedState = currentState === 'FINALIZADO' || currentState === 'CANCELADO'
@@ -385,21 +387,30 @@ function TournamentManagePage() {
             />
           ) : (
             <div className="tournament-readonly">
-              <div className="tournament-chip-row">
-                {configSummary.length ? (
-                  configSummary.map((item) => (
+              {configSummary.length ? (
+                <div className="tournament-chip-row">
+                  {configSummary.map((item) => (
                     <span key={item} className="stat-chip">
                       {item}
                     </span>
-                  ))
-                ) : (
-                  <span className="stat-chip">Sin reglas base configuradas</span>
-                )}
-              </div>
+                  ))}
+                </div>
+              ) : null}
 
-              <pre className="tournament-config-preview">
-                {JSON.stringify(tournament?.configuracion || {}, null, 2)}
-              </pre>
+              {configDetails.length ? (
+                <dl className="tournament-config-list">
+                  {configDetails.map((item) => (
+                    <div key={item.key} className="tournament-config-item">
+                      <dt>{item.label}</dt>
+                      <dd>{item.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <div className="tournament-chip-row">
+                  <span className="stat-chip">Sin reglas base configuradas</span>
+                </div>
+              )}
             </div>
           )}
         </article>
