@@ -223,7 +223,7 @@ export function createAuthModule({
       setAuthView("login");
       setAuthMessage("Sesion cerrada.", "ok");
       setStatus("Sesion cerrada.");
-      setTab("inicio");
+      setTab("juego");
       setAuthBusyState(false);
     }
   }
@@ -358,7 +358,7 @@ export function createAuthModule({
         loginForm.reset();
         setAuthMessage("Sesion iniciada correctamente.", "ok");
         setStatus("Sesion iniciada correctamente.", true);
-        setTab("inicio");
+        setTab("juego");
       } catch (error) {
         setAuthMessage(
           getErrorMessage(error, "No fue posible iniciar sesion."),
@@ -428,7 +428,7 @@ export function createAuthModule({
           saveAuthSession(hydrated);
           setAuthMessage("Cuenta creada e inicio de sesion exitoso.", "ok");
           setStatus("Cuenta creada e inicio de sesion exitoso.", true);
-          setTab("inicio");
+          setTab("juego");
         } else {
           openVerifyTab(
             email,

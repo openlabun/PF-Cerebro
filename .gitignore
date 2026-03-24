@@ -11,7 +11,7 @@ coverage/
 *.log
 
 # Environment local overrides
-MVP-BackEnd/ContenedorAdmin/.env
+Backend/ContenedorAdmin/.env
 **/.env.local
 **/.env.*.local
 

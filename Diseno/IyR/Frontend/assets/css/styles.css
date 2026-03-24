@@ -188,7 +188,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 1rem; }
 }
 
 .sudoku-game-card #toggle-notes.btn-control.active {
-  background: color-mix(in srgb, var(--sudoku-primary) 88%, #000 12%);
+  /*background: color-mix(in srgb, var(--sudoku-primary) 88%, #000 12%);*/
   border-color: color-mix(in srgb, var(--sudoku-primary) 65%, var(--border));
   color: #fff;
 }
@@ -631,13 +631,14 @@ font-size: clamp(1rem, 3.5vw, 2rem);}
 }
 
 .notes-grid {
-  width: 86%;
-  height: 86%;
+  width: 100%;
+  height: 100%;
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   align-items: center;
   justify-items: center;
   gap: 2px;
+  position: static;
 }
 
 .note {
@@ -647,6 +648,7 @@ font-size: clamp(1rem, 3.5vw, 2rem);}
   font-weight: 700;
   opacity: 0.9;
   user-select: none;
+  aspect-ratio: 1 / 1;
 }
 
 .note.highlight-same-note {

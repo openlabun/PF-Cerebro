@@ -1,0 +1,410 @@
+export const tournamentStateOptions = [
+  { value: 'BORRADOR', label: 'Borrador' },
+  { value: 'PROGRAMADO', label: 'Programado' },
+  { value: 'ACTIVO', label: 'Activo' },
+  { value: 'PAUSADO', label: 'Pausado' },
+  { value: 'FINALIZADO', label: 'Finalizado' },
+  { value: 'CANCELADO', label: 'Cancelado' },
+]
+
+export const tournamentTypeOptions = [
+  { value: 'PUNTOS', label: 'Puntos' },
+  { value: 'TIEMPO', label: 'Tiempo' },
+  { value: 'PVP', label: 'PvP' },
+]
+
+export const tournamentRecurrenceOptions = [
+  { value: 'NINGUNA', label: 'Sin recurrencia' },
+  { value: 'DIARIA', label: 'Diaria' },
+  { value: 'SEMANAL', label: 'Semanal' },
+  { value: 'MENSUAL', label: 'Mensual' },
+]
+
+export const sudokuDifficultyOptions = [
+  { value: '', label: 'Sin definir' },
+  { value: 'Principiante', label: 'Principiante' },
+  { value: 'Iniciado', label: 'Iniciado' },
+  { value: 'Intermedio', label: 'Intermedio' },
+  { value: 'Avanzado', label: 'Avanzado' },
+  { value: 'Experto', label: 'Experto' },
+  { value: 'Profesional', label: 'Profesional' },
+]
+
+const COMMON_CONFIG_KEYS = [
+  'maxParticipantes',
+  'duracionMaximaMin',
+  'intentosMaximos',
+  'pistasMaximas',
+  'dificultad',
+  'seedFija',
+  'permitirEmpates',
+]
+
+const CONFIG_ENTRY_DEFINITIONS = [
+  {
+    key: 'maxParticipantes',
+    label: 'Cupos',
+    format: (value) => String(value),
+  },
+  {
+    key: 'duracionMaximaMin',
+    label: 'Duracion maxima',
+    format: (value) => `${value} min`,
+  },
+  {
+    key: 'intentosMaximos',
+    label: 'Intentos maximos',
+    format: (value) => String(value),
+  },
+  {
+    key: 'pistasMaximas',
+    label: 'Pistas maximas',
+    format: (value) => String(value),
+  },
+  {
+    key: 'dificultad',
+    label: 'Dificultad',
+    format: (value) => String(value),
+  },
+  {
+    key: 'seedFija',
+    label: 'Semilla fija',
+    format: (value) => String(value),
+  },
+  {
+    key: 'permitirEmpates',
+    label: 'Permitir empates',
+    format: (value) => (value ? 'Si' : 'No'),
+  },
+]
+
+const allowedTransitions = {
+  BORRADOR: ['PROGRAMADO', 'CANCELADO'],
+  PROGRAMADO: ['ACTIVO', 'PAUSADO', 'CANCELADO'],
+  ACTIVO: ['PAUSADO', 'CANCELADO'],
+  PAUSADO: ['PROGRAMADO', 'ACTIVO', 'CANCELADO'],
+  FINALIZADO: [],
+  CANCELADO: [],
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function formatLabelFromValue(value) {
+  const normalized = String(value || '').trim().toUpperCase()
+  const option =
+    tournamentStateOptions.find((item) => item.value === normalized) ||
+    tournamentTypeOptions.find((item) => item.value === normalized) ||
+    tournamentRecurrenceOptions.find((item) => item.value === normalized)
+
+  if (option) return option.label
+  if (!normalized) return 'Sin definir'
+  return normalized.charAt(0) + normalized.slice(1).toLowerCase()
+}
+
+export function getTournamentFormDefaults() {
+  const now = new Date()
+  const start = new Date(now.getTime() + 60 * 60 * 1000)
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+
+  return {
+    nombre: '',
+    descripcion: '',
+    esPublico: true,
+    tipo: 'PUNTOS',
+    fechaInicioLocal: toDateTimeLocal(start.toISOString()),
+    fechaFinLocal: toDateTimeLocal(end.toISOString()),
+    recurrencia: 'NINGUNA',
+    maxParticipantes: '',
+    duracionMaximaMin: '',
+    intentosMaximos: '',
+    pistasMaximas: '',
+    dificultad: '',
+    seedFija: '',
+    permitirEmpates: '',
+    advancedConfigText: '{}',
+  }
+}
+
+export function toDateTimeLocal(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return ''
+
+  const noZoneMatch = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2}(?:\.\d{1,3})?)?$/)
+  if (noZoneMatch) {
+    return `${noZoneMatch[1]}T${noZoneMatch[2]}`
+  }
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  const h = String(date.getHours()).padStart(2, '0')
+  const min = String(date.getMinutes()).padStart(2, '0')
+  return `${y}-${m}-${d}T${h}:${min}`
+}
+
+export function fromDateTimeLocal(value, options = {}) {
+  const raw = String(value || '').trim()
+  if (!raw) return undefined
+
+  if (options.keepOriginal && String(options.originalRaw || '').trim()) {
+    return String(options.originalRaw).trim()
+  }
+
+  const localIsoNoZone = raw.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/)
+  if (localIsoNoZone) return raw
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return undefined
+  return date.toISOString()
+}
+
+export function formatTournamentDate(value) {
+  const raw = String(value || '').trim()
+  if (!raw) return 'Sin definir'
+
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) {
+    return raw.replace('T', ' ')
+  }
+
+  return new Intl.DateTimeFormat('es-CO', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+export function formatTournamentState(value) {
+  return formatLabelFromValue(value)
+}
+
+export function formatTournamentType(value) {
+  return formatLabelFromValue(value)
+}
+
+export function formatTournamentRecurrence(value) {
+  return formatLabelFromValue(value)
+}
+
+export function getTournamentVisibilityLabel(tournament) {
+  return tournament?.esPublico === false ? 'Privado' : 'Publico'
+}
+
+export function getTournamentStatusTone(value) {
+  const normalized = String(value || '').trim().toUpperCase()
+  if (normalized === 'ACTIVO') return 'success'
+  if (normalized === 'PROGRAMADO') return 'info'
+  if (normalized === 'PAUSADO') return 'warning'
+  if (normalized === 'CANCELADO') return 'danger'
+  if (normalized === 'FINALIZADO') return 'muted'
+  return 'draft'
+}
+
+export function getAllowedTournamentTransitions(value) {
+  const normalized = String(value || '').trim().toUpperCase()
+  return allowedTransitions[normalized] || []
+}
+
+export function canManageTournament(tournament, user) {
+  const currentUserIds = [user?.id, user?.sub]
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)
+  const ownerId = String(tournament?.creadorId || '').trim()
+  return Boolean(ownerId) && currentUserIds.includes(ownerId)
+}
+
+export function getTournamentOwnerLabel(tournament, user) {
+  if (canManageTournament(tournament, user)) return 'Tu'
+
+  const ownerName = String(tournament?.creadorNombre || '').trim()
+  if (ownerName) return ownerName
+
+  const ownerId = String(tournament?.creadorId || '').trim()
+  if (!ownerId) return 'Sin creador'
+  return ownerId
+}
+
+export function buildTournamentInviteLink(tournamentId, codigoAcceso = '') {
+  const normalizedTournamentId = String(tournamentId || '').trim()
+  if (!normalizedTournamentId) return ''
+
+  const rawBase = import.meta.env.BASE_URL || '/'
+  const normalizedBase = rawBase.endsWith('/') ? rawBase : `${rawBase}/`
+  const origin = typeof window !== 'undefined' ? window.location.origin : ''
+  const inviteUrl = new URL(`${normalizedBase}torneos/${normalizedTournamentId}`, `${origin}/`)
+  const normalizedCode = String(codigoAcceso || '').trim()
+
+  if (normalizedCode) {
+    inviteUrl.searchParams.set('codigo', normalizedCode)
+  }
+
+  return inviteUrl.toString()
+}
+
+export function splitTournamentConfig(configuracion) {
+  const config = isPlainObject(configuracion) ? configuracion : {}
+  const extras = {}
+
+  const common = {
+    maxParticipantes:
+      Object.prototype.hasOwnProperty.call(config, 'maxParticipantes') && config.maxParticipantes !== null
+        ? String(config.maxParticipantes)
+        : '',
+    duracionMaximaMin:
+      Object.prototype.hasOwnProperty.call(config, 'duracionMaximaMin') && config.duracionMaximaMin !== null
+        ? String(config.duracionMaximaMin)
+        : '',
+    intentosMaximos:
+      Object.prototype.hasOwnProperty.call(config, 'intentosMaximos') && config.intentosMaximos !== null
+        ? String(config.intentosMaximos)
+        : '',
+    pistasMaximas:
+      Object.prototype.hasOwnProperty.call(config, 'pistasMaximas') && config.pistasMaximas !== null
+        ? String(config.pistasMaximas)
+        : '',
+    dificultad:
+      Object.prototype.hasOwnProperty.call(config, 'dificultad') && config.dificultad !== null
+        ? String(config.dificultad)
+        : '',
+    seedFija:
+      Object.prototype.hasOwnProperty.call(config, 'seedFija') && config.seedFija !== null
+        ? String(config.seedFija)
+        : '',
+    permitirEmpates:
+      config.permitirEmpates === true ? 'true' : config.permitirEmpates === false ? 'false' : '',
+  }
+
+  Object.entries(config).forEach(([key, value]) => {
+    if (!COMMON_CONFIG_KEYS.includes(key)) {
+      extras[key] = value
+    }
+  })
+
+  return { common, extras }
+}
+
+export function buildTournamentConfig(commonValues, extraValues = {}) {
+  const common = commonValues || {}
+  const extras = isPlainObject(extraValues) ? extraValues : {}
+  const config = { ...extras }
+  const maxParticipantes = Number(common.maxParticipantes)
+  const duracionMaximaMin = Number(common.duracionMaximaMin)
+  const intentosMaximos = Number(common.intentosMaximos)
+  const pistasMaximas = Number(common.pistasMaximas)
+
+  if (String(common.maxParticipantes || '').trim() && Number.isFinite(maxParticipantes)) {
+    config.maxParticipantes = maxParticipantes
+  }
+  if (String(common.duracionMaximaMin || '').trim() && Number.isFinite(duracionMaximaMin)) {
+    config.duracionMaximaMin = duracionMaximaMin
+  }
+  if (String(common.intentosMaximos || '').trim() && Number.isFinite(intentosMaximos)) {
+    config.intentosMaximos = intentosMaximos
+  }
+  if (String(common.pistasMaximas || '').trim() && Number.isFinite(pistasMaximas)) {
+    config.pistasMaximas = pistasMaximas
+  }
+  if (String(common.dificultad || '').trim()) {
+    config.dificultad = String(common.dificultad).trim()
+  }
+  if (String(common.seedFija || '').trim()) {
+    config.seedFija = String(common.seedFija).trim()
+  }
+  if (common.permitirEmpates === 'true') {
+    config.permitirEmpates = true
+  }
+  if (common.permitirEmpates === 'false') {
+    config.permitirEmpates = false
+  }
+
+  return config
+}
+
+export function summarizeTournamentConfig(configuracion) {
+  return describeTournamentConfig(configuracion)
+    .map((item) => `${item.label}: ${item.value}`)
+    .slice(0, 4)
+}
+
+function formatGenericConfigValue(value) {
+  if (typeof value === 'boolean') return value ? 'Si' : 'No'
+  if (value === null || value === undefined || value === '') return 'Sin definir'
+  if (Array.isArray(value)) {
+    return value.length ? value.map((item) => String(item)).join(', ') : '[]'
+  }
+  if (typeof value === 'object') {
+    try {
+      return JSON.stringify(value)
+    } catch {
+      return '[objeto]'
+    }
+  }
+
+  return String(value)
+}
+
+export function describeTournamentConfig(configuracion) {
+  const config = isPlainObject(configuracion) ? configuracion : {}
+  const entries = []
+
+  CONFIG_ENTRY_DEFINITIONS.forEach((definition) => {
+    if (!Object.prototype.hasOwnProperty.call(config, definition.key)) {
+      return
+    }
+
+    const rawValue = config[definition.key]
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return
+    }
+
+    entries.push({
+      key: definition.key,
+      label: definition.label,
+      value: definition.format(rawValue),
+    })
+  })
+
+  Object.entries(config)
+    .filter(([key, value]) => {
+      if (COMMON_CONFIG_KEYS.includes(key)) return false
+      if (value === undefined || value === null || value === '') return false
+      return true
+    })
+    .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey, 'es'))
+    .forEach(([key, value]) => {
+      entries.push({
+        key,
+        label: key,
+        value: formatGenericConfigValue(value),
+      })
+    })
+
+  return entries
+}
+
+export function stringifyTournamentExtras(extras) {
+  if (!isPlainObject(extras) || !Object.keys(extras).length) {
+    return '{}'
+  }
+
+  try {
+    return JSON.stringify(extras, null, 2)
+  } catch {
+    return '{}'
+  }
+}
+
+export function parseTournamentExtras(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return {}
+
+  const parsed = JSON.parse(raw)
+  if (!isPlainObject(parsed)) {
+    throw new Error('La configuracion avanzada debe ser un objeto JSON.')
+  }
+  return parsed
+}

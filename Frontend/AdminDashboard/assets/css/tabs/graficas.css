@@ -1,0 +1,159 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap");
+
+:root {
+  --bg: #f1f5ff;
+  --surface: #ffffff;
+  --primary: #0f2f57;
+  --primary-soft: #e9f0fb;
+  --accent: #25c985;
+  --text: #0d2340;
+  --muted: #5c6f88;
+  --border: #d7e2f3;
+  --shadow: 0 14px 36px rgba(13, 35, 64, 0.12);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 100% 0%, #dfeeff 0%, transparent 36%),
+    linear-gradient(180deg, #f8fbff, var(--bg));
+}
+
+.topbar {
+  max-width: 1200px;
+  margin: 0 auto 0.8rem;
+  padding: 1.1rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(120deg, #0f2f57, #123b6c);
+  border-radius: 0 0 16px 16px;
+}
+
+.brand p { margin: 0.1rem 0 0; color: #b2c8e8; font-size: 0.88rem; }
+.logo { text-decoration: none; color: #fff; font-size: 1.35rem; font-weight: 800; }
+.logo span { color: #79b6ff; }
+.topbar-actions { display: flex; align-items: center; gap: 0.7rem; }
+
+.nav { display: flex; gap: 0.5rem; }
+.nav-btn {
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  padding: 0.45rem 0.85rem;
+  font-weight: 700;
+  color: #dbebff;
+  background: rgba(255, 255, 255, 0.1);
+  font: inherit;
+  cursor: pointer;
+}
+.nav-btn.active { background: var(--accent); color: #062f24; border-color: var(--accent); }
+
+.btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 0.65rem 1rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn.primary { background: linear-gradient(120deg, var(--primary), var(--primary-dark)); color: #fff; }
+
+.layout {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.4rem 1rem 1.2rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 1rem;
+}
+
+.card h2 { margin: 0 0 0.8rem; }
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+.quick-metrics { display: flex; gap: 1.2rem; flex-wrap: wrap; color: var(--muted); }
+.quick-metrics strong { color: var(--text); }
+
+.control-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.control-inline select {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.45rem 1.8rem 0.45rem 0.65rem;
+  font: inherit;
+  color: var(--text);
+  background:
+    linear-gradient(45deg, transparent 50%, #5c6f88 50%) calc(100% - 14px) calc(50% - 3px) / 6px 6px no-repeat,
+    linear-gradient(135deg, #5c6f88 50%, transparent 50%) calc(100% - 10px) calc(50% - 3px) / 6px 6px no-repeat,
+    #fff;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+}
+
+.chart-svg {
+  width: 100%;
+  height: 320px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(121, 182, 255, 0.18) 0, transparent 36%),
+    linear-gradient(180deg, #ffffff, #f5f9ff);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.25rem;
+}
+.chart-svg--games {
+  height: 420px;
+}
+.chart-svg--difficulty {
+  height: 380px;
+}
+
+.table-wrap { margin-top: 0.9rem; overflow-x: auto; }
+.mini-table { width: 100%; border-collapse: collapse; }
+.mini-table th, .mini-table td {
+  text-align: left;
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+.mini-table th {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #f7fbff;
+}
+.mini-table tr:nth-child(even) {
+  background: #fbfdff;
+}
+
+@media (max-width: 760px) {
+  .topbar { flex-direction: column; align-items: flex-start; }
+  .topbar-actions { width: 100%; justify-content: space-between; }
+  .card-head { flex-direction: column; align-items: flex-start; }
+  .chart-svg--games { height: 360px; }
+  .chart-svg--difficulty { height: 340px; }
+}

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CEREBRO Admin Dashboard - Login</title>
+    <link rel="stylesheet" href="/assets/css/login.css?v=20260320-1" />
+  </head>
+  <body>
+    <main class="login-shell">
+      <section class="hero">
+        <p class="eyebrow">CEREBRO Admin</p>
+        <h1>Control operativo para torneos y observabilidad</h1>
+        <p>
+          Accede con una cuenta ROBLE que tenga rol <strong>admin</strong> para
+          consultar metricas, administrar torneos y operar el panel.
+        </p>
+        <ul class="hero-list">
+          <li>
+            <strong>Datos agregados</strong>
+            <span>Resumen general, tiempos por dificultad y tablas operativas.</span>
+          </li>
+          <li>
+            <strong>Gestion de torneos</strong>
+            <span>Crear, editar y cambiar estado desde un unico lugar.</span>
+          </li>
+          <li>
+            <strong>Acceso restringido</strong>
+            <span>Solo cuentas admin autenticadas por ROBLE pueden entrar.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="login-card">
+        <p class="eyebrow">Acceso seguro</p>
+        <h2>Iniciar sesion</h2>
+        <p>Usa tus credenciales admin para entrar al dashboard.</p>
+
+        <form id="loginForm" class="login-form">
+          <label>
+            Correo institucional
+            <input id="email" type="email" autocomplete="username" required />
+          </label>
+
+          <label>
+            Contrasena
+            <input
+              id="password"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+
+          <button id="loginBtn" type="submit">Entrar al dashboard</button>
+        </form>
+
+        <p id="loginStatus" class="status-text"></p>
+      </section>
+    </main>
+
+    <script src="/assets/js/auth.js?v=20260320-1"></script>
+    <script src="/assets/js/login.js?v=20260320-1"></script>
+  </body>
+</html>

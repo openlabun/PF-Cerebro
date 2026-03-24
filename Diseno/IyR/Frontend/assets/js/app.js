@@ -108,7 +108,7 @@ function setupAppControls() {
   goToTorneosBtn?.addEventListener("click", () => setTab("torneos"));
   goToPvpBtn?.addEventListener("click", () => setTab("pvp"));
 
-  homeLogo?.addEventListener("click", () => setTab("inicio"));
+  homeLogo?.addEventListener("click", () => setTab("juego"));
 
   openAuthBtn?.addEventListener("click", async () => {
     if (authModule?.isBusy()) return;
@@ -129,17 +129,17 @@ function setupAppControls() {
   tabJugarBtn?.addEventListener("click", () => setTab("juego"));
   tabTorneosBtn?.addEventListener("click", () => setTab("torneos"));
   tabPvpBtn?.addEventListener("click", () => setTab("pvp"));
-  tabInicioBtn?.addEventListener("click", () => setTab("inicio"));
+  tabInicioBtn?.addEventListener("click", () => setTab("juego"));
 
   tabPerfilBtn?.addEventListener("click", () => {
     if (!authModule?.requireAuthForProfile()) return;
     setTab("perfil");
   });
 
-  backHomeBtn?.addEventListener("click", () => setTab("inicio"));
-  backHomeFromProfileBtn?.addEventListener("click", () => setTab("inicio"));
-  backHomeFromLoginBtn?.addEventListener("click", () => setTab("inicio"));
-  backHomeGenericBtns.forEach((btn) => btn.addEventListener("click", () => setTab("inicio")));
+  backHomeBtn?.addEventListener("click", () => setTab("juego"));
+  backHomeFromProfileBtn?.addEventListener("click", () => setTab("juego"));
+  backHomeFromLoginBtn?.addEventListener("click", () => setTab("juego"));
+  backHomeGenericBtns.forEach((btn) => btn.addEventListener("click", () => setTab("juego")));
 
   document.addEventListener("keydown", (event) => {
     if (event.key !== "Escape") return;

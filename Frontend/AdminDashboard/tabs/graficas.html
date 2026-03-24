@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Graficas</title>
+    <link rel="stylesheet" href="/assets/css/tabs/graficas.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <a href="/" class="logo">CEREBRO <span>Admin</span></a>
+        <p>Panel operativo</p>
+      </div>
+      <div class="topbar-actions">
+        <nav class="nav">
+          <a class="nav-btn" href="/tabs/datos.html">Datos</a>
+          <a class="nav-btn active" href="/tabs/graficas.html">Graficas</a>
+        </nav>
+        <button class="nav-btn" type="button" data-admin-logout>Cerrar sesion</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <h2>Indicadores Rapidos</h2>
+        <div class="quick-metrics">
+          <p>Total usuarios: <strong id="metricUsers">-</strong></p>
+          <p>Participaciones: <strong id="metricParticipations">-</strong></p>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Usuarios en el tiempo</h2>
+          <label class="control-inline" for="timeBucketSelect">
+            Medicion:
+            <select id="timeBucketSelect">
+              <option value="daily">Diario</option>
+              <option value="weekly">Semanal</option>
+              <option value="monthly">Mensual</option>
+              <option value="yearly">Anual</option>
+            </select>
+          </label>
+        </div>
+        <svg id="timeseriesChart" class="chart-svg" viewBox="0 0 700 300" preserveAspectRatio="none"></svg>
+      </section>
+
+      <section class="card">
+        <h2>Actividad por modulo</h2>
+        <svg id="gamesChart" class="chart-svg chart-svg--games" viewBox="0 0 820 420" preserveAspectRatio="none"></svg>
+      </section>
+
+      <section class="card">
+        <h2>Usos por dificultad de seed</h2>
+        <svg id="difficultyMatchesChart" class="chart-svg chart-svg--difficulty" viewBox="0 0 820 380" preserveAspectRatio="none"></svg>
+      </section>
+    </main>
+
+    <script src="/assets/js/auth.js?v=20260320-2"></script>
+    <script src="/assets/js/tabs/graficas.js?v=20260320-3"></script>
+  </body>
+</html>

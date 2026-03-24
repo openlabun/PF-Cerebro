@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Dashboard - Torneo</title>
+    <link rel="stylesheet" href="/assets/css/tabs/torneo-detalle.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <a href="/" class="logo">CEREBRO <span>Admin</span></a>
+        <p>Panel operativo</p>
+      </div>
+      <div class="topbar-actions">
+        <nav class="nav">
+          <a class="nav-btn" href="/tabs/datos.html">Datos</a>
+          <a class="nav-btn" href="/tabs/graficas.html">Graficas</a>
+          <a class="nav-btn active" href="#">Torneo</a>
+        </nav>
+        <button class="nav-btn" type="button" data-admin-logout>Cerrar sesion</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="card">
+        <div class="card-head">
+          <h2 id="detailTitle">Detalle de Torneo</h2>
+          <a class="link-back" href="/tabs/datos.html">Volver a torneos</a>
+        </div>
+        <p id="detailStatus" class="status-text">Cargando torneo...</p>
+      </section>
+
+      <section class="card">
+        <h3>Informacion editable</h3>
+        <form id="torneoForm" class="form-grid">
+          <label>
+            Nombre
+            <input id="nombre" type="text" />
+          </label>
+          <label>
+            Tipo
+            <select id="tipo">
+              <option value="PUNTOS">PUNTOS</option>
+              <option value="TIEMPO">TIEMPO</option>
+              <option value="PVP">PVP</option>
+            </select>
+          </label>
+          <label>
+            Estado actual
+            <input id="estadoActual" type="text" disabled />
+          </label>
+          <label>
+            Creador
+            <input id="creadorId" type="text" disabled />
+          </label>
+          <div class="code-field">
+            <label for="codigoAcceso" class="field-label">Codigo de acceso</label>
+            <div class="code-row">
+              <input id="codigoAcceso" type="text" readonly />
+              <button id="copyCodigoBtn" type="button" class="secondary-btn">Copiar</button>
+            </div>
+            <p id="codigoAccesoHint" class="helper-text"></p>
+          </div>
+          <label class="full">
+            Descripcion
+            <textarea id="descripcion" rows="3"></textarea>
+          </label>
+          <label>
+            Fecha inicio
+            <input id="fechaInicio" type="datetime-local" />
+          </label>
+          <label>
+            Fecha fin
+            <input id="fechaFin" type="datetime-local" />
+          </label>
+          <label>
+            Recurrencia
+            <select id="recurrencia">
+              <option value="NINGUNA">NINGUNA</option>
+              <option value="DIARIA">DIARIA</option>
+              <option value="SEMANAL">SEMANAL</option>
+              <option value="MENSUAL">MENSUAL</option>
+            </select>
+          </label>
+          <label class="inline-label">
+            <input id="esPublico" type="checkbox" />
+            Es publico
+          </label>
+          <section class="full config-builder">
+            <h4>Reglas del torneo</h4>
+            <p class="helper-text">
+              Completa solo lo que aplique. El JSON avanzado queda opcional.
+            </p>
+            <div class="config-grid">
+              <label>
+                Maximo participantes
+                <input id="cfgMaxParticipantes" type="number" min="2" step="1" />
+              </label>
+              <label>
+                Duracion maxima (min)
+                <input id="cfgDuracionMaximaMin" type="number" min="1" step="1" />
+              </label>
+              <label>
+                Intentos maximos
+                <input id="cfgIntentosMaximos" type="number" min="1" step="1" />
+              </label>
+              <label>
+                Dificultad
+                <select id="cfgDificultad">
+                  <option value="">No definida</option>
+                  <option value="Principiante">Principiante</option>
+                  <option value="Iniciado">Iniciado</option>
+                  <option value="Intermedio">Intermedio</option>
+                  <option value="Avanzado">Avanzado</option>
+                  <option value="Experto">Experto</option>
+                  <option value="Profesional">Profesional</option>
+                </select>
+              </label>
+              <label>
+                Seed fija (opcional)
+                <input id="cfgSeedFija" type="text" />
+              </label>
+              <label class="inline-label config-inline">
+                <input id="cfgPermitirEmpates" type="checkbox" />
+                Permitir empates
+              </label>
+            </div>
+
+            <div class="extra-rules">
+              <div class="extra-rules-head">
+                <h5>Reglas extra</h5>
+                <button id="addExtraRuleBtn" type="button">Agregar regla</button>
+              </div>
+              <p class="helper-text">
+                Para campos personalizados: clave + tipo + valor.
+              </p>
+              <div id="extraRulesRows" class="extra-rules-rows"></div>
+            </div>
+
+            <details class="advanced-config">
+              <summary>Modo avanzado (JSON)</summary>
+              <label class="full">
+                Configuracion (JSON)
+                <textarea id="configuracion" rows="8"></textarea>
+              </label>
+            </details>
+          </section>
+          <div class="actions full">
+            <button id="saveBtn" type="submit">Guardar cambios</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card" id="estadoSection">
+        <h3>Cambio rapido de estado</h3>
+        <div class="estado-row">
+          <select id="nuevoEstado">
+            <option value="BORRADOR">BORRADOR</option>
+            <option value="PROGRAMADO">PROGRAMADO</option>
+            <option value="ACTIVO">ACTIVO</option>
+            <option value="PAUSADO">PAUSADO</option>
+            <option value="FINALIZADO">FINALIZADO</option>
+            <option value="CANCELADO">CANCELADO</option>
+          </select>
+          <button id="updateEstadoBtn" type="button">Actualizar estado</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/assets/js/auth.js?v=20260320-1"></script>
+    <script src="/assets/js/tabs/torneo-detalle.js?v=20260320-1"></script>
+  </body>
+</html>

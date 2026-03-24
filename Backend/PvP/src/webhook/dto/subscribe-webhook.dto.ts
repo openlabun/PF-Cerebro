@@ -1,0 +1,28 @@
+import { IsArray, IsString, IsUrl } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
+
+export class SubscribeWebhookDto {
+  @ApiProperty({
+    example: 'https://mi-frontend.com/webhook',
+    description: 'URL donde se enviaran los eventos',
+  })
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+  })
+  url: string;
+
+  @ApiProperty({
+    example: [
+      'match.started',
+      'player.finished',
+      'match.finished',
+      'player.forfeit',
+      'match.forfeit',
+    ],
+    description: 'Lista de eventos a los que se suscribe',
+  })
+  @IsArray()
+  @IsString({ each: true })
+  eventos: string[];
+}

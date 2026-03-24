@@ -1,0 +1,190 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@500;700;800&display=swap");
+
+:root {
+  --bg: #f1f5ff;
+  --surface: rgba(255, 255, 255, 0.92);
+  --surface-strong: #ffffff;
+  --primary: #0f2f57;
+  --accent: #25c985;
+  --text: #0d2340;
+  --muted: #5c6f88;
+  --border: #d7e2f3;
+  --shadow: 0 24px 60px rgba(13, 35, 64, 0.16);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(37, 201, 133, 0.16), transparent 28%),
+    radial-gradient(circle at 100% 0%, rgba(121, 182, 255, 0.26), transparent 34%),
+    linear-gradient(180deg, #f8fbff, var(--bg));
+}
+
+.login-shell {
+  min-height: 100vh;
+  width: min(1120px, 100%);
+  margin: 0 auto;
+  padding: 2rem 1rem;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 1.2rem;
+  align-items: center;
+}
+
+.hero,
+.login-card {
+  border: 1px solid var(--border);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.hero {
+  padding: 2rem;
+  background:
+    linear-gradient(135deg, rgba(15, 47, 87, 0.94), rgba(18, 59, 108, 0.92)),
+    #123b6c;
+  color: #ffffff;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -60px -80px auto;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(37, 201, 133, 0.22), transparent 70%);
+}
+
+.eyebrow {
+  margin: 0 0 0.85rem;
+  color: #8fd4b4;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.hero h1,
+.login-card h2 {
+  margin: 0;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.98;
+}
+
+.hero p {
+  color: rgba(223, 235, 255, 0.9);
+  max-width: 36rem;
+}
+
+.hero-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-list li {
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero-list strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: #ffffff;
+}
+
+.hero-list span {
+  color: rgba(223, 235, 255, 0.82);
+  font-size: 0.92rem;
+}
+
+.login-card {
+  padding: 1.6rem;
+  background: var(--surface);
+}
+
+.login-card h2 {
+  font-size: 2rem;
+}
+
+.login-card p {
+  color: var(--muted);
+}
+
+.login-form {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 1.2rem;
+}
+
+.login-form label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.login-form input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface-strong);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form input:focus {
+  border-color: #8ab8eb;
+  box-shadow: 0 0 0 4px rgba(121, 182, 255, 0.16);
+}
+
+.login-form button {
+  border: 0;
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  font: inherit;
+  font-weight: 800;
+  color: #ffffff;
+  cursor: pointer;
+  background: linear-gradient(120deg, #0f5ea6, #0f2f57);
+}
+
+.login-form button[disabled] {
+  opacity: 0.7;
+  cursor: progress;
+}
+
+.status-text {
+  min-height: 1.4rem;
+  margin: 0.9rem 0 0;
+  color: var(--muted);
+  font-size: 0.94rem;
+}
+
+@media (max-width: 900px) {
+  .login-shell {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+  }
+}
