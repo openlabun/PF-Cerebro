@@ -1,5 +1,23 @@
 # Componentes del Sistema e Interacción
 
+## Evolución de la arquitectura
+
+Antes de consolidar la arquitectura final de CEREBRO, se contemplaron varios enfoques iniciales que parecían viables en una primera etapa del proyecto. Sin embargo, al analizar mejor los requerimientos funcionales, la escalabilidad esperada y la necesidad de mantener separados los distintos dominios del sistema, se tomaron decisiones arquitectónicas más sostenibles.
+
+- **Inicialmente se pensó en una arquitectura monolítica** para acelerar el desarrollo del primer prototipo, concentrando autenticación, torneos, seguimiento, Sudoku y PvP en una sola aplicación. Posteriormente, se decidió separar responsabilidades en módulos y servicios especializados porque esto reduce el acoplamiento, facilita el mantenimiento y permite escalar únicamente las partes con mayor carga, como PvP o torneos.
+
+- **En un inicio se consideró centralizar toda la lógica de negocio directamente en el backend principal**, con el fin de simplificar la comunicación entre componentes. No obstante, se optó por una distribución más clara de responsabilidades, ya que cada funcionalidad tiene reglas particulares y ciclos de evolución diferentes. Esta decisión mejora la claridad del sistema y permite extender nuevos modos de juego sin afectar de forma significativa el resto de la plataforma.
+
+- **También pudo haberse planteado una comunicación interna más directa y dependiente entre módulos**, donde un componente conociera detalles internos de otro. Finalmente, se prefirió trabajar con interfaces y APIs bien definidas porque esto favorece el desacoplamiento, disminuye el riesgo de regresiones y hace que los cambios en un módulo no obliguen a rediseñar todo el sistema.
+
+- **Se pensó como posibilidad inicial manejar una sola aplicación cliente con enfoque generalista**, sin distinguir demasiado entre necesidades web y móviles. Después se entendió que la experiencia del usuario debía ser consistente pero adaptable al contexto de uso, por lo que el frontend se concibió como una capa preparada para servir distintas interfaces manteniendo una lógica coherente de interacción.
+
+- **Inicialmente el frontend fue planteado y desarrollado con JavaScript, CSS y HTML puro**, como una forma directa de construir las primeras interfaces y validar rápidamente el comportamiento visual del sistema. Más adelante, se decidió migrar a React porque este enfoque facilita la organización por componentes, mejora la reutilización de interfaces y deja una base mucho más conveniente para evolucionar hacia una aplicación móvil con una lógica de presentación más mantenible y adaptable.
+
+- **Otra idea inicial habría sido dejar funcionalidades como rankings, validaciones o generación de tableros embebidas de manera directa en el núcleo del sistema**. La decisión final fue tratarlas como servicios complementarios o especializados, ya que eso mejora la reutilización, facilita su optimización por separado y permite evolucionarlas sin comprometer el flujo principal de autenticación, juego y gestión de torneos.
+
+- **Incluso se podría haber priorizado una base de datos diseñada únicamente para almacenamiento inmediato**, pensando solo en resolver el registro de usuarios y partidas. Sin embargo, se definió una estructura orientada también a consultas, seguimiento de progreso e integridad de la información, porque el sistema no solo necesita guardar datos, sino convertirlos en soporte para estadísticas, historial y decisiones de juego.
+
 ## 1. Descripción de Componentes
 
 ### Componentes principales
