@@ -2,9 +2,10 @@ import { Module } from '@nestjs/common';
 import { RobleModule } from '../roble/roble.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PersonalTrackingBootstrapModule } from '../personal-tracking/bootstrap/personal-tracking-bootstrap.module';
 
 @Module({
-  imports: [RobleModule],
+  imports: [RobleModule, PersonalTrackingBootstrapModule],
   controllers: [AuthController],
   providers: [AuthService],
   exports: [AuthService],

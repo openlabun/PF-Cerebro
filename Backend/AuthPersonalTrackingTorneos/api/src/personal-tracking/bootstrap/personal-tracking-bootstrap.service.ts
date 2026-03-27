@@ -45,33 +45,30 @@ export class PersonalTrackingBootstrapService {
       const existingProfile: PerfilRow | undefined = profiles[0];
 
       if (existingProfile) {
-        this.logger.log(
-          `Perfil ya existe para usuarioId=${userId}. No se crea bootstrap.`,
+        this.logger.log(`Perfil ya existe para usuarioId=${userId}.`);
+      } else {
+        stage = 'insert-profile';
+        this.logger.warn(
+          `Perfil no existe para usuarioId=${userId}. Se creara registro base.`,
         );
-        return;
+        await this.robleService.insert<Omit<PerfilRow, '_id'>>(
+          accessToken,
+          'Perfil',
+          [
+            {
+              usuarioId: userId,
+              nombre: String(nombre ?? '').trim() || 'Usuario',
+              correo: String(correo ?? '').trim().toLowerCase(),
+              nivel: 1,
+              experiencia: 0,
+              rachaActual: 0,
+              rachaMaxima: 0,
+              salvadoresRacha: 0,
+              tituloActivo: null,
+            },
+          ],
+        );
       }
-
-      stage = 'insert-profile';
-      this.logger.warn(
-        `Perfil no existe para usuarioId=${userId}. Se creara registro base.`,
-      );
-      await this.robleService.insert<Omit<PerfilRow, '_id'>>(
-        accessToken,
-        'Perfil',
-        [
-          {
-            usuarioId: userId,
-            nombre: String(nombre ?? '').trim() || 'Usuario',
-            correo: String(correo ?? '').trim().toLowerCase(),
-            nivel: 1,
-            experiencia: 0,
-            rachaActual: 0,
-            rachaMaxima: 0,
-            salvadoresRacha: 0,
-            tituloActivo: null,
-          },
-        ],
-      );
 
       stage = 'read-games';
       const juegos: JuegoRow[] = await this.robleService.read<JuegoRow>(
@@ -87,20 +84,43 @@ export class PersonalTrackingBootstrapService {
         return;
       }
 
+      stage = 'read-existing-game-stats';
+      const existingStats =
+        await this.robleService.read<EstadisticasJuegoUsuarioRow>(
+          accessToken,
+          'EstadisticasJuegoUsuario',
+          { usuarioId: userId },
+        );
+
+      const existingGameIds = new Set(
+        (existingStats || [])
+          .map((row) => String(row?.juegoId || '').trim())
+          .filter(Boolean),
+      );
+
       stage = 'insert-game-stats';
       const statsRecords: Array<Omit<EstadisticasJuegoUsuarioRow, '_id'>> =
-        juegos.map((juego) => {
-          return {
-            usuarioId: userId,
-            juegoId: juego._id,
-            elo: 0,
-            partidasJugadas: 0,
-            victorias: 0,
-            derrotas: 0,
-            empates: 0,
-            ligaId: null,
-          };
-        });
+        juegos
+          .filter((juego) => !existingGameIds.has(String(juego._id || '').trim()))
+          .map((juego) => {
+            return {
+              usuarioId: userId,
+              juegoId: juego._id,
+              elo: 0,
+              partidasJugadas: 0,
+              victorias: 0,
+              derrotas: 0,
+              empates: 0,
+              ligaId: null,
+            };
+          });
+
+      if (statsRecords.length === 0) {
+        this.logger.log(
+          `Bootstrap sin cambios para usuarioId=${userId}. Estadisticas ya existen para todos los juegos.`,
+        );
+        return;
+      }
 
       await this.robleService.insert<Omit<EstadisticasJuegoUsuarioRow, '_id'>>(
         accessToken,

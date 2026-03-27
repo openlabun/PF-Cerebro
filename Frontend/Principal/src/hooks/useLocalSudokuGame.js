@@ -471,6 +471,9 @@ export function useLocalSudokuGame() {
     }
 
     await registerSudokuActivity(nextScore, gameSession)
+    if (persistenceOk) {
+      window.dispatchEvent(new CustomEvent('sudokuStatsUpdated', { detail: { juegoId: GAME_ID_SUDOKU } }))
+    }
     if (persistenceOk && (xpGain > 0 || eloChange !== 0)) {
       setStatus(`XP ganada: ${xpGain}. ELO cambio: ${eloChange} (${resultado}).`, true)
     }

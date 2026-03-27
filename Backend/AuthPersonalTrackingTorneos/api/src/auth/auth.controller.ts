@@ -12,6 +12,7 @@ import {
   RobleAuthGuard,
   type RobleRequest,
 } from '../common/guards/roble-auth.guard';
+import { PersonalTrackingBootstrapService } from '../personal-tracking/bootstrap/personal-tracking-bootstrap.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -22,7 +23,45 @@ import { VerifyEmailDto } from './dto/verify-email.dto';
 @ApiTags('Autenticación')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly service: AuthService) {}
+  constructor(
+    private readonly service: AuthService,
+    private readonly bootstrapService: PersonalTrackingBootstrapService,
+  ) {}
+
+  private resolveBootstrapUser(req: RobleRequest) {
+    const payload = ((req && req.robleUser) ? req.robleUser : {}) as Record<string, unknown>;
+    const userIdCandidates = [
+      payload.sub,
+      payload.id,
+      payload.userId,
+      payload.usuarioId,
+    ];
+
+    const userIdCandidate = userIdCandidates.find(
+      (candidate) =>
+        typeof candidate === 'string' &&
+        candidate.trim() &&
+        candidate !== 'undefined' &&
+        candidate !== 'null',
+    );
+
+    const email =
+      typeof payload.email === 'string' ? payload.email.trim() : '';
+    const nameCandidates = [payload.name, payload.nombre];
+    const nameCandidate = nameCandidates.find(
+      (candidate) =>
+        typeof candidate === 'string' &&
+        candidate.trim() &&
+        candidate !== 'undefined' &&
+        candidate !== 'null',
+    );
+
+    return {
+      userId: String(userIdCandidate || '').trim(),
+      nombre: String(nameCandidate || (email ? email.split('@')[0] : 'Usuario')).trim(),
+      correo: email,
+    };
+  }
 
   @Post('login')
   login(@Body() dto: LoginDto) {
@@ -69,7 +108,17 @@ export class AuthController {
   @UseGuards(RobleAuthGuard)
   @ApiBearerAuth()
   @Get('verify-token')
-  verifyToken(@Req() req: RobleRequest) {
+  async verifyToken(@Req() req: RobleRequest) {
+    const { userId, nombre, correo } = this.resolveBootstrapUser(req);
+    if (userId) {
+      await this.bootstrapService.ensureInitialized(
+        req.accessToken,
+        userId,
+        nombre,
+        correo,
+      );
+    }
+
     return { valid: true, user: req.robleUser };
   }
 
