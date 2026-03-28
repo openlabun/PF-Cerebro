@@ -3,13 +3,10 @@ import {
   buildTournamentConfig,
   fromDateTimeLocal,
   getTournamentFormDefaults,
-  parseTournamentExtras,
   splitTournamentConfig,
-  stringifyTournamentExtras,
   sudokuDifficultyOptions,
   toDateTimeLocal,
   tournamentRecurrenceOptions,
-  tournamentTypeOptions,
 } from '../lib/tournaments.js'
 
 function buildInitialFormState(initialTournament) {
@@ -25,24 +22,19 @@ function buildInitialFormState(initialTournament) {
     }
   }
 
-  const { common, extras } = splitTournamentConfig(initialTournament.configuracion)
+  const { common } = splitTournamentConfig(initialTournament.configuracion)
 
   return {
     nombre: String(initialTournament.nombre || ''),
     descripcion: String(initialTournament.descripcion || ''),
     esPublico: initialTournament.esPublico !== false,
-    tipo: String(initialTournament.tipo || 'PUNTOS').toUpperCase(),
+    tipo: 'SERIE',
     fechaInicioLocal: toDateTimeLocal(initialTournament.fechaInicio) || defaults.fechaInicioLocal,
     fechaFinLocal: toDateTimeLocal(initialTournament.fechaFin) || defaults.fechaFinLocal,
     recurrencia: String(initialTournament.recurrencia || 'NINGUNA').toUpperCase(),
-    maxParticipantes: common.maxParticipantes,
-    duracionMaximaMin: common.duracionMaximaMin,
-    intentosMaximos: common.intentosMaximos,
-    pistasMaximas: common.pistasMaximas,
-    dificultad: common.dificultad,
-    seedFija: common.seedFija,
-    permitirEmpates: common.permitirEmpates,
-    advancedConfigText: stringifyTournamentExtras(extras),
+    duracionMaximaMin: common.duracionMaximaMin || defaults.duracionMaximaMin,
+    numeroTableros: common.numeroTableros || defaults.numeroTableros,
+    dificultad: common.dificultad || defaults.dificultad,
     originalFechaInicioRaw: String(initialTournament.fechaInicio || ''),
     originalFechaFinRaw: String(initialTournament.fechaFin || ''),
     fechaInicioDirty: false,
@@ -83,6 +75,9 @@ function TournamentForm({
 
     const nombre = String(formData.nombre || '').trim()
     const descripcion = String(formData.descripcion || '').trim()
+    const duracionMaximaMin = Number(formData.duracionMaximaMin)
+    const numeroTableros = Number(formData.numeroTableros)
+    const dificultad = String(formData.dificultad || '').trim()
 
     if (!nombre) {
       setErrorMessage('El torneo necesita un nombre.')
@@ -94,11 +89,18 @@ function TournamentForm({
       return
     }
 
-    let extraConfig = {}
-    try {
-      extraConfig = parseTournamentExtras(formData.advancedConfigText)
-    } catch (error) {
-      setErrorMessage(error.message || 'La configuracion avanzada no es valida.')
+    if (!Number.isFinite(duracionMaximaMin) || duracionMaximaMin <= 0) {
+      setErrorMessage('Debes definir una duracion maxima valida en minutos.')
+      return
+    }
+
+    if (!Number.isFinite(numeroTableros) || numeroTableros <= 0) {
+      setErrorMessage('Debes definir una cantidad valida de tableros.')
+      return
+    }
+
+    if (!dificultad) {
+      setErrorMessage('Debes seleccionar una dificultad para la serie.')
       return
     }
 
@@ -106,7 +108,7 @@ function TournamentForm({
       nombre,
       descripcion,
       esPublico: Boolean(formData.esPublico),
-      tipo: String(formData.tipo || 'PUNTOS').trim().toUpperCase(),
+      tipo: 'SERIE',
       fechaInicio: fromDateTimeLocal(formData.fechaInicioLocal, {
         keepOriginal: !formData.fechaInicioDirty,
         originalRaw: formData.originalFechaInicioRaw,
@@ -116,18 +118,11 @@ function TournamentForm({
         originalRaw: formData.originalFechaFinRaw,
       }),
       recurrencia: String(formData.recurrencia || 'NINGUNA').trim().toUpperCase(),
-      configuracion: buildTournamentConfig(
-        {
-          maxParticipantes: formData.maxParticipantes,
-          duracionMaximaMin: formData.duracionMaximaMin,
-          intentosMaximos: formData.intentosMaximos,
-          pistasMaximas: formData.pistasMaximas,
-          dificultad: formData.dificultad,
-          seedFija: formData.seedFija,
-          permitirEmpates: formData.permitirEmpates,
-        },
-        extraConfig,
-      ),
+      configuracion: buildTournamentConfig({
+        duracionMaximaMin: formData.duracionMaximaMin,
+        numeroTableros: formData.numeroTableros,
+        dificultad: formData.dificultad,
+      }),
     }
 
     const fechaInicio = new Date(payload.fechaInicio || '')
@@ -162,22 +157,16 @@ function TournamentForm({
             name="nombre"
             value={formData.nombre}
             onChange={handleInputChange}
-            placeholder="Ej. Copa relampago de Sudoku"
+            placeholder="Ej. Serie relampago de Sudoku"
             disabled={busy}
             required
           />
         </label>
 
-        <label className="auth-field">
-          <span>Tipo</span>
-          <select name="tipo" value={formData.tipo} onChange={handleInputChange} disabled={busy}>
-            {tournamentTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="auth-field">
+          <span>Formato</span>
+          <div className="tournament-static-field">Serie Sudoku por tiempo total</div>
+        </div>
 
         <label className="auth-field tournament-form-field-full">
           <span>Descripcion</span>
@@ -259,25 +248,11 @@ function TournamentForm({
         <div className="section-heading tournament-inline-heading">
           <div>
             <p className="section-kicker">Reglas base</p>
-            <h3>{isEditMode ? 'Ajusta la configuracion del torneo' : 'Define como se juega'}</h3>
+            <h3>{isEditMode ? 'Ajusta la serie oficial' : 'Define la serie oficial'}</h3>
           </div>
         </div>
 
         <div className="tournament-form-grid">
-          <label className="auth-field">
-            <span>Maximo de participantes</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              name="maxParticipantes"
-              value={formData.maxParticipantes}
-              onChange={handleInputChange}
-              placeholder="Ej. 32"
-              disabled={busy}
-            />
-          </label>
-
           <label className="auth-field">
             <span>Duracion maxima (min)</span>
             <input
@@ -287,93 +262,54 @@ function TournamentForm({
               name="duracionMaximaMin"
               value={formData.duracionMaximaMin}
               onChange={handleInputChange}
-              placeholder="Ej. 15"
+              placeholder="Ej. 20"
               disabled={busy}
+              required
             />
           </label>
 
           <label className="auth-field">
-            <span>Intentos maximos</span>
+            <span>Numero de tableros</span>
             <input
               type="number"
               min="1"
               step="1"
-              name="intentosMaximos"
-              value={formData.intentosMaximos}
+              name="numeroTableros"
+              value={formData.numeroTableros}
               onChange={handleInputChange}
               placeholder="Ej. 3"
               disabled={busy}
+              required
             />
           </label>
 
           <label className="auth-field">
-            <span>Pistas maximas</span>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              name="pistasMaximas"
-              value={formData.pistasMaximas}
-              onChange={handleInputChange}
-              placeholder="Ej. 2"
-              disabled={busy}
-            />
-          </label>
-
-          <label className="auth-field">
-            <span>Dificultad sugerida</span>
+            <span>Dificultad</span>
             <select
               name="dificultad"
               value={formData.dificultad}
               onChange={handleInputChange}
               disabled={busy}
+              required
             >
-              {sudokuDifficultyOptions.map((option) => (
-                <option key={option.value || 'empty'} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
+              {sudokuDifficultyOptions
+                .filter((option) => option.value)
+                .map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
             </select>
           </label>
 
-          <label className="auth-field">
-            <span>Seed fija</span>
-            <input
-              type="text"
-              name="seedFija"
-              value={formData.seedFija}
-              onChange={handleInputChange}
-              placeholder="Opcional"
-              disabled={busy}
-            />
-          </label>
-
-          <label className="auth-field">
-            <span>Permitir empates</span>
-            <select
-              name="permitirEmpates"
-              value={formData.permitirEmpates}
-              onChange={handleInputChange}
-              disabled={busy}
-            >
-              <option value="">Sin definir</option>
-              <option value="true">Si</option>
-              <option value="false">No</option>
-            </select>
-          </label>
-
-          <label className="auth-field tournament-form-field-full">
-            <span>Configuracion avanzada (JSON)</span>
-            <textarea
-              name="advancedConfigText"
-              value={formData.advancedConfigText}
-              onChange={handleInputChange}
-              rows={7}
-              spellCheck="false"
-              disabled={busy}
-              placeholder='{"premio":"Insignia especial"}'
-            />
-          </label>
+          <div className="auth-field tournament-form-field-full">
+            <span>Reglas fijas</span>
+            <div className="tournament-static-field tournament-static-field--stacked">
+              <strong>Todos juegan la misma serie de Sudokus.</strong>
+              <span>Las pistas estan deshabilitadas.</span>
+              <span>No se configura limite de participantes en esta version.</span>
+            </div>
+          </div>
         </div>
       </div>
 

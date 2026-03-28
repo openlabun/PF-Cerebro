@@ -102,6 +102,7 @@ function TournamentManagePage() {
   const currentUserId = String(user?.sub || user?.id || '').trim()
   const isParticipant = participants.some((participant) => String(participant?.usuarioId || '').trim() === currentUserId)
   const allowedTransitions = getAllowedTournamentTransitions(tournament?.estado)
+  const visibleTransitions = allowedTransitions.filter((state) => state !== 'CANCELADO')
   const configSummary = summarizeTournamentConfig(tournament?.configuracion)
   const configDetails = describeTournamentConfig(tournament?.configuracion)
   const currentState = String(tournament?.estado || '').trim().toUpperCase()
@@ -113,6 +114,17 @@ function TournamentManagePage() {
       ? buildTournamentInviteLink(tournament?._id, tournament?.codigoAcceso)
       : ''
   const inviteJoinAvailable = isAuthenticated && !tournament && Boolean(inviteCodeFromQuery)
+
+  function getParticipantLabel(row) {
+    const displayName = String(row?.usuarioNombre || '').trim()
+    const userId = String(row?.usuarioId || '').trim()
+    if (displayName && displayName !== userId) return displayName
+    if (userId && userId === currentUserId) {
+      const currentUserName = String(user?.name || '').trim()
+      if (currentUserName) return currentUserName
+    }
+    return userId || 'Usuario'
+  }
 
   async function handleCopyValue(value, successMessage) {
     const normalizedValue = String(value || '').trim()
@@ -430,8 +442,8 @@ function TournamentManagePage() {
                 el estado actual.
               </p>
               <div className="tournament-actions-stack">
-                {allowedTransitions.length ? (
-                  allowedTransitions.map((nextState) => (
+                {visibleTransitions.length ? (
+                  visibleTransitions.map((nextState) => (
                     <button
                       key={nextState}
                       className="btn ghost"
@@ -552,7 +564,7 @@ function TournamentManagePage() {
                 <tbody>
                   {participants.map((participant) => (
                     <tr key={participant._id || `${participant.usuarioId}-${participant.fechaUnion}`}>
-                      <td>{participant.usuarioId}</td>
+                      <td>{getParticipantLabel(participant)}</td>
                       <td>{formatTournamentDate(participant.fechaUnion)}</td>
                     </tr>
                   ))}
@@ -592,7 +604,7 @@ function TournamentManagePage() {
                   {ranking.map((row, index) => (
                     <tr key={row._id || `${row.usuarioId}-${row.fechaRegistro}`}>
                       <td>{index + 1}</td>
-                      <td>{row.usuarioId}</td>
+                      <td>{getParticipantLabel(row)}</td>
                       <td>{row.puntaje}</td>
                       <td>{formatElapsedSeconds(row.tiempo)}</td>
                       <td>{formatTournamentDate(row.fechaRegistro)}</td>

@@ -5,13 +5,12 @@ import { apiClient } from '../services/apiClient.js'
 import {
   calculateProgress,
   clearNotesCell,
+  cloneBoard,
   countCorrectByNumber,
   createEmptyNotes,
   createPuzzle,
   generateSolution,
   getDifficultyByKey,
-  getHintLimit,
-  getRandomHint,
   isBoardSolved,
 } from '../lib/sudoku.js'
 
@@ -25,8 +24,10 @@ function parseTournamentSessionDate(value) {
   if (!normalized) return 0
 
   const withTimeSeparator = normalized.includes(' ') ? normalized.replace(' ', 'T') : normalized
+  const hasExplicitTimezone = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(withTimeSeparator)
   const needsTimezone =
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?$/.test(withTimeSeparator)
+    !hasExplicitTimezone &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(withTimeSeparator)
 
   const timestamp = Date.parse(needsTimezone ? `${withTimeSeparator}-05:00` : withTimeSeparator)
   return Number.isFinite(timestamp) ? timestamp : 0
@@ -137,6 +138,42 @@ function clearSnapshot(sessionId) {
   window.localStorage.removeItem(getStorageKey(sessionId))
 }
 
+function buildSeriesBoards(game, session) {
+  const resolvedDifficulty = getDifficultyByKey(game?.difficultyKey)
+  const holes = Number(game?.holes || resolvedDifficulty?.holes || 40)
+  const baseBoards =
+    Array.isArray(game?.boards) && game.boards.length
+      ? game.boards
+      : [{ index: 1, seed: String(session?.seed || game?.seed || 1) }]
+
+  return baseBoards.map((entry, index) => {
+    const seed = String(entry?.seed || index + 1).trim() || String(index + 1)
+    const solution = generateSolution(seed)
+    const puzzle = createPuzzle(solution, holes, seed)
+
+    return {
+      index,
+      position: Number(entry?.index) || index + 1,
+      seed,
+      puzzle,
+      solution,
+      board: cloneBoard(puzzle),
+      notes: createEmptyNotes(),
+      solved: false,
+    }
+  })
+}
+
+function cloneSeriesBoardEntry(entry) {
+  return {
+    ...entry,
+    puzzle: cloneBoard(entry.puzzle),
+    solution: cloneBoard(entry.solution),
+    board: cloneBoard(entry.board),
+    notes: cloneNotes(entry.notes),
+  }
+}
+
 export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   const [loading, setLoading] = useState(true)
   const [pageError, setPageError] = useState('')
@@ -145,13 +182,16 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   const [session, setSession] = useState(null)
   const [game, setGame] = useState(null)
   const [errorCount, setErrorCount] = useState(0)
-  const [hintsUsed, setHintsUsed] = useState(0)
   const [completedOutcome, setCompletedOutcome] = useState(null)
   const [nowMs, setNowMs] = useState(() => Date.now())
   const [submissionRequested, setSubmissionRequested] = useState(false)
+  const [seriesBoards, setSeriesBoards] = useState([])
+  const [currentBoardIndex, setCurrentBoardIndex] = useState(0)
 
   const finishInFlightRef = useRef(false)
   const autoSubmittedRef = useRef(false)
+  const seriesBoardsRef = useRef([])
+  const currentBoardIndexRef = useRef(0)
 
   const {
     puzzle,
@@ -173,8 +213,15 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     toggleSelectedNote,
   } = useSudokuGame()
 
+  useEffect(() => {
+    seriesBoardsRef.current = seriesBoards
+  }, [seriesBoards])
+
+  useEffect(() => {
+    currentBoardIndexRef.current = currentBoardIndex
+  }, [currentBoardIndex])
+
   const difficulty = game ? getDifficultyByKey(game.difficultyKey) : getDifficultyByKey('medio')
-  const hintLimit = Number.isFinite(Number(game?.hintLimit)) ? Number(game.hintLimit) : getHintLimit(difficulty)
   const startedAtMs = parseTournamentSessionDate(session?.fechaInicio)
   const elapsedSeconds = startedAtMs ? Math.max(0, Math.floor((nowMs - startedAtMs) / 1000)) : 0
   const timeLimitSeconds = Number.isFinite(Number(game?.timeLimitSeconds)) ? Number(game.timeLimitSeconds) : null
@@ -182,6 +229,40 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     timeLimitSeconds === null ? null : Math.max(0, timeLimitSeconds - elapsedSeconds)
   const isCompleted = Boolean(completedOutcome)
   const controlsDisabled = loading || submissionRequested || isCompleted
+
+  function hydrateSeriesBoard(series, index, options = {}) {
+    const target = series[index]
+    if (!target) return
+
+    hydrateGame({
+      puzzle: cloneBoard(target.puzzle),
+      solution: cloneBoard(target.solution),
+      board: cloneBoard(target.board),
+      notes: cloneNotes(target.notes),
+      selectedCell: null,
+      noteMode: options.noteMode ?? noteMode,
+      highlightEnabled: options.highlightEnabled ?? highlightEnabled,
+      cellErrors: {},
+    })
+  }
+
+  function getLiveSeriesBoards() {
+    return seriesBoardsRef.current.map((entry, index) => {
+      if (index !== currentBoardIndexRef.current) {
+        return cloneSeriesBoardEntry(entry)
+      }
+
+      const liveBoard = isValidBoardShape(board) ? cloneBoard(board) : cloneBoard(entry.board)
+      const liveNotes = cloneNotes(notes)
+
+      return {
+        ...entry,
+        board: liveBoard,
+        notes: liveNotes,
+        solved: isBoardSolved(liveBoard, entry.solution),
+      }
+    })
+  }
 
   async function loadTournamentSession() {
     if (!tournamentId || !accessToken) {
@@ -208,41 +289,55 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
         throw new Error('La respuesta del backend no trajo la sesion del torneo.')
       }
 
-      const seed = String(nextSession.seed || nextGame.seed || '').trim()
-      const solutionBoard = generateSolution(seed)
-      const puzzleBoard = createPuzzle(solutionBoard, Number(nextGame.holes || difficulty.holes), seed)
+      const baseSeriesBoards = buildSeriesBoards(nextGame, nextSession)
       const snapshot = safeReadSnapshot(nextSession._id)
+      const snapshotBoards = Array.isArray(snapshot?.boards) ? snapshot.boards : []
 
-      const restoredBoard = isValidBoardShape(snapshot?.board) ? snapshot.board : puzzleBoard
-      const restoredNotes = snapshot?.notes ? deserializeNotes(snapshot.notes) : createEmptyNotes()
+      const restoredSeriesBoards = baseSeriesBoards.map((entry, index) => {
+        const snapshotEntry = snapshotBoards[index]
+        const restoredBoard = isValidBoardShape(snapshotEntry?.board) ? snapshotEntry.board : entry.board
+        const restoredNotes = snapshotEntry?.notes ? deserializeNotes(snapshotEntry.notes) : entry.notes
+        return {
+          ...entry,
+          board: restoredBoard,
+          notes: restoredNotes,
+          solved: isBoardSolved(restoredBoard, entry.solution),
+        }
+      })
+
+      const snapshotCurrentBoardIndex = Number(snapshot?.currentBoardIndex)
+      const firstPendingBoardIndex = restoredSeriesBoards.findIndex((entry) => !entry.solved)
+      const resolvedCurrentBoardIndex =
+        Number.isInteger(snapshotCurrentBoardIndex) &&
+        snapshotCurrentBoardIndex >= 0 &&
+        snapshotCurrentBoardIndex < restoredSeriesBoards.length &&
+        restoredSeriesBoards[snapshotCurrentBoardIndex] &&
+        !restoredSeriesBoards[snapshotCurrentBoardIndex].solved
+          ? snapshotCurrentBoardIndex
+          : firstPendingBoardIndex >= 0
+            ? firstPendingBoardIndex
+            : Math.max(0, restoredSeriesBoards.length - 1)
       const restoredErrorCount = Math.max(0, Number(snapshot?.errorCount || 0))
-      const restoredHintsUsed = Math.max(0, Number(snapshot?.hintsUsed || 0))
       const restoredNoteMode = snapshot?.noteMode === true
       const restoredHighlightEnabled = snapshot?.highlightEnabled !== false
-
-      hydrateGame({
-        puzzle: puzzleBoard,
-        solution: solutionBoard,
-        board: restoredBoard,
-        notes: restoredNotes,
-        selectedCell: null,
-        noteMode: restoredNoteMode,
-        highlightEnabled: restoredHighlightEnabled,
-        cellErrors: {},
-      })
 
       setTournament(nextTournament)
       setSession(nextSession)
       setGame(nextGame)
+      setSeriesBoards(restoredSeriesBoards)
+      setCurrentBoardIndex(resolvedCurrentBoardIndex)
       setErrorCount(restoredErrorCount)
-      setHintsUsed(restoredHintsUsed)
       setNowMs(Date.now())
+      hydrateSeriesBoard(restoredSeriesBoards, resolvedCurrentBoardIndex, {
+        noteMode: restoredNoteMode,
+        highlightEnabled: restoredHighlightEnabled,
+      })
       setPageStatus(
         payload?.resumed
-          ? snapshot?.board
-            ? 'Retomaste tu intento activo del torneo.'
-            : 'Recuperamos tu sesion activa. El tablero reinicio desde la base porque no habia progreso local guardado.'
-          : 'Sesion de torneo iniciada. Juega con las reglas oficiales del torneo.',
+          ? snapshot?.boards?.length
+            ? 'Retomaste tu serie activa del torneo.'
+            : 'Recuperamos tu sesion activa. La serie reinicio desde su estado base porque no habia progreso local guardado.'
+          : 'Sesion de torneo iniciada. Completa toda la serie oficial antes de que se agote el tiempo.',
       )
     } catch (error) {
       setPageError(error.message || 'No se pudo iniciar la sesion del torneo.')
@@ -256,19 +351,54 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   }, [accessToken, tournamentId])
 
   useEffect(() => {
-    if (!session?._id || !board.length || isCompleted) return
+    if (!seriesBoards.length || !board.length || !notes.length) return
 
+    setSeriesBoards((current) =>
+      current.map((entry, index) => {
+        if (index !== currentBoardIndex) return entry
+
+        const nextBoard = cloneBoard(board)
+        const nextNotes = cloneNotes(notes)
+        const solved = isBoardSolved(nextBoard, entry.solution)
+
+        return {
+          ...entry,
+          board: nextBoard,
+          notes: nextNotes,
+          solved,
+        }
+      }),
+    )
+  }, [board, currentBoardIndex, notes, seriesBoards.length])
+
+  useEffect(() => {
+    if (!session?._id || !seriesBoards.length || isCompleted) return
+
+    const liveSeriesBoards = getLiveSeriesBoards()
     const payload = {
-      board,
-      notes: serializeNotes(notes),
+      currentBoardIndex,
+      boards: liveSeriesBoards.map((entry) => ({
+        board: entry.board,
+        notes: serializeNotes(entry.notes),
+        solved: entry.solved,
+      })),
       errorCount,
-      hintsUsed,
       noteMode,
       highlightEnabled,
     }
 
     window.localStorage.setItem(getStorageKey(session._id), JSON.stringify(payload))
-  }, [board, errorCount, highlightEnabled, hintsUsed, isCompleted, noteMode, notes, session?._id])
+  }, [
+    board,
+    currentBoardIndex,
+    errorCount,
+    highlightEnabled,
+    isCompleted,
+    noteMode,
+    notes,
+    seriesBoards,
+    session?._id,
+  ])
 
   useEffect(() => {
     if (!session || isCompleted) return undefined
@@ -280,7 +410,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     return () => window.clearInterval(interval)
   }, [isCompleted, session])
 
-  async function finalizeGame() {
+  async function finalizeGame(providedBoards) {
     if (!accessToken || !tournamentId || !session?._id || finishInFlightRef.current) {
       return
     }
@@ -289,14 +419,16 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     setSubmissionRequested(true)
     setPageError('')
 
+    const boardsToSend = (providedBoards || getLiveSeriesBoards()).map((entry) => cloneBoard(entry.board))
+
     try {
       const payload = await apiClient.finishTournamentSession(
         tournamentId,
         session._id,
         {
-          board,
+          boards: boardsToSend,
           errorCount,
-          hintsUsed,
+          hintsUsed: 0,
         },
         accessToken,
       )
@@ -306,7 +438,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
       clearSnapshot(session._id)
       setPageStatus(
         payload?.outcome === 'EXPIRADA'
-          ? 'El tiempo del torneo se agoto y el intento quedo cerrado.'
+          ? 'El tiempo del torneo se agoto y la serie quedo cerrada.'
           : `Resultado registrado correctamente. Puntaje oficial: ${payload?.score ?? 0}.`,
       )
     } catch (error) {
@@ -317,11 +449,48 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   }
 
   useEffect(() => {
-    if (!board.length || !solution.length || submissionRequested || isCompleted) return
+    if (!seriesBoards.length || !board.length || !solution.length || submissionRequested || isCompleted) return
     if (!isBoardSolved(board, solution)) return
-    autoSubmittedRef.current = true
-    void finalizeGame()
-  }, [board, isCompleted, solution, submissionRequested])
+
+    const liveSeriesBoards = getLiveSeriesBoards().map((entry, index) =>
+      index === currentBoardIndex
+        ? {
+            ...entry,
+            board: cloneBoard(board),
+            notes: cloneNotes(notes),
+            solved: true,
+          }
+        : entry,
+    )
+    const nextPendingBoardIndex = liveSeriesBoards.findIndex((entry) => !entry.solved)
+
+    setSeriesBoards(liveSeriesBoards)
+
+    if (nextPendingBoardIndex === -1) {
+      autoSubmittedRef.current = true
+      void finalizeGame(liveSeriesBoards)
+      return
+    }
+
+    setCurrentBoardIndex(nextPendingBoardIndex)
+    hydrateSeriesBoard(liveSeriesBoards, nextPendingBoardIndex, {
+      noteMode,
+      highlightEnabled,
+    })
+    setPageStatus(
+      `Tablero ${currentBoardIndex + 1} completado. Continua con el ${nextPendingBoardIndex + 1} de ${liveSeriesBoards.length}.`,
+    )
+  }, [
+    board,
+    currentBoardIndex,
+    highlightEnabled,
+    isCompleted,
+    noteMode,
+    notes,
+    seriesBoards.length,
+    solution,
+    submissionRequested,
+  ])
 
   useEffect(() => {
     if (timeLimitSeconds === null || submissionRequested || isCompleted) return
@@ -365,7 +534,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
       if (num !== solution[row][col]) {
         setErrorCount((current) => {
           const next = previousValue !== num ? current + 1 : current
-          setStatus(`Numero incorrecto. Errores: ${next}.`)
+          setStatus(`Numero incorrecto. Errores acumulados: ${next}.`)
           return next
         })
         return nextBoard
@@ -378,41 +547,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
 
   function applyHint() {
     if (controlsDisabled) return
-
-    if (hintLimit <= 0) {
-      setStatus('Este torneo no permite pistas.')
-      return
-    }
-
-    if (hintsUsed >= hintLimit) {
-      setStatus(`Ya alcanzaste el limite de ${hintLimit} pista(s) para este torneo.`)
-      return
-    }
-
-    const result = getRandomHint(board, solution, Number(game?.seed || session?.seed || 1) + elapsedSeconds + hintsUsed + 1)
-    if (!result.ok) {
-      setStatus(result.message)
-      return
-    }
-
-    setBoard((currentBoard) => {
-      const nextBoard = currentBoard.map((line) => [...line])
-      nextBoard[result.row][result.col] = result.value
-      return nextBoard
-    })
-
-    setNotes((currentNotes) => {
-      const nextNotes = cloneNotes(currentNotes)
-      clearNotesCell(nextNotes, result.row, result.col)
-      removeCandidateFromPeerNotes(nextNotes, result.row, result.col, result.value)
-      const hintedBoard = board.map((line) => [...line])
-      hintedBoard[result.row][result.col] = result.value
-      revalidateAllNotes(puzzle, hintedBoard, nextNotes)
-      return nextNotes
-    })
-
-    setHintsUsed((current) => current + 1)
-    setStatus(`Pista aplicada. Pistas usadas: ${hintsUsed + 1}/${hintLimit}.`)
+    setStatus('Este torneo no permite pistas.')
   }
 
   useSudokuKeyboardControls({
@@ -428,6 +563,16 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     setStatus,
   })
 
+  const completedBoardCount = seriesBoards.reduce((total, entry, index) => {
+    if (index === currentBoardIndex && board.length && solution.length) {
+      return total + (isBoardSolved(board, solution) ? 1 : 0)
+    }
+
+    return total + (entry.solved ? 1 : 0)
+  }, 0)
+  const totalBoards = Number(game?.boardCount || seriesBoards.length || 0)
+  const currentBoardNumber = totalBoards ? Math.min(currentBoardIndex + 1, totalBoards) : 0
+  const currentSeriesBoard = seriesBoards[currentBoardIndex] || null
   const progress = puzzle.length ? calculateProgress(puzzle, board, solution) : { correct: 0, editable: 0, percentage: 0 }
   const correctCounts = solution.length ? countCorrectByNumber(board, solution) : Array(10).fill(0)
 
@@ -442,8 +587,6 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     status,
     statusOk,
     errorCount,
-    hintsUsed,
-    hintLimit,
     elapsedSeconds,
     timeLimitSeconds,
     timeRemainingSeconds,
@@ -455,6 +598,10 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     completedOutcome,
     isCompleted,
     controlsDisabled,
+    currentBoardNumber,
+    totalBoards,
+    completedBoardCount,
+    currentBoardSeed: currentSeriesBoard?.seed || null,
     loadTournamentSession,
     applyValue,
     applyHint,

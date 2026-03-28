@@ -308,42 +308,17 @@ export function countEditableCells(puzzle: number[][]): number {
 }
 
 export function calculateSudokuTournamentScore(args: {
-  torneoTipo: string;
-  solvedEditableCells: number;
   elapsedSeconds: number;
-  errorCount: number;
-  hintsUsed: number;
-  difficulty: SudokuDifficultyDefinition;
+  timeLimitSeconds: number;
 }): number {
-  const torneoTipo = normalizeText(args.torneoTipo).toUpperCase();
-  const safeSolvedEditableCells = Math.max(
-    0,
-    Math.trunc(Number(args.solvedEditableCells) || 0),
-  );
   const safeElapsedSeconds = Math.max(
     0,
     Math.trunc(Number(args.elapsedSeconds) || 0),
   );
-  const safeErrorCount = Math.max(0, Math.trunc(Number(args.errorCount) || 0));
-  const safeHintsUsed = Math.max(0, Math.trunc(Number(args.hintsUsed) || 0));
+  const safeTimeLimitSeconds = Math.max(
+    1,
+    Math.trunc(Number(args.timeLimitSeconds) || 0),
+  );
 
-  if (torneoTipo === 'TIEMPO') {
-    return safeSolvedEditableCells > 0 ? 1 : 0;
-  }
-
-  const pointsPerCorrectMove = 100;
-  const timePenaltyPerSecond = 2;
-  const errorPenalty = 50;
-  const hintPenalty = 100;
-  const difficultyBonus =
-    difficultyBonusByLabel[normalizeDifficulty(args.difficulty.label)] ?? 0;
-
-  const earnedPoints =
-    safeSolvedEditableCells * pointsPerCorrectMove + difficultyBonus;
-  const penalty =
-    safeElapsedSeconds * timePenaltyPerSecond +
-    safeErrorCount * errorPenalty +
-    safeHintsUsed * hintPenalty;
-
-  return Math.max(0, earnedPoints - penalty);
+  return Math.max(1, safeTimeLimitSeconds - safeElapsedSeconds + 1);
 }

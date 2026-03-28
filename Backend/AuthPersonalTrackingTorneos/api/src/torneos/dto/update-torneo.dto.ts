@@ -15,7 +15,7 @@ export class UpdateTorneoDto {
 
   @IsOptional()
   @IsString()
-  tipo?: string; // puntos | tiempo | pvp (si quieres validarlo con enum luego)
+  tipo?: string; // Actualmente se normaliza al tipo unico SERIE.
 
   @IsOptional()
   @IsISO8601()
@@ -30,5 +30,6 @@ export class UpdateTorneoDto {
   recurrencia?: string; // NINGUNA | SEMANAL | MENSUAL
 
   @IsOptional()
+  // Configuracion vigente: duracionMaximaMin, dificultad y numeroTableros.
   configuracion?: Record<string, unknown>;
 }

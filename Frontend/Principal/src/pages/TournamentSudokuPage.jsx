@@ -28,8 +28,6 @@ function TournamentSudokuPageContent() {
     status,
     statusOk,
     errorCount,
-    hintsUsed,
-    hintLimit,
     elapsedSeconds,
     timeLimitSeconds,
     timeRemainingSeconds,
@@ -41,9 +39,12 @@ function TournamentSudokuPageContent() {
     completedOutcome,
     isCompleted,
     controlsDisabled,
+    currentBoardNumber,
+    totalBoards,
+    completedBoardCount,
+    currentBoardSeed,
     loadTournamentSession,
     applyValue,
-    applyHint,
     clearSelectedCell,
     setNoteMode,
     setHighlightEnabled,
@@ -60,6 +61,8 @@ function TournamentSudokuPageContent() {
       : formatSudokuTime(timeRemainingSeconds)
   const timerLabel = timeLimitSeconds === null ? 'Tiempo oficial' : 'Tiempo restante'
   const closingError = Boolean(pageError) && submissionRequested && !completedOutcome
+  const resolvedTotalBoards = totalBoards || Number(game?.boardCount || 1)
+  const seriesProgressLabel = `${completedBoardCount}/${resolvedTotalBoards} tableros completados`
 
   if (loading) {
     return (
@@ -101,8 +104,8 @@ function TournamentSudokuPageContent() {
           <p className="eyebrow">Modo torneo</p>
           <h1>{tournament?.nombre || 'Torneo Sudoku'}</h1>
           <p className="lead">
-            Juegas bajo reglas oficiales del torneo. Este resultado no impacta single player ni
-            PvP.
+            Juegas una serie oficial de Sudokus bajo un tiempo total compartido. Este resultado no
+            impacta single player ni PvP.
           </p>
 
           <div className="tournament-badge-row">
@@ -124,6 +127,7 @@ function TournamentSudokuPageContent() {
               </span>
             ))}
             <span className="stat-chip">Juego: Sudoku</span>
+            <span className="stat-chip">Serie: {seriesProgressLabel}</span>
             <span className="stat-chip">
               Intento: {session?.intentoNumero || 1}/{game?.attemptLimit || 1}
             </span>
@@ -141,12 +145,18 @@ function TournamentSudokuPageContent() {
               <dd>{difficulty.label}</dd>
             </div>
             <div>
+              <dt>Tablero actual</dt>
+              <dd>
+                {currentBoardNumber}/{resolvedTotalBoards}
+              </dd>
+            </div>
+            <div>
               <dt>Inicio del intento</dt>
               <dd>{formatTournamentDate(session?.fechaInicio)}</dd>
             </div>
             <div>
-              <dt>Pistas permitidas</dt>
-              <dd>{hintLimit}</dd>
+              <dt>Pistas</dt>
+              <dd>Deshabilitadas</dd>
             </div>
           </dl>
         </aside>
@@ -160,15 +170,18 @@ function TournamentSudokuPageContent() {
           <div className="difficulty-wrap tournament-play-meta">
             <span className="difficulty-label">Juego: Sudoku competitivo</span>
             <span className="difficulty-label">Dificultad: {difficulty.label}</span>
-            <span className="difficulty-label">Semilla oficial: {session?.seed || game?.seed}</span>
+            <span className="difficulty-label">
+              Tablero actual: {currentBoardNumber}/{resolvedTotalBoards}
+            </span>
+            <span className="difficulty-label">
+              Semilla oficial: {currentBoardSeed || session?.seed || game?.seed}
+            </span>
           </div>
 
           <div className="sudoku-top-right">
             <span className="timer-display">{timerCopy}</span>
             <span className="stat-chip">Errores: {errorCount}</span>
-            <span className="stat-chip">
-              Pistas: {hintsUsed}/{hintLimit}
-            </span>
+            <span className="stat-chip">{seriesProgressLabel}</span>
             <button className="btn ghost" type="button" onClick={() => navigate(`/torneos/${tournamentId}`)}>
               Volver
             </button>
@@ -183,10 +196,10 @@ function TournamentSudokuPageContent() {
           <SudokuControlsPanel
             noteMode={noteMode}
             highlightEnabled={highlightEnabled}
-            hintCount={hintsUsed}
             onApplyValue={(num) => applyValue(num, noteMode)}
             onClearCell={clearSelectedCell}
-            onHint={applyHint}
+            onHint={() => {}}
+            showHint={false}
             onToggleNoteMode={() => {
               if (controlsDisabled) return
               setNoteMode((current) => !current)
@@ -201,7 +214,6 @@ function TournamentSudokuPageContent() {
             clearDisabled={controlsDisabled}
             noteDisabled={controlsDisabled}
             highlightDisabled={controlsDisabled}
-            hintDisabled={controlsDisabled || hintsUsed >= hintLimit}
           >
             {closingError ? (
               <div className="tournament-actions-stack tournament-play-actions">
@@ -223,9 +235,11 @@ function TournamentSudokuPageContent() {
             </p>
           </div>
 
+          <p className="status ok">Serie: {seriesProgressLabel}</p>
+
           <p className={`status${statusOk ? ' ok' : ''}`}>
             {submissionRequested && !isCompleted
-              ? 'Estamos cerrando tu intento con el backend oficial del torneo.'
+              ? 'Estamos cerrando tu serie con el backend oficial del torneo.'
               : status}
           </p>
         </div>
@@ -239,11 +253,14 @@ function TournamentSudokuPageContent() {
             </h3>
             <p className="sudoku-pause-text">
               {completedOutcome.outcome === 'EXPIRADA'
-                ? 'Tu intento se cerro por limite de tiempo.'
+                ? 'Tu serie se cerro por limite de tiempo.'
                 : `Puntaje oficial: ${completedOutcome.score}`}
             </p>
             <p className="sudoku-pause-text">
               Tiempo oficial: {formatSudokuTime(completedOutcome.elapsedSeconds)}
+            </p>
+            <p className="sudoku-pause-text">
+              Serie completada: {completedOutcome.completedBoards}/{completedOutcome.totalBoards}
             </p>
             <div className="tournament-actions-stack tournament-play-actions">
               <Link className="btn primary" to={`/torneos/${tournamentId}`}>

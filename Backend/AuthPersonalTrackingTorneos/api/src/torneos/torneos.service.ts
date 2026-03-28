@@ -12,10 +12,7 @@ import { generarCodigoAcceso } from 'src/common/utils/codigo-acceso.util';
 import { UpdateTorneoDto } from './dto/update-torneo.dto';
 import {
   calculateSudokuTournamentScore,
-  countEditableCells,
-  createSudokuPuzzle,
   generateSudokuSolution,
-  getSudokuTournamentHintLimit,
   isSolvedSudokuBoard,
   resolveSudokuTournamentDifficulty,
   resolveSudokuTournamentSeed,
@@ -28,6 +25,7 @@ type TorneoRecord = {
   descripcion: string;
   creadorId: string;
   creadorNombre?: string | null;
+  inscrito?: boolean;
   codigoAcceso: string | null;
   esPublico: boolean;
   estado: string;
@@ -43,6 +41,7 @@ type ParticipanteRecord = {
   _id?: string;
   torneoId: string;
   usuarioId: string;
+  usuarioNombre?: string | null;
   fechaUnion: string;
 };
 
@@ -50,6 +49,7 @@ type ResultadoRecord = {
   _id?: string;
   torneoId: string;
   usuarioId: string;
+  usuarioNombre?: string | null;
   puntaje: number;
   tiempo: number;
   fechaRegistro: string;
@@ -65,6 +65,7 @@ type SesionTorneoRecord = {
   _id?: string;
   torneoId: string;
   usuarioId: string;
+  usuarioNombre?: string | null;
   juegoId: string;
   estado: string;
   seed: string | null;
@@ -78,6 +79,11 @@ type SesionTorneoRecord = {
   pistasUsadas: number | null;
 };
 
+type SudokuTournamentBoardDefinition = {
+  index: number;
+  seed: string;
+};
+
 type SudokuTournamentRules = {
   juegoId: 'sudoku';
   difficultyKey: string;
@@ -85,10 +91,11 @@ type SudokuTournamentRules = {
   holes: number;
   seed: string;
   seedId: string | null;
-  hintLimit: number;
-  timeLimitSeconds: number | null;
+  hintLimit: 0;
+  timeLimitSeconds: number;
   attemptLimit: number;
-  maxParticipants: number | null;
+  boardCount: number;
+  boards: SudokuTournamentBoardDefinition[];
   torneoTipo: string;
 };
 
@@ -106,7 +113,9 @@ type FinishTournamentSessionResponse = {
   outcome: 'FINALIZADA' | 'EXPIRADA';
   elapsedSeconds: number;
   score: number;
-  timeLimitSeconds: number | null;
+  timeLimitSeconds: number;
+  completedBoards: number;
+  totalBoards: number;
 };
 
 @Injectable()
@@ -120,6 +129,9 @@ export class TorneosService {
   private readonly SESSION_STATUS_ABANDONADA = 'ABANDONADA';
   private readonly SESSION_STATUS_EXPIRADA = 'EXPIRADA';
   private readonly TOURNAMENT_GAME_SUDOKU = 'sudoku';
+  private readonly TOURNAMENT_TYPE_SERIE = 'SERIE';
+  private readonly DEFAULT_TOURNAMENT_DURATION_MINUTES = 15;
+  private readonly DEFAULT_TOURNAMENT_BOARD_COUNT = 1;
 
   constructor(private readonly roble: RobleService) {}
 
@@ -170,6 +182,62 @@ export class TorneosService {
     return parsed;
   }
 
+  private sanitizeTournamentConfig(
+    value: unknown,
+    options: { strict?: boolean } = {},
+  ): Record<string, unknown> {
+    const config = this.isPlainObject(value) ? value : {};
+    const strictMode = options.strict === true;
+    const rawDifficulty = String(config.dificultad ?? '').trim();
+    const resolvedDurationMinutes = this.resolvePositiveLimit(
+      config.duracionMaximaMin,
+    );
+    const resolvedBoardCount = this.resolvePositiveLimit(
+      config.numeroTableros ?? config.cantidadTableros ?? config.tableros,
+    );
+
+    if (strictMode && !rawDifficulty) {
+      throw new BadRequestException(
+        'Debes seleccionar una dificultad para el torneo.',
+      );
+    }
+
+    if (strictMode && resolvedDurationMinutes === null) {
+      throw new BadRequestException(
+        'Debes configurar una duracion maxima valida en minutos.',
+      );
+    }
+
+    if (strictMode && resolvedBoardCount === null) {
+      throw new BadRequestException(
+        'Debes configurar una cantidad valida de tableros para el torneo.',
+      );
+    }
+
+    const difficulty = resolveSudokuTournamentDifficulty(rawDifficulty);
+
+    return {
+      duracionMaximaMin:
+        resolvedDurationMinutes ?? this.DEFAULT_TOURNAMENT_DURATION_MINUTES,
+      dificultad: difficulty.label,
+      numeroTableros:
+        resolvedBoardCount ?? this.DEFAULT_TOURNAMENT_BOARD_COUNT,
+    };
+  }
+
+  private buildTournamentBoardDefinitions(
+    seriesSeed: string,
+    boardCount: number,
+  ): SudokuTournamentBoardDefinition[] {
+    return Array.from({ length: boardCount }, (_, index) => ({
+      index: index + 1,
+      seed: resolveSudokuTournamentSeed(
+        undefined,
+        `${seriesSeed}:${index + 1}`,
+      ),
+    }));
+  }
+
   private parseTournamentDate(value: unknown): Date | null {
     const raw = String(value ?? '').trim();
     if (!raw) {
@@ -189,15 +257,14 @@ export class TorneosService {
   }
 
   private getTournamentRules(torneo: TorneoRecord): SudokuTournamentRules {
-    const config = this.getTournamentConfig(torneo);
+    const config = this.sanitizeTournamentConfig(this.getTournamentConfig(torneo));
     const difficulty = resolveSudokuTournamentDifficulty(config.dificultad);
-    const hintOverride = this.toSafeInteger(
-      config.pistasMaximas ?? config.numeroPistas ?? config.pistasPermitidas,
-    );
-    const timeLimitMinutes = this.resolvePositiveLimit(config.duracionMaximaMin);
-    const attemptLimit = this.resolvePositiveLimit(config.intentosMaximos) ?? 1;
-    const maxParticipants =
-      this.resolvePositiveLimit(config.maxParticipantes) ?? null;
+    const timeLimitMinutes =
+      this.resolvePositiveLimit(config.duracionMaximaMin) ??
+      this.DEFAULT_TOURNAMENT_DURATION_MINUTES;
+    const boardCount =
+      this.resolvePositiveLimit(config.numeroTableros) ??
+      this.DEFAULT_TOURNAMENT_BOARD_COUNT;
     const fallbackSeedSource = [
       torneo._id ?? torneo.nombre,
       torneo.fechaInicio,
@@ -205,22 +272,24 @@ export class TorneosService {
     ]
       .filter(Boolean)
       .join(':');
+    const seriesSeed = resolveSudokuTournamentSeed(
+      config.seedFija,
+      fallbackSeedSource,
+    );
 
     return {
       juegoId: this.TOURNAMENT_GAME_SUDOKU,
       difficultyKey: difficulty.key,
       difficultyLabel: difficulty.label,
       holes: difficulty.holes,
-      seed: resolveSudokuTournamentSeed(config.seedFija, fallbackSeedSource),
+      seed: seriesSeed,
       seedId: String(config.seedId ?? '').trim() || null,
-      hintLimit:
-        hintOverride !== null && hintOverride >= 0
-          ? hintOverride
-          : getSudokuTournamentHintLimit(difficulty),
-      timeLimitSeconds: timeLimitMinutes ? timeLimitMinutes * 60 : null,
-      attemptLimit,
-      maxParticipants,
-      torneoTipo: this.toUpperSafe(torneo.tipo),
+      hintLimit: 0,
+      timeLimitSeconds: timeLimitMinutes * 60,
+      attemptLimit: 1,
+      boardCount,
+      boards: this.buildTournamentBoardDefinitions(seriesSeed, boardCount),
+      torneoTipo: this.TOURNAMENT_TYPE_SERIE,
     };
   }
 
@@ -237,6 +306,55 @@ export class TorneosService {
       0,
       Math.floor((referenceDate.getTime() - startedAt.getTime()) / 1000),
     );
+  }
+
+  private normalizeSubmittedBoards(
+    payload: { board?: unknown; boards?: unknown },
+    expectedBoardCount: number,
+  ): number[][][] {
+    const rawBoards = Array.isArray(payload.boards)
+      ? payload.boards
+      : payload.board !== undefined
+        ? [payload.board]
+        : [];
+
+    if (!rawBoards.length) {
+      throw new BadRequestException(
+        'Debes enviar los tableros resueltos de la sesion.',
+      );
+    }
+
+    if (rawBoards.length !== expectedBoardCount) {
+      throw new BadRequestException(
+        `La sesion requiere ${expectedBoardCount} tablero(s) y se recibieron ${rawBoards.length}.`,
+      );
+    }
+
+    return rawBoards.map((rawBoard, index) => {
+      const board = validateSudokuBoardShape(rawBoard);
+      if (!board) {
+        throw new BadRequestException(
+          `El tablero ${index + 1} enviado no tiene un formato Sudoku valido.`,
+        );
+      }
+
+      return board;
+    });
+  }
+
+  private countCompletedTournamentBoards(
+    boards: number[][][],
+    rules: SudokuTournamentRules,
+  ): number {
+    return boards.reduce((completed, board, index) => {
+      const boardSeed = rules.boards[index]?.seed;
+      if (!boardSeed) {
+        return completed;
+      }
+
+      const solution = generateSudokuSolution(boardSeed);
+      return completed + (isSolvedSudokuBoard(board, solution) ? 1 : 0);
+    }, 0);
   }
 
   private sortRankingRows(resultados: ResultadoRecord[]): ResultadoRecord[] {
@@ -266,9 +384,91 @@ export class TorneosService {
     return normalized;
   }
 
+  private isLikelyOpaqueUserId(value: string): boolean {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) {
+      return false;
+    }
+
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        normalized,
+      )
+    ) {
+      return true;
+    }
+
+    if (/^[A-Za-z0-9_-]{20,}$/.test(normalized) && !/\s/.test(normalized)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private normalizeDisplayName(
+    value: unknown,
+    userId?: string | null,
+  ): string | null {
+    const normalized = this.normalizeCreatorName(value);
+    if (!normalized) {
+      return null;
+    }
+
+    const normalizedUserId = this.normalizeUserId(userId);
+    if (normalizedUserId && normalized === normalizedUserId) {
+      return null;
+    }
+
+    if (this.isLikelyOpaqueUserId(normalized)) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  private looksLikeAuthUserRow(payload: unknown): payload is Record<string, unknown> {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return false;
+    }
+
+    const row = payload as Record<string, unknown>;
+    const idCandidates = [
+      row.id,
+      row.sub,
+      row.uid,
+      row.user_id,
+      row.userId,
+      row.usuarioId,
+      row._id,
+      row.authExternoId,
+      row.externalId,
+      row.authExternalId,
+    ];
+    const nameCandidates = [
+      row.name,
+      row.nombre,
+      row.fullName,
+      row.displayName,
+      row.username,
+      row.userName,
+      row.email,
+    ];
+
+    return (
+      idCandidates.some((candidate) => Boolean(this.normalizeUserId(candidate))) ||
+      nameCandidates.some((candidate) =>
+        Boolean(this.normalizeCreatorName(candidate)),
+      )
+    );
+  }
+
   private extractAuthUsersRows(payload: unknown): Array<Record<string, unknown>> {
     if (Array.isArray(payload)) {
       return payload as Array<Record<string, unknown>>;
+    }
+
+    if (this.looksLikeAuthUserRow(payload)) {
+      return [payload];
     }
 
     if (
@@ -282,9 +482,36 @@ export class TorneosService {
     if (
       payload &&
       typeof payload === 'object' &&
+      this.looksLikeAuthUserRow((payload as { data?: unknown }).data)
+    ) {
+      return [(payload as { data: Record<string, unknown> }).data];
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
       Array.isArray((payload as { users?: unknown }).users)
     ) {
       return (payload as { users: Array<Record<string, unknown>> }).users;
+    }
+
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      this.looksLikeAuthUserRow((payload as { user?: unknown }).user)
+    ) {
+      return [(payload as { user: Record<string, unknown> }).user];
+    }
+
+    const nestedDataUser =
+      payload &&
+      typeof payload === 'object' &&
+      typeof (payload as { data?: unknown }).data === 'object'
+        ? ((payload as { data?: { user?: unknown } }).data ?? {}).user
+        : undefined;
+
+    if (this.looksLikeAuthUserRow(nestedDataUser)) {
+      return [nestedDataUser];
     }
 
     return [];
@@ -295,9 +522,13 @@ export class TorneosService {
       row.id,
       row.sub,
       row.uid,
+      row.user_id,
       row.userId,
       row.usuarioId,
       row._id,
+      row.authExternoId,
+      row.externalId,
+      row.authExternalId,
     ];
 
     for (const candidate of candidates) {
@@ -311,7 +542,14 @@ export class TorneosService {
   }
 
   private resolveAuthUserName(row: Record<string, unknown>): string {
-    const candidates = [row.name, row.nombre, row.fullName];
+    const candidates = [
+      row.name,
+      row.nombre,
+      row.fullName,
+      row.displayName,
+      row.username,
+      row.userName,
+    ];
 
     for (const candidate of candidates) {
       const normalized = this.normalizeCreatorName(candidate);
@@ -349,7 +587,10 @@ export class TorneosService {
           continue;
         }
 
-        const userName = this.resolveAuthUserName(row);
+        const userName = this.normalizeDisplayName(
+          this.resolveAuthUserName(row),
+          userId,
+        );
         if (!userName) {
           continue;
         }
@@ -358,6 +599,66 @@ export class TorneosService {
       }
     } catch {
       return map;
+    }
+
+    return map;
+  }
+
+  private async resolveUserNamesById(
+    userIds: Set<string>,
+    options: { accessToken?: string; usePublicToken?: boolean } = {},
+  ): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const normalizedIds = Array.from(userIds).filter(Boolean);
+    if (!normalizedIds.length) {
+      return map;
+    }
+
+    const canReadProfiles =
+      options.usePublicToken || Boolean(options.accessToken);
+
+    if (canReadProfiles) {
+      await Promise.all(
+        normalizedIds.map(async (userId) => {
+          try {
+            const profiles = options.usePublicToken
+              ? await this.roble.readWithPublicToken<PerfilBasicoRecord>(
+                  'Perfil',
+                  {
+                    usuarioId: userId,
+                  },
+                )
+              : await this.roble.read<PerfilBasicoRecord>(
+                  options.accessToken ?? '',
+                  'Perfil',
+                  { usuarioId: userId },
+                );
+
+            const profileName = this.normalizeDisplayName(
+              profiles[0]?.nombre,
+              userId,
+            );
+            if (profileName) {
+              map.set(userId, profileName);
+            }
+          } catch {
+            // Si no podemos leer el perfil, mantenemos fallback a auth o id.
+          }
+        }),
+      );
+    }
+
+    if (options.accessToken) {
+      const authUserNames = await this.getAuthUserNamesByIdSafe(
+        options.accessToken,
+        new Set(normalizedIds),
+      );
+
+      for (const [userId, userName] of authUserNames.entries()) {
+        if (!map.has(userId)) {
+          map.set(userId, userName);
+        }
+      }
     }
 
     return map;
@@ -384,12 +685,7 @@ export class TorneosService {
   private isBrowsableState(value: string): boolean {
     const estado = this.toEstadoTorneo(value);
 
-    return (
-      estado === EstadoTorneo.PROGRAMADO ||
-      estado === EstadoTorneo.ACTIVO ||
-      estado === EstadoTorneo.PAUSADO ||
-      estado === EstadoTorneo.FINALIZADO
-    );
+    return estado === EstadoTorneo.PROGRAMADO || estado === EstadoTorneo.ACTIVO;
   }
 
   private canSeeTournamentInList(
@@ -400,12 +696,12 @@ export class TorneosService {
   ): boolean {
     const normalizedUserId = String(usuarioId ?? '').trim();
 
-    if (this.canManageTournament(torneo, normalizedUserId, userRole)) {
-      return true;
-    }
-
     if (!this.isBrowsableState(torneo.estado)) {
       return false;
+    }
+
+    if (this.canManageTournament(torneo, normalizedUserId, userRole)) {
+      return true;
     }
 
     if (torneo.esPublico) {
@@ -499,7 +795,11 @@ export class TorneosService {
       new Set(
         torneos
           .filter(
-            (torneo) => !this.normalizeCreatorName(torneo.creadorNombre),
+            (torneo) =>
+              !this.normalizeDisplayName(
+                torneo.creadorNombre,
+                torneo.creadorId,
+              ),
           )
           .map((torneo) => this.normalizeUserId(torneo.creadorId))
           .filter(Boolean),
@@ -510,47 +810,16 @@ export class TorneosService {
       return torneos;
     }
 
-    const creatorNames = new Map<string, string>();
-
-    await Promise.all(
-      creatorIds.map(async (creatorId) => {
-        try {
-          const profiles = options.usePublicToken
-            ? await this.roble.readWithPublicToken<PerfilBasicoRecord>('Perfil', {
-                usuarioId: creatorId,
-              })
-            : await this.roble.read<PerfilBasicoRecord>(
-                options.accessToken ?? '',
-                'Perfil',
-                { usuarioId: creatorId },
-              );
-
-          const creatorName = this.normalizeCreatorName(profiles[0]?.nombre);
-          if (creatorName) {
-            creatorNames.set(creatorId, creatorName);
-          }
-        } catch {
-          // Si no podemos leer el perfil, conservamos el fallback al id.
-        }
-      }),
+    const creatorNames = await this.resolveUserNamesById(
+      new Set(creatorIds),
+      options,
     );
-
-    if (options.accessToken && creatorIds.length) {
-      const authCreatorNames = await this.getAuthUserNamesByIdSafe(
-        options.accessToken,
-        new Set(creatorIds),
-      );
-
-      for (const [creatorId, creatorName] of authCreatorNames.entries()) {
-        if (!creatorNames.has(creatorId)) {
-          creatorNames.set(creatorId, creatorName);
-        }
-      }
-    }
 
     return torneos.map((torneo) => {
       const creatorId = this.normalizeUserId(torneo.creadorId);
-      const creatorName = creatorNames.get(creatorId);
+      const creatorName =
+        this.normalizeDisplayName(torneo.creadorNombre, creatorId) ||
+        creatorNames.get(creatorId);
       if (!creatorName) {
         return torneo;
       }
@@ -558,6 +827,50 @@ export class TorneosService {
       return {
         ...torneo,
         creadorNombre: creatorName,
+      };
+    });
+  }
+
+  private async attachUserNames<
+    T extends { usuarioId: string; usuarioNombre?: string | null },
+  >(
+    rows: T[],
+    options: { accessToken?: string; usePublicToken?: boolean } = {},
+  ): Promise<T[]> {
+    if (!rows.length) {
+      return rows;
+    }
+
+    const userIds = Array.from(
+      new Set(
+        rows
+          .filter(
+            (row) =>
+              !this.normalizeDisplayName(row.usuarioNombre, row.usuarioId),
+          )
+          .map((row) => this.normalizeUserId(row.usuarioId))
+          .filter(Boolean),
+      ),
+    );
+
+    if (!userIds.length) {
+      return rows;
+    }
+
+    const userNames = await this.resolveUserNamesById(new Set(userIds), options);
+
+    return rows.map((row) => {
+      const userId = this.normalizeUserId(row.usuarioId);
+      const userName =
+        this.normalizeDisplayName(row.usuarioNombre, userId) ||
+        userNames.get(userId);
+      if (!userName) {
+        return row;
+      }
+
+      return {
+        ...row,
+        usuarioNombre: userName,
       };
     });
   }
@@ -683,7 +996,10 @@ export class TorneosService {
         );
       }
 
-      return inserted;
+      const [enrichedInserted] = await this.attachUserNames([inserted], {
+        accessToken,
+      });
+      return enrichedInserted ?? inserted;
     }
 
     const actual = existentes[0];
@@ -701,7 +1017,7 @@ export class TorneosService {
       );
     }
 
-    return this.roble.update<ResultadoRecord>(
+    const updated = await this.roble.update<ResultadoRecord>(
       accessToken,
       this.TABLE_RESULTADOS,
       '_id',
@@ -712,6 +1028,10 @@ export class TorneosService {
         fechaRegistro: nuevoResultado.fechaRegistro,
       },
     );
+    const [enrichedUpdated] = await this.attachUserNames([updated], {
+      accessToken,
+    });
+    return enrichedUpdated ?? updated;
   }
   private calcularEstadoAutomatico(torneo: TorneoRecord): EstadoTorneo | null {
     const estado = this.toEstadoTorneo(torneo.estado);
@@ -891,7 +1211,10 @@ export class TorneosService {
       torneo._id,
       { estado: estadoDestino },
     );
-    return actualizado;
+    const [enriched] = await this.attachCreatorNames([actualizado], {
+      accessToken,
+    });
+    return enriched ?? actualizado;
   }
 
   async editarTorneo(
@@ -932,7 +1255,7 @@ export class TorneosService {
     if (estadoActual === EstadoTorneo.ACTIVO && !this.isAdminRole(userRole)) {
       const tipoActual = this.toUpperSafe(torneo.tipo);
       const tipoNuevo =
-        dto.tipo !== undefined ? this.toUpperSafe(dto.tipo) : undefined;
+        dto.tipo !== undefined ? this.TOURNAMENT_TYPE_SERIE : undefined;
       const cambioTipo = Boolean(tipoNuevo && tipoNuevo !== tipoActual);
       const cambioFechaInicio =
         dto.fechaInicio !== undefined &&
@@ -940,10 +1263,16 @@ export class TorneosService {
       const cambioFechaFin =
         dto.fechaFin !== undefined &&
         String(dto.fechaFin).trim() !== String(torneo.fechaFin).trim();
+      const cambioConfiguracion = dto.configuracion !== undefined;
 
-      if (cambioTipo || cambioFechaInicio || cambioFechaFin) {
+      if (
+        cambioTipo ||
+        cambioFechaInicio ||
+        cambioFechaFin ||
+        cambioConfiguracion
+      ) {
         throw new BadRequestException(
-          'No se puede cambiar el tipo ni las fechas de un torneo ACTIVO.',
+          'No se puede cambiar el formato, las fechas ni las reglas de un torneo ACTIVO.',
         );
       }
     }
@@ -953,8 +1282,7 @@ export class TorneosService {
     if (dto.nombre !== undefined) updates.nombre = dto.nombre;
     if (dto.descripcion !== undefined) updates.descripcion = dto.descripcion;
     if (dto.tipo !== undefined) {
-      const tipo = this.toUpperSafe(dto.tipo);
-      if (tipo) updates.tipo = tipo;
+      updates.tipo = this.TOURNAMENT_TYPE_SERIE;
     }
 
     if (dto.fechaInicio !== undefined) updates.fechaInicio = dto.fechaInicio;
@@ -966,7 +1294,9 @@ export class TorneosService {
     }
 
     if (dto.configuracion !== undefined) {
-      updates.configuracion = dto.configuracion;
+      updates.configuracion = this.sanitizeTournamentConfig(dto.configuracion, {
+        strict: true,
+      });
     }
 
     if (dto.esPublico !== undefined) {
@@ -997,7 +1327,10 @@ export class TorneosService {
       accessToken,
       actualizado,
     );
-    return sincronizado;
+    const [enriched] = await this.attachCreatorNames([sincronizado], {
+      accessToken,
+    });
+    return enriched ?? sincronizado;
   }
 
   async cancelarTorneo(
@@ -1047,7 +1380,10 @@ export class TorneosService {
       { estado: EstadoTorneo.CANCELADO },
     );
 
-    return actualizado;
+    const [enriched] = await this.attachCreatorNames([actualizado], {
+      accessToken,
+    });
+    return enriched ?? actualizado;
   }
 
   async listarTorneos(
@@ -1085,7 +1421,11 @@ export class TorneosService {
       )
       .map((torneo) =>
         this.sanitizeTournamentForViewer(torneo, usuarioId, userRole),
-      );
+      )
+      .map((torneo) => ({
+        ...torneo,
+        inscrito: Boolean(torneo._id && joinedTournamentIds.has(torneo._id)),
+      }));
 
     return this.attachCreatorNames(visibles, { accessToken });
   }
@@ -1107,11 +1447,13 @@ export class TorneosService {
   async crearTorneo(
     accessToken: string,
     creadorId: string,
-    creadorNombre: string | null,
     dto: CreateTorneoDto,
   ): Promise<TorneoRecord> {
     const esPublico = dto.esPublico;
     const codigoAcceso = esPublico ? undefined : generarCodigoAcceso(6);
+    const configuracion = this.sanitizeTournamentConfig(dto.configuracion, {
+      strict: true,
+    });
     const torneo: TorneoRecord = {
       nombre: dto.nombre,
       descripcion: dto.descripcion,
@@ -1119,11 +1461,11 @@ export class TorneosService {
       codigoAcceso: dto.codigoAcceso ?? null,
       esPublico: dto.esPublico,
       estado: EstadoTorneo.BORRADOR,
-      tipo: this.toUpperSafe(dto.tipo),
+      tipo: this.TOURNAMENT_TYPE_SERIE,
       fechaInicio: dto.fechaInicio,
       fechaFin: dto.fechaFin,
       recurrencia: this.toUpperSafe(dto.recurrencia ?? 'NINGUNA'),
-      configuracion: dto.configuracion ?? {},
+      configuracion,
       fechaCreacion: new Date().toISOString(),
     };
 
@@ -1145,10 +1487,8 @@ export class TorneosService {
         `No se pudo insertar el resultado por este motivo: ${reason}`,
       );
     }
-    return {
-      ...inserted,
-      creadorNombre: this.normalizeCreatorName(creadorNombre),
-    };
+    const [enriched] = await this.attachCreatorNames([inserted], { accessToken });
+    return enriched ?? inserted;
   }
 
   // Aqui obetenemos la información de un torneo específico
@@ -1211,7 +1551,6 @@ export class TorneosService {
     }
 
     const torneo = await this.syncEstadoPorFecha(accessToken, torneoBase);
-    const rules = this.getTournamentRules(torneo);
     const estado = this.toEstadoTorneo(torneo.estado);
     if (
       estado === EstadoTorneo.FINALIZADO ||
@@ -1230,15 +1569,6 @@ export class TorneosService {
     if (ya) throw new Error('El usuario ya está inscrito en este torneo');
 
     // Validamos el código de acceso si el torneo es privado
-    if (rules.maxParticipants) {
-      const inscritosActuales = await this.listarParticipantes(accessToken, torneoId);
-      if (inscritosActuales.length >= rules.maxParticipants) {
-        throw new BadRequestException(
-          'El torneo ya alcanzo el maximo de participantes permitido.',
-        );
-      }
-    }
-
     if (torneo.esPublico === false) {
       if (!codigoAcceso) {
         throw new BadRequestException(
@@ -1278,7 +1608,8 @@ export class TorneosService {
       );
     }
 
-    return inserted;
+    const [enriched] = await this.attachUserNames([inserted], { accessToken });
+    return enriched ?? inserted;
   }
 
   // Aqui listamos los participantes de un torneo específico
@@ -1286,11 +1617,12 @@ export class TorneosService {
     accessToken: string,
     torneoId: string,
   ): Promise<ParticipanteRecord[]> {
-    return this.roble.read<ParticipanteRecord>(
+    const participantes = await this.roble.read<ParticipanteRecord>(
       accessToken,
       this.TABLE_PARTICIPANTES,
       { torneoId },
     );
+    return this.attachUserNames(participantes, { accessToken });
   }
 
   async listarParticipantesPublico(
@@ -1306,10 +1638,11 @@ export class TorneosService {
       throw new NotFoundException('Torneo no disponible');
     }
 
-    return this.roble.readWithPublicToken<ParticipanteRecord>(
+    const participantes = await this.roble.readWithPublicToken<ParticipanteRecord>(
       this.TABLE_PARTICIPANTES,
       { torneoId },
     );
+    return this.attachUserNames(participantes, { usePublicToken: true });
   }
 
   async iniciarSesionTorneo(
@@ -1337,11 +1670,6 @@ export class TorneosService {
     }
 
     const rules = this.getTournamentRules(torneo);
-    if (rules.torneoTipo === 'PVP') {
-      throw new BadRequestException(
-        'El modo jugable de torneos desde Principal solo esta disponible para Sudoku individual.',
-      );
-    }
 
     const sessions = await this.listarSesionesUsuario(
       accessToken,
@@ -1357,9 +1685,7 @@ export class TorneosService {
 
     if (activeSession) {
       const elapsedSeconds = this.getSessionElapsedSeconds(activeSession);
-      const shouldExpire =
-        rules.timeLimitSeconds !== null &&
-        elapsedSeconds > rules.timeLimitSeconds;
+      const shouldExpire = elapsedSeconds > rules.timeLimitSeconds;
 
       if (!shouldExpire) {
         return this.buildStartSessionResponse(
@@ -1423,7 +1749,8 @@ export class TorneosService {
     sessionId: string,
     usuarioId: string,
     payload: {
-      board: unknown;
+      board?: unknown;
+      boards?: unknown;
       errorCount?: number;
       hintsUsed?: number;
     },
@@ -1458,19 +1785,6 @@ export class TorneosService {
     }
 
     const rules = this.getTournamentRules(torneo);
-    const board = validateSudokuBoardShape(payload.board);
-    if (!board) {
-      throw new BadRequestException(
-        'El tablero enviado no tiene un formato Sudoku valido.',
-      );
-    }
-
-    const solution = generateSudokuSolution(session.seed || rules.seed);
-    const puzzle = createSudokuPuzzle(
-      solution,
-      rules.holes,
-      session.seed || rules.seed,
-    );
     const elapsedSeconds = this.getSessionElapsedSeconds(session);
     const safeErrorCount = Math.max(
       0,
@@ -1481,15 +1795,27 @@ export class TorneosService {
       Math.trunc(Number(payload.hintsUsed) || 0),
     );
 
-    if (safeHintsUsed > rules.hintLimit) {
+    if (safeHintsUsed > 0) {
       throw new BadRequestException(
-        `El torneo solo permite ${rules.hintLimit} pista(s) por intento.`,
+        'Este torneo no permite pistas.',
       );
     }
 
-    const limitExceeded =
-      rules.timeLimitSeconds !== null &&
-      elapsedSeconds > rules.timeLimitSeconds;
+    const limitExceeded = elapsedSeconds > rules.timeLimitSeconds;
+    let completedBoards = 0;
+
+    try {
+      const submittedBoards = this.normalizeSubmittedBoards(
+        payload,
+        rules.boardCount,
+      );
+      completedBoards = this.countCompletedTournamentBoards(
+        submittedBoards,
+        rules,
+      );
+    } catch {
+      completedBoards = 0;
+    }
 
     if (limitExceeded) {
       const expiredSession = await this.roble.update<SesionTorneoRecord>(
@@ -1503,7 +1829,7 @@ export class TorneosService {
           tiempoTranscurrido: elapsedSeconds,
           puntajeFinal: 0,
           errores: safeErrorCount,
-          pistasUsadas: safeHintsUsed,
+          pistasUsadas: 0,
         },
       );
 
@@ -1515,22 +1841,23 @@ export class TorneosService {
         elapsedSeconds,
         score: 0,
         timeLimitSeconds: rules.timeLimitSeconds,
+        completedBoards,
+        totalBoards: rules.boardCount,
       };
     }
 
-    if (!isSolvedSudokuBoard(board, solution)) {
+    const submittedBoards = this.normalizeSubmittedBoards(payload, rules.boardCount);
+    completedBoards = this.countCompletedTournamentBoards(submittedBoards, rules);
+
+    if (completedBoards < rules.boardCount) {
       throw new BadRequestException(
-        'La partida aun no esta resuelta. Completa el tablero o espera a que expire el tiempo.',
+        'La serie aun no esta resuelta. Completa todos los tableros o espera a que expire el tiempo.',
       );
     }
 
     const score = calculateSudokuTournamentScore({
-      torneoTipo: rules.torneoTipo,
-      solvedEditableCells: countEditableCells(puzzle),
       elapsedSeconds,
-      errorCount: safeErrorCount,
-      hintsUsed: safeHintsUsed,
-      difficulty: resolveSudokuTournamentDifficulty(rules.difficultyLabel),
+      timeLimitSeconds: rules.timeLimitSeconds,
     });
 
     const result = await this.upsertResultadoTorneo(
@@ -1546,15 +1873,15 @@ export class TorneosService {
       this.TABLE_SESIONES,
       '_id',
       sessionId,
-      {
-        estado: this.SESSION_STATUS_FINALIZADA,
-        fechaFin: new Date().toISOString(),
-        tiempoTranscurrido: elapsedSeconds,
-        puntajeFinal: score,
-        errores: safeErrorCount,
-        pistasUsadas: safeHintsUsed,
-      },
-    );
+        {
+          estado: this.SESSION_STATUS_FINALIZADA,
+          fechaFin: new Date().toISOString(),
+          tiempoTranscurrido: elapsedSeconds,
+          puntajeFinal: score,
+          errores: safeErrorCount,
+          pistasUsadas: 0,
+        },
+      );
 
     return {
       tournament: torneo,
@@ -1564,6 +1891,8 @@ export class TorneosService {
       elapsedSeconds,
       score,
       timeLimitSeconds: rules.timeLimitSeconds,
+      completedBoards,
+      totalBoards: rules.boardCount,
     };
   }
 
@@ -1683,7 +2012,9 @@ export class TorneosService {
       { torneoId },
     );
 
-    return this.sortRankingRows(resultados);
+    return this.attachUserNames(this.sortRankingRows(resultados), {
+      accessToken,
+    });
   }
 
   async obtenerRankingPublico(torneoId: string): Promise<ResultadoRecord[]> {
@@ -1702,20 +2033,25 @@ export class TorneosService {
       { torneoId },
     );
 
-    return this.sortRankingRows(resultados);
+    return this.attachUserNames(this.sortRankingRows(resultados), {
+      usePublicToken: true,
+    });
   }
 
   async obtenerResultadosPorUsuario(
     accessToken: string,
     usuarioId: string,
   ): Promise<ResultadoRecord[]> {
-    return this.roble.read<ResultadoRecord>(
+    const resultados = await this.roble.read<ResultadoRecord>(
       accessToken,
       this.TABLE_RESULTADOS,
       {
         usuarioId,
       },
     );
+    return this.attachUserNames(this.sortRankingRows(resultados), {
+      accessToken,
+    });
   }
 }
 

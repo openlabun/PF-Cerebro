@@ -37,8 +37,8 @@ export class CreateTorneoDto {
   codigoAcceso?: string;
 
   @ApiProperty({
-    example: 'PUNTOS',
-    description: 'Tipo de torneo (PUNTOS| TIEMPO | PVP)',
+    example: 'SERIE',
+    description: 'Tipo unico de torneo soportado actualmente: SERIE',
   })
   @IsString()
   tipo!: string;
@@ -69,5 +69,15 @@ export class CreateTorneoDto {
 
   @IsOptional()
   @IsObject()
+  @ApiProperty({
+    example: {
+      duracionMaximaMin: 20,
+      dificultad: 'Intermedio',
+      numeroTableros: 3,
+    },
+    description:
+      'Configuracion de la serie Sudoku. Debe incluir duracionMaximaMin, dificultad y numeroTableros.',
+    required: false,
+  })
   configuracion?: Record<string, unknown>;
 }

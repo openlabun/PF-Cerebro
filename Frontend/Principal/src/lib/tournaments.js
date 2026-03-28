@@ -8,9 +8,7 @@ export const tournamentStateOptions = [
 ]
 
 export const tournamentTypeOptions = [
-  { value: 'PUNTOS', label: 'Puntos' },
-  { value: 'TIEMPO', label: 'Tiempo' },
-  { value: 'PVP', label: 'PvP' },
+  { value: 'SERIE', label: 'Serie Sudoku' },
 ]
 
 export const tournamentRecurrenceOptions = [
@@ -31,35 +29,28 @@ export const sudokuDifficultyOptions = [
 ]
 
 const COMMON_CONFIG_KEYS = [
-  'maxParticipantes',
   'duracionMaximaMin',
+  'dificultad',
+  'numeroTableros',
+]
+
+const LEGACY_CONFIG_KEYS = [
+  'maxParticipantes',
   'intentosMaximos',
   'pistasMaximas',
-  'dificultad',
   'seedFija',
   'permitirEmpates',
+  'numeroPistas',
+  'pistasPermitidas',
+  'tableros',
+  'cantidadTableros',
 ]
 
 const CONFIG_ENTRY_DEFINITIONS = [
   {
-    key: 'maxParticipantes',
-    label: 'Cupos',
-    format: (value) => String(value),
-  },
-  {
     key: 'duracionMaximaMin',
     label: 'Duracion maxima',
     format: (value) => `${value} min`,
-  },
-  {
-    key: 'intentosMaximos',
-    label: 'Intentos maximos',
-    format: (value) => String(value),
-  },
-  {
-    key: 'pistasMaximas',
-    label: 'Pistas maximas',
-    format: (value) => String(value),
   },
   {
     key: 'dificultad',
@@ -67,16 +58,17 @@ const CONFIG_ENTRY_DEFINITIONS = [
     format: (value) => String(value),
   },
   {
-    key: 'seedFija',
-    label: 'Semilla fija',
+    key: 'numeroTableros',
+    label: 'Numero de tableros',
     format: (value) => String(value),
   },
-  {
-    key: 'permitirEmpates',
-    label: 'Permitir empates',
-    format: (value) => (value ? 'Si' : 'No'),
-  },
 ]
+
+const LEGACY_TOURNAMENT_TYPE_LABELS = {
+  PUNTOS: 'Puntos',
+  TIEMPO: 'Tiempo',
+  PVP: 'PvP',
+}
 
 const allowedTransitions = {
   BORRADOR: ['PROGRAMADO', 'CANCELADO'],
@@ -99,6 +91,7 @@ function formatLabelFromValue(value) {
     tournamentRecurrenceOptions.find((item) => item.value === normalized)
 
   if (option) return option.label
+  if (LEGACY_TOURNAMENT_TYPE_LABELS[normalized]) return LEGACY_TOURNAMENT_TYPE_LABELS[normalized]
   if (!normalized) return 'Sin definir'
   return normalized.charAt(0) + normalized.slice(1).toLowerCase()
 }
@@ -112,18 +105,13 @@ export function getTournamentFormDefaults() {
     nombre: '',
     descripcion: '',
     esPublico: true,
-    tipo: 'PUNTOS',
+    tipo: 'SERIE',
     fechaInicioLocal: toDateTimeLocal(start.toISOString()),
     fechaFinLocal: toDateTimeLocal(end.toISOString()),
     recurrencia: 'NINGUNA',
-    maxParticipantes: '',
-    duracionMaximaMin: '',
-    intentosMaximos: '',
-    pistasMaximas: '',
-    dificultad: '',
-    seedFija: '',
-    permitirEmpates: '',
-    advancedConfigText: '{}',
+    duracionMaximaMin: '20',
+    numeroTableros: '3',
+    dificultad: 'Intermedio',
   }
 }
 
@@ -217,13 +205,22 @@ export function canManageTournament(tournament, user) {
   return Boolean(ownerId) && currentUserIds.includes(ownerId)
 }
 
+function isOpaqueUserId(value) {
+  const normalized = String(value || '').trim()
+  if (!normalized) return false
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)) {
+    return true
+  }
+  return /^[A-Za-z0-9_-]{20,}$/.test(normalized) && !/\s/.test(normalized)
+}
+
 export function getTournamentOwnerLabel(tournament, user) {
-  if (canManageTournament(tournament, user)) return 'Tu'
-
   const ownerName = String(tournament?.creadorNombre || '').trim()
-  if (ownerName) return ownerName
-
   const ownerId = String(tournament?.creadorId || '').trim()
+  if (ownerName && ownerName !== ownerId && !isOpaqueUserId(ownerName)) return ownerName
+
+  if (canManageTournament(tournament, user)) return String(user?.name || '').trim() || 'Tu'
+
   if (!ownerId) return 'Sin creador'
   return ownerId
 }
@@ -250,36 +247,22 @@ export function splitTournamentConfig(configuracion) {
   const extras = {}
 
   const common = {
-    maxParticipantes:
-      Object.prototype.hasOwnProperty.call(config, 'maxParticipantes') && config.maxParticipantes !== null
-        ? String(config.maxParticipantes)
-        : '',
     duracionMaximaMin:
       Object.prototype.hasOwnProperty.call(config, 'duracionMaximaMin') && config.duracionMaximaMin !== null
         ? String(config.duracionMaximaMin)
-        : '',
-    intentosMaximos:
-      Object.prototype.hasOwnProperty.call(config, 'intentosMaximos') && config.intentosMaximos !== null
-        ? String(config.intentosMaximos)
-        : '',
-    pistasMaximas:
-      Object.prototype.hasOwnProperty.call(config, 'pistasMaximas') && config.pistasMaximas !== null
-        ? String(config.pistasMaximas)
         : '',
     dificultad:
       Object.prototype.hasOwnProperty.call(config, 'dificultad') && config.dificultad !== null
         ? String(config.dificultad)
         : '',
-    seedFija:
-      Object.prototype.hasOwnProperty.call(config, 'seedFija') && config.seedFija !== null
-        ? String(config.seedFija)
+    numeroTableros:
+      Object.prototype.hasOwnProperty.call(config, 'numeroTableros') && config.numeroTableros !== null
+        ? String(config.numeroTableros)
         : '',
-    permitirEmpates:
-      config.permitirEmpates === true ? 'true' : config.permitirEmpates === false ? 'false' : '',
   }
 
   Object.entries(config).forEach(([key, value]) => {
-    if (!COMMON_CONFIG_KEYS.includes(key)) {
+    if (!COMMON_CONFIG_KEYS.includes(key) && !LEGACY_CONFIG_KEYS.includes(key)) {
       extras[key] = value
     }
   })
@@ -291,34 +274,17 @@ export function buildTournamentConfig(commonValues, extraValues = {}) {
   const common = commonValues || {}
   const extras = isPlainObject(extraValues) ? extraValues : {}
   const config = { ...extras }
-  const maxParticipantes = Number(common.maxParticipantes)
   const duracionMaximaMin = Number(common.duracionMaximaMin)
-  const intentosMaximos = Number(common.intentosMaximos)
-  const pistasMaximas = Number(common.pistasMaximas)
+  const numeroTableros = Number(common.numeroTableros)
 
-  if (String(common.maxParticipantes || '').trim() && Number.isFinite(maxParticipantes)) {
-    config.maxParticipantes = maxParticipantes
-  }
   if (String(common.duracionMaximaMin || '').trim() && Number.isFinite(duracionMaximaMin)) {
     config.duracionMaximaMin = duracionMaximaMin
-  }
-  if (String(common.intentosMaximos || '').trim() && Number.isFinite(intentosMaximos)) {
-    config.intentosMaximos = intentosMaximos
-  }
-  if (String(common.pistasMaximas || '').trim() && Number.isFinite(pistasMaximas)) {
-    config.pistasMaximas = pistasMaximas
   }
   if (String(common.dificultad || '').trim()) {
     config.dificultad = String(common.dificultad).trim()
   }
-  if (String(common.seedFija || '').trim()) {
-    config.seedFija = String(common.seedFija).trim()
-  }
-  if (common.permitirEmpates === 'true') {
-    config.permitirEmpates = true
-  }
-  if (common.permitirEmpates === 'false') {
-    config.permitirEmpates = false
+  if (String(common.numeroTableros || '').trim() && Number.isFinite(numeroTableros)) {
+    config.numeroTableros = numeroTableros
   }
 
   return config

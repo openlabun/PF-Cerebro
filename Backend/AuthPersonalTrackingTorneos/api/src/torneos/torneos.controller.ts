@@ -20,11 +20,15 @@ import { UpdateTorneoDto } from './dto/update-torneo.dto';
 import { RobleAuthGuard } from 'src/common/guards/roble-auth.guard';
 import * as robleAuthGuard from 'src/common/guards/roble-auth.guard';
 import { FinishTorneoSessionDto } from './dto/finish-torneo-session.dto';
+import { PersonalTrackingBootstrapService } from 'src/personal-tracking/bootstrap/personal-tracking-bootstrap.service';
 
 @ApiTags('Torneos')
 @Controller('torneos')
 export class TorneosController {
-  constructor(private readonly service: TorneosService) {}
+  constructor(
+    private readonly service: TorneosService,
+    private readonly bootstrapService: PersonalTrackingBootstrapService,
+  ) {}
 
   private getUserId(req: robleAuthGuard.RobleRequest): string {
     return req.robleUser.sub;
@@ -34,7 +38,7 @@ export class TorneosController {
     return String(req.robleUser.role ?? '').trim();
   }
 
-  private getUserName(req: robleAuthGuard.RobleRequest): string | null {
+  private getUserName(req: robleAuthGuard.RobleRequest): string {
     const candidates = [req.robleUser.name, req.robleUser.nombre];
 
     for (const candidate of candidates) {
@@ -53,7 +57,26 @@ export class TorneosController {
       return email.split('@')[0] || email;
     }
 
-    return null;
+    return 'Usuario';
+  }
+
+  private getUserEmail(req: robleAuthGuard.RobleRequest): string {
+    const email = String(req.robleUser.email ?? '').trim();
+    if (!email || email === 'undefined' || email === 'null') {
+      return '';
+    }
+    return email;
+  }
+
+  private async ensureCurrentUserProfile(
+    req: robleAuthGuard.RobleRequest,
+  ): Promise<void> {
+    await this.bootstrapService.ensureInitialized(
+      req.accessToken,
+      this.getUserId(req),
+      this.getUserName(req),
+      this.getUserEmail(req),
+    );
   }
 
   @Get('public')
@@ -80,6 +103,7 @@ export class TorneosController {
   @ApiBearerAuth()
   @UseGuards(RobleAuthGuard)
   async listar(@Req() req: robleAuthGuard.RobleRequest) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
     const userRole = this.getUserRole(req);
 
@@ -93,6 +117,7 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('usuarioId') usuarioId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     return this.service.obtenerResultadosPorUsuario(req.accessToken, usuarioId);
   }
 
@@ -103,6 +128,7 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('id') torneoId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
     const userRole = this.getUserRole(req);
 
@@ -122,6 +148,7 @@ export class TorneosController {
     @Param('id') torneoId: string,
     @Body() dto: UpdateEstadoTorneoDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
     const userRole = this.getUserRole(req);
 
@@ -142,6 +169,7 @@ export class TorneosController {
     @Param('id') torneoId: string,
     @Body() dto: UpdateTorneoDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
     const userRole = this.getUserRole(req);
 
@@ -161,6 +189,7 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('id') torneoId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
     const userRole = this.getUserRole(req);
 
@@ -179,15 +208,10 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Body() dto: CreateTorneoDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
-    const usuarioNombre = this.getUserName(req);
 
-    return this.service.crearTorneo(
-      req.accessToken,
-      usuarioId,
-      usuarioNombre,
-      dto,
-    );
+    return this.service.crearTorneo(req.accessToken, usuarioId, dto);
   }
 
   @Post(':id/unirse')
@@ -198,6 +222,7 @@ export class TorneosController {
     @Param('id') torneoId: string,
     @Body() dto: UnirseTorneoDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
 
     return this.service.unirseATorneo(
@@ -215,13 +240,10 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('id') torneoId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
 
-    return this.service.iniciarSesionTorneo(
-      req.accessToken,
-      torneoId,
-      usuarioId,
-    );
+    return this.service.iniciarSesionTorneo(req.accessToken, torneoId, usuarioId);
   }
 
   @Post(':id/sesiones/:sessionId/finalizar')
@@ -233,6 +255,7 @@ export class TorneosController {
     @Param('sessionId') sessionId: string,
     @Body() dto: FinishTorneoSessionDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
 
     return this.service.finalizarSesionTorneo(
@@ -251,6 +274,7 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('id') torneoId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     return this.service.listarParticipantes(req.accessToken, torneoId);
   }
 
@@ -262,6 +286,7 @@ export class TorneosController {
     @Param('id') torneoId: string,
     @Body() dto: CreateResultadoDto,
   ) {
+    await this.ensureCurrentUserProfile(req);
     const usuarioId = this.getUserId(req);
 
     return this.service.registrarResultado(
@@ -279,6 +304,7 @@ export class TorneosController {
     @Req() req: robleAuthGuard.RobleRequest,
     @Param('id') torneoId: string,
   ) {
+    await this.ensureCurrentUserProfile(req);
     return this.service.obtenerRanking(req.accessToken, torneoId);
   }
 }

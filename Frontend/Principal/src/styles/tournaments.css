@@ -60,6 +60,61 @@
   color: var(--muted);
 }
 
+.tournament-layout {
+  display: grid;
+  gap: 1rem;
+}
+
+.tournament-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.tournament-columns--pair {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tournament-columns--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tournament-column-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  align-content: start;
+  min-height: 25rem;
+  max-height: 38rem;
+  overflow: hidden;
+}
+
+.tournament-column-panel--wide {
+  min-height: 18rem;
+  max-height: 28rem;
+}
+
+.tournament-card-list {
+  display: grid;
+  gap: 0.85rem;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.tournament-card-list::-webkit-scrollbar {
+  width: 0.55rem;
+}
+
+.tournament-card-list::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+.tournament-card-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .tournament-panel {
   padding: 1.25rem;
 }
@@ -93,6 +148,22 @@
 
 .tournament-form-field-full {
   grid-column: 1 / -1;
+}
+
+.tournament-static-field {
+  display: grid;
+  align-items: center;
+  min-height: 52px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+  padding: 0.95rem 1rem;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.tournament-static-field--stacked {
+  gap: 0.35rem;
 }
 
 .tournament-panel .auth-field select,
@@ -179,6 +250,15 @@
 .tournament-card h3 {
   margin: 0;
   font-size: 1.35rem;
+}
+
+.tournament-card--compact {
+  gap: 0.85rem;
+  padding: 1rem;
+}
+
+.tournament-card--compact .mode-copy {
+  margin: 0;
 }
 
 .tournament-card-top {
@@ -470,12 +550,25 @@
 @media (max-width: 980px) {
   .tournaments-hero,
   .tournament-detail-hero,
-  .tournament-detail-grid {
+  .tournament-detail-grid,
+  .tournament-columns,
+  .tournament-columns--pair {
     grid-template-columns: 1fr;
   }
 
   .tournaments-hero-actions {
     justify-content: flex-start;
+  }
+
+  .tournament-column-panel,
+  .tournament-column-panel--wide {
+    min-height: auto;
+    max-height: none;
+  }
+
+  .tournament-card-list {
+    overflow: visible;
+    padding-right: 0;
   }
 }
 
