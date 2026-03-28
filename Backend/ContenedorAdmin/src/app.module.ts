@@ -6,10 +6,12 @@ import { AuthModule } from './auth/auth.module';
 import { AdminRoleGuard } from './common/guards/admin-role.guard';
 import { RobleAuthGuard } from './common/guards/roble-auth.guard';
 import { HealthController } from './health/health.controller';
+import { LiveController } from './live/live.controller';
+import { LiveService } from './live/live.service';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule],
-  controllers: [HealthController, AdminController],
-  providers: [AdminService, RobleAuthGuard, AdminRoleGuard],
+  controllers: [HealthController, AdminController, LiveController],
+  providers: [AdminService, RobleAuthGuard, AdminRoleGuard, LiveService],
 })
 export class AppModule {}

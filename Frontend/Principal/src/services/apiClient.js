@@ -3,14 +3,18 @@ import { resolveConfig } from '../config.js'
 function buildUrl(baseUrl, path) {
   const config = resolveConfig()
   const normalizedPath = String(path || '').replace(/^\/+/, '')
-  const resolvedBaseUrl =
-    baseUrl === 'pvp'
-      ? config.PVP_API_BASE_URL
-      : baseUrl === 'pvp-auth'
-        ? config.PVP_AUTH_API_BASE_URL
-        : baseUrl === 'pvp-webhook'
-          ? config.PVP_WEBHOOK_API_BASE_URL
-        : config.AUTH_API_BASE_URL
+  let resolvedBaseUrl = config.AUTH_API_BASE_URL
+
+  if (baseUrl === 'pvp') {
+    resolvedBaseUrl = config.PVP_API_BASE_URL
+  } else if (baseUrl === 'pvp-auth') {
+    resolvedBaseUrl = config.PVP_AUTH_API_BASE_URL
+  } else if (baseUrl === 'pvp-webhook') {
+    resolvedBaseUrl = config.PVP_WEBHOOK_API_BASE_URL
+  } else if (baseUrl === 'admin-live') {
+    resolvedBaseUrl = config.ADMIN_LIVE_API_BASE_URL
+  }
+
   return normalizedPath ? `${resolvedBaseUrl}/${normalizedPath}` : resolvedBaseUrl
 }
 
@@ -73,7 +77,7 @@ function getStoredAccessTokenForBase(baseUrl) {
   const session = authStorage.getSession()
   if (!session) return null
 
-  if (baseUrl === 'auth') {
+  if (baseUrl === 'auth' || baseUrl === 'admin-live') {
     return session.c1AccessToken || session.accessToken || null
   }
 
@@ -133,7 +137,7 @@ async function refreshSessionForBase(baseUrl) {
   const session = authStorage.getSession()
   if (!session) return null
 
-  if (baseUrl === 'auth') {
+  if (baseUrl === 'auth' || baseUrl === 'admin-live') {
     const refreshToken = session.c1RefreshToken || session.refreshToken
     if (!refreshToken) return null
 
@@ -633,6 +637,15 @@ export const apiClient = {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
+    })
+  },
+
+  sendLiveHeartbeat(payload, accessToken) {
+    return request('heartbeat', {
+      method: 'POST',
+      baseUrl: 'admin-live',
+      token: accessToken,
+      body: payload,
     })
   },
 

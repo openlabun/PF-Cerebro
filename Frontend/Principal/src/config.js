@@ -1,5 +1,6 @@
 const DEFAULT_CONFIG = Object.freeze({
   AUTH_API_BASE_URL: '/api',
+  ADMIN_LIVE_API_BASE_URL: '/api/admin/live',
   PVP_API_BASE_URL: '/api/pvp',
   PVP_AUTH_API_BASE_URL: '/api/pvp-auth',
   PVP_WEBHOOK_API_BASE_URL: '/api/pvp-webhook',
@@ -28,6 +29,7 @@ export function resolveConfig() {
       typeof authBaseUrl === 'string' && authBaseUrl.trim() !== ''
         ? authBaseUrl.trim().replace(/\/+$/, '')
         : DEFAULT_CONFIG.AUTH_API_BASE_URL,
+    ADMIN_LIVE_API_BASE_URL: DEFAULT_CONFIG.ADMIN_LIVE_API_BASE_URL,
     PVP_API_BASE_URL: DEFAULT_CONFIG.PVP_API_BASE_URL,
     PVP_AUTH_API_BASE_URL: DEFAULT_CONFIG.PVP_AUTH_API_BASE_URL,
     PVP_WEBHOOK_API_BASE_URL: DEFAULT_CONFIG.PVP_WEBHOOK_API_BASE_URL,

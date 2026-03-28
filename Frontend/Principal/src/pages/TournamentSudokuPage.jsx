@@ -4,6 +4,7 @@ import SudokuControlsPanel from '../components/SudokuControlsPanel.jsx'
 import { SudokuGameProvider, formatSudokuTime } from '../context/SudokuGameContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useTournamentSudokuGame } from '../hooks/useTournamentSudokuGame.js'
+import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import {
   formatTournamentDate,
   formatTournamentState,
@@ -63,6 +64,22 @@ function TournamentSudokuPageContent() {
   const closingError = Boolean(pageError) && submissionRequested && !completedOutcome
   const resolvedTotalBoards = totalBoards || Number(game?.boardCount || 1)
   const seriesProgressLabel = `${completedBoardCount}/${resolvedTotalBoards} tableros completados`
+
+  useLiveHeartbeat(
+    {
+      mode: 'torneo',
+      difficulty: difficulty?.label || '',
+      state: completedOutcome
+        ? 'finished'
+        : submissionRequested
+          ? 'submitting'
+          : controlsDisabled
+            ? 'paused'
+            : 'playing',
+      tournamentId,
+    },
+    { enabled: Boolean(accessToken) },
+  )
 
   if (loading) {
     return (

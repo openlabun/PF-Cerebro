@@ -4,6 +4,7 @@ import DifficultySelect from '../components/DifficultySelect.jsx'
 import { SudokuGameProvider } from '../context/SudokuGameContext.jsx'
 import { formatSudokuTime } from '../context/SudokuGameContext.jsx'
 import { useLocalSudokuGame } from '../hooks/useLocalSudokuGame.js'
+import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { difficultyLevels } from '../lib/sudoku.js'
 
 function SudokuPageContent() {
@@ -39,6 +40,12 @@ function SudokuPageContent() {
     applyHint,
     clearSelectedCell,
   } = useLocalSudokuGame()
+
+  useLiveHeartbeat({
+    mode: 'sudoku',
+    difficulty: difficulty.label,
+    state: completed ? 'completed' : paused ? 'paused' : 'playing',
+  })
 
   return (
     <main>

@@ -11,6 +11,7 @@ import {
 } from '../context/SudokuGameContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { useSudokuKeyboardControls } from '../hooks/useSudokuKeyboardControls.js'
+import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { generatePvpBoard } from '../lib/pvpSudoku.js'
 import {
   clearNotesCell,
@@ -373,6 +374,17 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   const elapsedSeconds = startedAt ? Math.floor((clockNow - startedAt) / 1000) : 0
   const isWaiting = match?.estado === 'WAITING'
   const isActive = match?.estado === 'ACTIVE'
+
+  useLiveHeartbeat(
+    {
+      mode: isWaiting ? 'pvp_lobby' : 'pvp',
+      difficulty: difficulty?.label || '',
+      state: loading ? 'loading' : String(match?.estado || (shouldAutoJoin ? 'joining' : 'waiting')).toLowerCase(),
+      matchId,
+      tournamentId,
+    },
+    { enabled: Boolean(c2AccessToken) },
+  )
 
   useEffect(() => {
     winnerModalShownRef.current = false

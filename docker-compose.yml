@@ -15,6 +15,7 @@ services:
     depends_on:
       - cerebro-api
       - backend-pvp
+      - backend-admin
 
   cerebro-api:
     container_name: cerebro-api

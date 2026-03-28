@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DifficultySelect from '../components/DifficultySelect.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { difficultyLevels, getDifficultyByKey, getHintLimit } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
 
@@ -28,6 +29,15 @@ function SimulationPage() {
   const hintLimit = getHintLimit(difficulty)
   const displayName = String(user?.name || user?.email || 'Jugador').trim() || 'Jugador'
   const normalizedJoinCode = joinCode.replace(/\D/g, '').slice(0, 5)
+
+  useLiveHeartbeat(
+    {
+      mode: 'pvp_lobby',
+      difficulty: difficulty.label,
+      state: creating ? 'creating' : joining ? 'joining' : 'ready',
+    },
+    { enabled: isAuthenticated },
+  )
 
   if (!isAuthenticated) return null
 
