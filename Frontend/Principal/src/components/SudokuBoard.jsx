@@ -1,16 +1,20 @@
 import { useSudokuGame } from '../context/SudokuGameContext.jsx'
 
-function renderNotes(notes, rowIndex, colIndex, selectedValue) {
+function renderNotes(notes, rowIndex, colIndex, selectedValue, highlightEnabled) {
   return (
     <div className="notes-grid">
-      {Array.from({ length: 9 }, (_, offset) => offset + 1).map((note) => (
-        <div
-          key={note}
-          className={`note${selectedValue !== 0 && note === selectedValue ? ' highlight-same-note' : ''}`}
-        >
-          {notes[rowIndex][colIndex].has(note) ? note : ''}
-        </div>
-      ))}
+      {Array.from({ length: 9 }, (_, offset) => offset + 1).map((note) => {
+        const hasNote = notes[rowIndex][colIndex].has(note)
+
+        return (
+          <div
+            key={note}
+            className={`note${highlightEnabled && hasNote && selectedValue !== 0 && note === selectedValue ? ' highlight-same-note' : ''}`}
+          >
+            {hasNote ? note : ''}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -62,7 +66,7 @@ function SudokuBoard({ ariaLabel = 'Tablero Sudoku' }) {
               type="button"
               onClick={() => setSelectedCell({ row: rowIndex, col: colIndex })}
             >
-              {value !== 0 ? <span>{value}</span> : hasNotes ? renderNotes(notes, rowIndex, colIndex, selectedValue) : null}
+              {value !== 0 ? <span>{value}</span> : hasNotes ? renderNotes(notes, rowIndex, colIndex, selectedValue, highlightEnabled) : null}
             </button>
           )
         }),

@@ -1441,9 +1441,23 @@ main,
     gap: 1.25rem;
   }
 
+  .sudoku-grid-wrap,
+  .sudoku-controls {
+    width: 100%;
+  }
+
+  .sudoku-controls {
+    min-width: 0;
+  }
+
   .sudoku-game-card .board {
-    width: min(540px, calc(100vw - 2rem));
-    height: min(540px, calc(100vw - 2rem));
+    width: min(100%, 540px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .sudoku-game-card .keypad-nums {
+    margin: 0 auto;
   }
 
   .simulation-card--pvp {
