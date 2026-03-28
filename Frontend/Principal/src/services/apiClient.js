@@ -110,6 +110,7 @@ async function performRequest(path, options = {}, tokenOverride = null) {
 
   const response = await fetch(buildUrl(baseUrl, path), {
     method,
+    cache: 'no-store',
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
@@ -501,6 +502,15 @@ export const apiClient = {
 
   joinPvpMatch(matchId, payload = {}, accessToken) {
     return request(`match/${matchId}/join`, {
+      method: 'POST',
+      baseUrl: 'pvp',
+      token: accessToken,
+      body: payload,
+    })
+  },
+
+  joinPvpMatchByCode(payload = {}, accessToken) {
+    return request('match/join-by-code', {
       method: 'POST',
       baseUrl: 'pvp',
       token: accessToken,

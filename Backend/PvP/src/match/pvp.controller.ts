@@ -14,6 +14,7 @@ import type { RobleRequest } from '../common/types/roble-request';
 import { getUserIdFromAccessToken } from '../common/utils/jwt.utils';
 import { MatchService } from './match.service';
 import { CreateMatchDto } from './dto/create-match.dto';
+import { JoinMatchByCodeDto } from './dto/join-match-by-code.dto';
 import { JoinMatchDto } from './dto/join-match.dto';
 import { MakeMoveDto } from './dto/make-move.dto';
 
@@ -42,6 +43,21 @@ export class PvpController {
       req.accessToken,
       dto.tokenC1,
       dto.difficultyKey,
+      dto.displayName,
+    );
+  }
+
+  @Post('match/join-by-code')
+  async joinMatchByCode(
+    @Req() req: RobleRequest,
+    @Body() dto: JoinMatchByCodeDto,
+  ): Promise<unknown> {
+    const usuarioId = this.extractUserId(req.accessToken);
+    return this.matchService.joinMatchByCode(
+      dto.joinCode,
+      usuarioId,
+      req.accessToken,
+      dto.displayName,
     );
   }
 
@@ -58,6 +74,7 @@ export class PvpController {
       req.accessToken,
       dto.tokenC1,
       dto.inviteToken,
+      dto.displayName,
     );
   }
 

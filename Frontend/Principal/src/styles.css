@@ -346,6 +346,39 @@ main,
   line-height: 1.45;
 }
 
+.simulation-pvp-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.simulation-pvp-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+}
+
+.simulation-pvp-panel--join {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 20%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface) 88%, var(--primary) 12%);
+}
+
+.simulation-subtitle {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.3vw, 1.8rem);
+  color: var(--text);
+}
+
+.simulation-panel-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .simulation-cta {
   width: 100%;
   min-height: 54px;
@@ -362,6 +395,31 @@ main,
 .simulation-field span {
   color: var(--text);
   font-weight: 700;
+}
+
+.simulation-code-input {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--primary) 10%);
+  padding: 1rem 1.1rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
+.simulation-code-input::placeholder {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+  letter-spacing: 0.18em;
+}
+
+.simulation-code-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border));
 }
 
 .section-heading {
@@ -646,17 +704,30 @@ main,
   margin: 0;
 }
 
-.pvp-invite-box {
-  overflow-x: auto;
+.pvp-code-box {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
-  padding: 0.85rem 1rem;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 84%, var(--primary) 16%), color-mix(in srgb, var(--surface) 96%, var(--primary) 4%));
+  padding: 1rem 1.2rem;
 }
 
-.pvp-invite-box code {
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+.pvp-code-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pvp-code-value {
+  color: var(--text);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
 }
 
 .pvp-opponent-card {
@@ -1287,6 +1358,28 @@ main,
   min-width: 180px;
 }
 
+.pvp-finish-card {
+  width: min(92vw, 460px);
+  padding: 1.35rem 1.15rem 1.2rem;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 52%),
+    linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--surface) 84%, #d3f1e0 16%));
+}
+
+.pvp-finish-winner {
+  margin: 0 0 0.85rem;
+  color: var(--text);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pvp-finish-meta {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 930px) {
   nav {
     display: none;
@@ -1318,6 +1411,10 @@ main,
 
   .simulation-card--pvp {
     gap: 1.5rem;
+  }
+
+  .simulation-pvp-layout {
+    grid-template-columns: 1fr;
   }
 }
 

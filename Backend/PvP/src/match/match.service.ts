@@ -13,7 +13,10 @@ import { RobleService } from '../roble/roble.service';
 import { SudokuService } from '../sudoku/sudoku.service';
 import { WebhookService } from '../webhook/webhook.service';
 import { RankingService } from '../ranking/ranking.service';
-import { getUserIdFromAccessToken } from '../common/utils/jwt.utils';
+import {
+  getUserDisplayNameFromAccessToken,
+  getUserIdFromAccessToken,
+} from '../common/utils/jwt.utils';
 import {
   CerebroPvpSyncMatchSnapshot,
   CerebroPvpSyncPlayerSnapshot,
@@ -26,6 +29,9 @@ const LEGACY_ROW_FORFEIT = -2;
 const LEGACY_ROW_FINISHED = -3;
 const STANDALONE_MATCH_PREFIX = 'standalone:';
 const DEFAULT_PVP_DIFFICULTY_KEY = 'medio';
+const PVP_JOIN_CODE_LENGTH = 5;
+const PVP_JOIN_CODE_MIN = 10 ** (PVP_JOIN_CODE_LENGTH - 1);
+const PVP_JOIN_CODE_MAX = 10 ** PVP_JOIN_CODE_LENGTH - 1;
 
 interface MatchRecord {
   _id?: string;
@@ -88,6 +94,7 @@ interface MatchState {
 
 interface PublicPlayerSummary {
   playerId: string;
+  displayName?: string | null;
   score: number;
   mistakes: number;
   correctCells: number;
@@ -110,6 +117,10 @@ interface StandaloneMatchScope {
   difficultyKey: string | null;
 }
 
+interface Contenedor1ProfileResponse {
+  nombre?: string | null;
+}
+
 function normalizeStoredBoolean(value: unknown): boolean {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') {
@@ -127,6 +138,9 @@ export class MatchService {
   private readonly contenedor1Url: string;
   private readonly matchOwnerToken = new Map<string, string>();
   private readonly userTokenCache = new Map<string, string>();
+  private readonly userDisplayNameCache = new Map<string, string>();
+  private readonly reservedStandaloneJoinCodes = new Set<string>();
+  private reservedStandaloneJoinCodesLoaded = false;
 
   constructor(
     private readonly roble: RobleService,
@@ -143,7 +157,10 @@ export class MatchService {
 
   private stripSolution(state: MatchState) {
     const { solution, ...rest } = state;
-    return rest;
+    return {
+      ...rest,
+      joinCode: rest.inviteToken,
+    };
   }
 
   private cacheUserToken(userId: string, token: string) {
@@ -157,8 +174,135 @@ export class MatchService {
     return normalized ? normalized : null;
   }
 
-  private generateInviteToken(): string {
-    return randomBytes(12).toString('hex');
+  private normalizeJoinCode(value: unknown): string | null {
+    if (typeof value !== 'string' && typeof value !== 'number') return null;
+    const normalized = String(value).replace(/\D/g, '').trim();
+    if (!normalized) return null;
+    return /^\d{4,5}$/.test(normalized) ? normalized : null;
+  }
+
+  private rememberUserDisplayName(
+    userId: string,
+    displayName?: string,
+  ) {
+    if (!userId) return;
+
+    const explicitName = this.normalizeOptionalString(displayName);
+    if (explicitName) {
+      this.userDisplayNameCache.set(userId, explicitName);
+    }
+  }
+
+  private resolveUserDisplayName(userId: string | null | undefined): string | null {
+    if (!userId) return null;
+    return this.userDisplayNameCache.get(userId) ?? userId;
+  }
+
+  private getFallbackUserDisplayName(
+    token?: string,
+    displayName?: string,
+  ): string | null {
+    const explicitName = this.normalizeOptionalString(displayName);
+    if (explicitName) return explicitName;
+
+    return token
+      ? this.normalizeOptionalString(getUserDisplayNameFromAccessToken(token))
+      : null;
+  }
+
+  private async fetchContenedor1ProfileDisplayName(
+    token?: string,
+  ): Promise<string | null> {
+    if (!token || !this.contenedor1Url) return null;
+
+    try {
+      const response = await firstValueFrom(
+        this.http.post<Contenedor1ProfileResponse>(
+          `${this.contenedor1Url}/profiles/me`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        ),
+      );
+
+      return this.normalizeOptionalString(response.data?.nombre);
+    } catch (error: any) {
+      this.logger.warn(
+        `No se pudo resolver nombre desde Perfil en Contenedor1: ${error?.response?.data?.message || error?.message || error}`,
+      );
+      return null;
+    }
+  }
+
+  private async primeUserDisplayName(
+    userId: string,
+    token?: string,
+    displayName?: string,
+  ) {
+    if (!userId) return;
+    if (this.userDisplayNameCache.has(userId)) return;
+
+    const profileDisplayName = await this.fetchContenedor1ProfileDisplayName(
+      token,
+    );
+    const resolvedDisplayName =
+      profileDisplayName || this.getFallbackUserDisplayName(token, displayName);
+    if (resolvedDisplayName) {
+      this.rememberUserDisplayName(userId, resolvedDisplayName);
+    }
+  }
+
+  private generateJoinCodeCandidate(): string {
+    const randomValue = randomBytes(4).readUInt32BE(0);
+    const numericRange = PVP_JOIN_CODE_MAX - PVP_JOIN_CODE_MIN + 1;
+    return String(PVP_JOIN_CODE_MIN + (randomValue % numericRange));
+  }
+
+  private async ensureReservedJoinCodesLoaded(token: string) {
+    if (this.reservedStandaloneJoinCodesLoaded) return;
+
+    let matches: MatchRecord[] = [];
+    try {
+      matches = await this.roble.read<MatchRecord>(token, 'Matches');
+    } catch (error) {
+      this.logger.warn(
+        `No se pudieron leer matches para cargar codigos PvP reservados: ${(error as Error)?.message || error}`,
+      );
+      return;
+    }
+
+    this.reservedStandaloneJoinCodes.clear();
+    for (const match of matches) {
+      const joinCode = this.parseStandaloneScope(match?.torneoId || null)?.inviteToken;
+      if (joinCode) {
+        this.reservedStandaloneJoinCodes.add(joinCode);
+      }
+    }
+
+    this.reservedStandaloneJoinCodesLoaded = true;
+  }
+
+  private rememberReservedJoinCode(joinCode?: string | null) {
+    const normalizedJoinCode = this.normalizeOptionalString(joinCode);
+    if (normalizedJoinCode) {
+      this.reservedStandaloneJoinCodes.add(normalizedJoinCode);
+    }
+  }
+
+  private async generateUniqueJoinCode(token: string): Promise<string> {
+    await this.ensureReservedJoinCodesLoaded(token);
+
+    for (let attempt = 0; attempt < 40; attempt += 1) {
+      const candidate = this.generateJoinCodeCandidate();
+      if (!this.reservedStandaloneJoinCodes.has(candidate)) {
+        return candidate;
+      }
+    }
+
+    throw new BadRequestException(
+      'No se pudo generar un codigo PvP disponible. Intenta de nuevo.',
+    );
   }
 
   private buildStandaloneScopeId(
@@ -202,8 +346,12 @@ export class MatchService {
     expectedInviteToken: string | null,
     providedInviteToken?: string,
   ) {
-    const expected = this.normalizeOptionalString(expectedInviteToken);
-    const provided = this.normalizeOptionalString(providedInviteToken);
+    const expected =
+      this.normalizeJoinCode(expectedInviteToken) ??
+      this.normalizeOptionalString(expectedInviteToken);
+    const provided =
+      this.normalizeJoinCode(providedInviteToken) ??
+      this.normalizeOptionalString(providedInviteToken);
 
     if (!expected) {
       throw new BadRequestException(
@@ -346,7 +494,11 @@ export class MatchService {
     };
   }
 
-  private sanitizeMatchForUser(state: MatchState, usuarioId: string) {
+  private sanitizeMatchForUser(
+    state: MatchState,
+    usuarioId: string,
+    requesterToken?: string,
+  ) {
     const safe = this.stripSolution(state);
     const isPlayer1 = state.jugador1Id === usuarioId;
     const isPlayer2 = state.jugador2Id === usuarioId;
@@ -356,11 +508,19 @@ export class MatchService {
 
     const myGame = isPlayer1 ? state.player1 : state.player2!;
     const opponentGame = isPlayer1 ? state.player2 : state.player1;
+    const myDisplayName = this.resolveUserDisplayName(myGame.playerId);
+    const opponentDisplayName = opponentGame
+      ? this.resolveUserDisplayName(opponentGame.playerId)
+      : null;
+    const winnerDisplayName = state.ganadorId
+      ? this.resolveUserDisplayName(state.ganadorId)
+      : null;
 
     return {
       _id: safe._id,
       torneoId: safe.torneoId,
       inviteToken: safe.inviteToken,
+      joinCode: safe.inviteToken,
       difficultyKey: safe.difficultyKey,
       jugador1Id: safe.jugador1Id,
       jugador2Id: safe.jugador2Id,
@@ -369,11 +529,18 @@ export class MatchService {
       puntaje1: safe.puntaje1,
       puntaje2: safe.puntaje2,
       ganadorId: safe.ganadorId,
+      myDisplayName,
+      winnerDisplayName,
       fechaCreacion: safe.fechaCreacion,
       fechaInicio: safe.fechaInicio,
       fechaFin: safe.fechaFin,
       myGame,
-      opponent: opponentGame ? this.toPublicPlayerSummary(opponentGame) : null,
+      opponent: opponentGame
+        ? {
+            ...this.toPublicPlayerSummary(opponentGame),
+            displayName: opponentDisplayName,
+          }
+        : null,
     };
   }
 
@@ -554,6 +721,7 @@ export class MatchService {
     allMoves: MovimientoRecord[],
     startedAt: string | null,
     referenceNowMs: number,
+    matchEndedAt: string | null = null,
   ): PlayerProgress {
     const boardState = this.cloneBoard(baseBoard);
     const emptyCells = baseBoard.flat().filter((c) => c === 0).length;
@@ -594,9 +762,11 @@ export class MatchService {
 
     const startedMs = this.parseDateMs(startedAt);
     const finishedMs = this.parseDateMs(finishedAt);
+    const matchEndedMs = this.parseDateMs(matchEndedAt);
+    const effectiveEndMs = finishedMs ?? matchEndedMs;
     const durationMs =
-      startedMs !== null && finishedMs !== null
-        ? Math.max(0, finishedMs - startedMs)
+      startedMs !== null && effectiveEndMs !== null
+        ? Math.max(0, effectiveEndMs - startedMs)
         : null;
     const elapsedMsForScore =
       durationMs ??
@@ -659,6 +829,10 @@ export class MatchService {
     );
     const referenceNowMs = Date.now();
     const startedAt = legacy.fechaInicio ?? base.fechaInicio ?? null;
+    const matchEndedAt =
+      legacy.estado === 'FINISHED' || legacy.estado === 'FORFEIT'
+        ? legacy.fechaFin ?? base.fechaFin ?? null
+        : null;
     const player1 = this.calculatePlayerProgress(
       base.jugador1Id,
       board,
@@ -666,6 +840,7 @@ export class MatchService {
       movimientos,
       startedAt,
       referenceNowMs,
+      matchEndedAt,
     );
     const player2 = legacy.jugador2Id
       ? this.calculatePlayerProgress(
@@ -675,6 +850,7 @@ export class MatchService {
           movimientos,
           startedAt,
           referenceNowMs,
+          matchEndedAt,
         )
       : null;
 
@@ -777,8 +953,10 @@ export class MatchService {
     token: string,
     tokenC1?: string,
     difficultyKey?: string,
+    displayName?: string,
   ) {
     this.cacheUserToken(usuarioId, token);
+    await this.primeUserDisplayName(usuarioId, token, displayName);
     const normalizedTorneoId = this.normalizeOptionalString(torneoId);
     const normalizedTokenC1 = this.normalizeOptionalString(tokenC1);
     const normalizedDifficultyKey =
@@ -800,10 +978,12 @@ export class MatchService {
       seed,
       normalizedDifficultyKey,
     );
-    const inviteToken = this.generateInviteToken();
+    const inviteToken = normalizedTorneoId
+      ? null
+      : await this.generateUniqueJoinCode(token);
     const storedTorneoId = normalizedTorneoId
       ? normalizedTorneoId
-      : this.buildStandaloneScopeId(inviteToken, normalizedDifficultyKey);
+      : this.buildStandaloneScopeId(inviteToken!, normalizedDifficultyKey);
 
     const result = await this.roble.insert<MatchRecord>(token, 'Matches', [
       {
@@ -833,6 +1013,7 @@ export class MatchService {
     }
 
     this.rememberMatchOwnerToken(created._id!, usuarioId, token);
+    this.rememberReservedJoinCode(inviteToken);
     const state = await this.rebuildState(created._id!, token);
     await this.syncCerebroMatch(state);
     return this.stripSolution(state);
@@ -844,8 +1025,10 @@ export class MatchService {
     token: string,
     tokenC1?: string,
     inviteToken?: string,
+    displayName?: string,
   ) {
     this.cacheUserToken(usuarioId, token);
+    await this.primeUserDisplayName(usuarioId, token, displayName);
     const state = await this.rebuildState(matchId, token);
     if (state.estado !== 'WAITING')
       throw new BadRequestException('El match no esta en espera');
@@ -895,6 +1078,70 @@ export class MatchService {
     const updated = await this.rebuildState(matchId, token);
     await this.syncCerebroMatch(updated);
     return this.stripSolution(updated);
+  }
+
+  async joinMatchByCode(
+    joinCode: string,
+    usuarioId: string,
+    token: string,
+    displayName?: string,
+  ) {
+    const normalizedJoinCode = this.normalizeJoinCode(joinCode);
+    if (!normalizedJoinCode) {
+      throw new BadRequestException(
+        'Ingresa un codigo PvP valido de 4 o 5 digitos.',
+      );
+    }
+
+    let matches: MatchRecord[] = [];
+    try {
+      matches = await this.roble.read<MatchRecord>(token, 'Matches');
+    } catch (error) {
+      this.logger.warn(
+        `No se pudieron leer matches para unirse por codigo PvP: ${(error as Error)?.message || error}`,
+      );
+      throw new NotFoundException(
+        'No hay partidas disponibles con ese codigo.',
+      );
+    }
+
+    const candidates = matches
+      .filter((match) => match?._id)
+      .filter((match) => {
+        const standaloneScope = this.parseStandaloneScope(match.torneoId);
+        return standaloneScope?.inviteToken === normalizedJoinCode;
+      })
+      .sort(
+        (left, right) =>
+          new Date(right.fechaCreacion || 0).getTime() -
+          new Date(left.fechaCreacion || 0).getTime(),
+      );
+
+    for (const candidate of candidates) {
+      try {
+        const state = await this.rebuildState(candidate._id!, token);
+        if (
+          !state.torneoId &&
+          state.inviteToken === normalizedJoinCode &&
+          state.estado === 'WAITING'
+        ) {
+          return this.joinMatch(
+            state._id,
+            usuarioId,
+            token,
+            undefined,
+            normalizedJoinCode,
+            displayName,
+          );
+        }
+      } catch (error) {
+        this.logger.warn(
+          `No se pudo evaluar el match ${candidate._id} para join-by-code: ${(error as Error)?.message || error}`,
+        );
+      }
+    }
+
+    throw new NotFoundException('No hay partidas en espera con ese codigo.');
   }
 
   async makeMove(
@@ -980,34 +1227,10 @@ export class MatchService {
           token,
         )
         .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
-
-      await this.syncCerebroMatch(updated);
-    }
-
-    if (
-      updated.estado === 'ACTIVE' &&
-      updated.player2 &&
-      updated.player1.finished &&
-      updated.player2.finished
-    ) {
-      const p1 = updated.player1;
-      const p2 = updated.player2;
-
-      let ganadorId: string;
-      if (p1.score !== p2.score) {
-        ganadorId = p1.score > p2.score ? updated.jugador1Id : updated.jugador2Id!;
-      } else {
-        const p1Time = p1.durationMs ?? Number.MAX_SAFE_INTEGER;
-        const p2Time = p2.durationMs ?? Number.MAX_SAFE_INTEGER;
-        if (p1Time !== p2Time) {
-          ganadorId = p1Time < p2Time ? updated.jugador1Id : updated.jugador2Id!;
-        } else {
-          ganadorId = updated.jugador1Id;
-        }
-      }
-
+      const ganadorId = usuarioId;
       const perdedorId =
         ganadorId === updated.jugador1Id ? updated.jugador2Id! : updated.jugador1Id;
+      const fechaFin = playerAfter.finishedAt ?? new Date().toISOString();
 
       try {
         await this.updateMatchWithFallback(
@@ -1017,9 +1240,9 @@ export class MatchService {
           {
             estado: 'FINISHED',
             ganadorId,
-            fechaFin: new Date().toISOString(),
-            puntaje1: p1.score,
-            puntaje2: p2.score,
+            fechaFin,
+            puntaje1: updated.player1.score,
+            puntaje2: updated.player2?.score ?? 0,
           },
         );
       } catch (err) {
@@ -1036,6 +1259,8 @@ export class MatchService {
         token,
       );
       const finishedState = await this.rebuildState(matchId, token);
+      const p1 = finishedState.player1;
+      const p2 = finishedState.player2!;
       await this.syncCerebroMatch(finishedState, {
         endedReason: 'completed',
         eloAfterByUserId: {
@@ -1052,12 +1277,12 @@ export class MatchService {
             matchId,
             ganadorId,
             puntajeFinal: {
-              [updated.jugador1Id]: p1.score,
-              [updated.jugador2Id!]: p2.score,
+              [finishedState.jugador1Id]: p1.score,
+              [finishedState.jugador2Id!]: p2.score,
             },
             duracionMs: {
-              [updated.jugador1Id]: p1.durationMs,
-              [updated.jugador2Id!]: p2.durationMs,
+              [finishedState.jugador1Id]: p1.durationMs,
+              [finishedState.jugador2Id!]: p2.durationMs,
             },
             nuevoElo: {
               [eloResult.ganador.usuarioId]: eloResult.ganador.nuevoElo,
@@ -1068,14 +1293,16 @@ export class MatchService {
         )
         .catch((e) => this.logger.warn(`Webhook emit error: ${e.message}`));
 
-      return {
-        esCorrecta: isCorrect,
-        matchTerminado: true,
-        ganadorId,
-        puntaje1: p1.score,
-        puntaje2: p2.score,
-        playerFinished: playerAfter.finished,
-      };
+        return {
+          esCorrecta: isCorrect,
+          matchTerminado: true,
+          ganadorId,
+          puntaje1: p1.score,
+          puntaje2: p2.score,
+          playerFinished: playerAfter.finished,
+          myScore: playerAfter.score,
+          myMistakes: playerAfter.mistakes,
+        };
     }
 
     return {
@@ -1091,8 +1318,9 @@ export class MatchService {
 
   async getMatch(matchId: string, usuarioId: string, token: string) {
     this.cacheUserToken(usuarioId, token);
+    await this.primeUserDisplayName(usuarioId, token);
     const state = await this.rebuildState(matchId, token);
-    return this.sanitizeMatchForUser(state, usuarioId);
+    return this.sanitizeMatchForUser(state, usuarioId, token);
   }
 
   async forfeit(matchId: string, usuarioId: string, token: string) {

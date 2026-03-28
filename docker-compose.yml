@@ -8,7 +8,7 @@ services:
       args:
         VITE_APP_BASE_PATH: "/"
         VITE_AUTH_API_BASE_URL: "/api"
-        VITE_PVP_WEBHOOK_RECEIVER_URL: "/api/webhooks"
+        VITE_PVP_WEBHOOK_RECEIVER_URL: "http://frontend/api/webhooks"
     ports:
       - "5051:80"
     restart: unless-stopped

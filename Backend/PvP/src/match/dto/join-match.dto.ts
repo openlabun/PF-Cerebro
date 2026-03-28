@@ -19,4 +19,13 @@ export class JoinMatchDto {
   @IsOptional()
   @IsString()
   tokenC1?: string;
+
+  @ApiPropertyOptional({
+    example: 'Maria',
+    description:
+      'Nombre visible del jugador para mostrar el ganador en la interfaz PvP.',
+  })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
 }

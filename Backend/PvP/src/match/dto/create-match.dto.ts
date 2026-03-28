@@ -38,4 +38,13 @@ export class CreateMatchDto {
   @IsString()
   @IsIn(PVP_DIFFICULTY_KEYS)
   difficultyKey?: string;
+
+  @ApiPropertyOptional({
+    example: 'Jose',
+    description:
+      'Nombre visible del jugador para mostrar el ganador en la interfaz PvP.',
+  })
+  @IsOptional()
+  @IsString()
+  displayName?: string;
 }
