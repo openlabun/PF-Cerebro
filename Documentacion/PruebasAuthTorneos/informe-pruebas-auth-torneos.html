@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Informe de pruebas - Auth y Torneos</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f7fb;
+        --paper: #ffffff;
+        --ink: #1f2a37;
+        --muted: #5b6675;
+        --accent: #2f6fb3;
+        --border: #d9e0ea;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.6;
+      }
+
+      main {
+        max-width: 980px;
+        margin: 32px auto;
+        padding: 40px 48px;
+        background: var(--paper);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        box-shadow: 0 20px 50px rgba(20, 35, 60, 0.08);
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        color: var(--accent);
+        margin-top: 0;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+      }
+
+      h2 {
+        margin-top: 2rem;
+        font-size: 1.45rem;
+      }
+
+      h3 {
+        margin-top: 1.5rem;
+        font-size: 1.15rem;
+      }
+
+      ul {
+        padding-left: 1.25rem;
+      }
+
+      .meta {
+        color: var(--muted);
+        margin-bottom: 1.5rem;
+      }
+
+      .figure {
+        margin: 1.5rem 0 2rem;
+      }
+
+      .figure img {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        display: block;
+      }
+
+      .caption {
+        margin-top: 0.6rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      code {
+        background: #eef3f8;
+        padding: 0.12rem 0.35rem;
+        border-radius: 6px;
+        font-family: Consolas, monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Informe De Estrategia Y Evidencia De Pruebas</h1>
+      <p class="meta">
+        Modulos evaluados: <code>Auth</code> y <code>Torneos</code><br />
+        Fecha de ejecucion: 29 de marzo de 2026
+      </p>
+
+      <h2>1. Estrategia De Verificacion</h2>
+      <p>
+        Con el fin de verificar que el sistema funciona correctamente y cumple los
+        requerimientos funcionales definidos para los modulos de <code>Auth</code> y
+        <code>Torneos</code>, se establecio una estrategia de validacion en tres niveles:
+        pruebas por componentes, pruebas de integracion y pruebas de usabilidad. En esta fase
+        del proyecto se ejecutaron y documentaron las pruebas correspondientes a los dos
+        primeros niveles. Las pruebas de usabilidad quedan planificadas para una etapa
+        posterior, ya que requieren la participacion de usuarios reales.
+      </p>
+
+      <h2>2. Pruebas Por Componentes</h2>
+      <h3>2.1 Objetivo</h3>
+      <p>
+        Las pruebas por componentes tienen como objetivo validar el comportamiento aislado de
+        unidades funcionales del sistema, tanto en backend como en frontend.
+      </p>
+
+      <h3>2.2 Metodologia</h3>
+      <ul>
+        <li>En backend se utilizaron pruebas unitarias con <code>Jest</code>.</li>
+        <li>
+          En frontend se utilizaron pruebas de componentes con <code>Vitest</code> y
+          <code>React Testing Library</code>.
+        </li>
+        <li>Se evaluaron controladores, paginas y componentes clave de Auth y Torneos.</li>
+      </ul>
+
+      <h3>2.3 Criterios De Exito</h3>
+      <ul>
+        <li>El componente acepta entradas validas y produce la respuesta esperada.</li>
+        <li>El componente rechaza entradas invalidas antes de ejecutar la logica principal.</li>
+        <li>La accion se delega correctamente al servicio o API correspondiente.</li>
+        <li>Los mensajes de error o exito son visibles y coherentes.</li>
+        <li>La interfaz representa correctamente el estado esperado segun el contexto.</li>
+      </ul>
+
+      <h3>2.4 Casos Representativos Evaluados</h3>
+      <h4>Auth</h4>
+      <ul>
+        <li>Inicio de sesion con credenciales validas e invalidas.</li>
+        <li>Registro de usuario.</li>
+        <li>Verificacion de correo.</li>
+        <li>Solicitud de recuperacion de contrasena.</li>
+        <li>Restablecimiento de contrasena.</li>
+        <li>Cierre de sesion, verificacion de token y consulta de usuarios.</li>
+      </ul>
+
+      <h4>Torneos</h4>
+      <ul>
+        <li>Listado de torneos publicos y autenticados.</li>
+        <li>Creacion de torneo <code>SERIE</code>.</li>
+        <li>Union a torneo mediante codigo.</li>
+        <li>Cambio de estado del torneo.</li>
+        <li>Visualizacion de ranking y detalle del torneo.</li>
+      </ul>
+
+      <h3>2.5 Evidencia De Ejecucion</h3>
+      <p>
+        Backend por componentes: comando <code>npx jest --runInBand</code>. Resultado:
+        <code>3 suites</code>, <code>18 pruebas</code>, <code>0 fallos</code>.
+      </p>
+      <div class="figure">
+        <img src="./capturas/backend-componentes.png" alt="Pruebas por componentes en backend" />
+        <p class="caption">
+          Figura 1. Ejecucion exitosa de pruebas por componentes en backend para los modulos
+          Auth y Torneos.
+        </p>
+      </div>
+
+      <p>
+        Frontend por componentes: comando <code>npm run test:run</code>. Resultado:
+        <code>8 archivos</code>, <code>16 pruebas</code>, <code>0 fallos</code>.
+      </p>
+      <div class="figure">
+        <img src="./capturas/frontend-componentes.png" alt="Pruebas por componentes en frontend" />
+        <p class="caption">
+          Figura 2. Ejecucion exitosa de pruebas por componentes en frontend para los modulos
+          Auth y Torneos.
+        </p>
+      </div>
+
+      <h2>3. Pruebas De Integración</h2>
+      <h3>3.1 Objetivo</h3>
+      <p>
+        Las pruebas de integracion tienen como proposito verificar la interaccion entre
+        componentes y servicios del sistema, especialmente entre rutas HTTP, validaciones,
+        guards y servicios del backend.
+      </p>
+
+      <h3>3.2 Metodologia</h3>
+      <ul>
+        <li>Se utilizaron pruebas <code>e2e</code> con <code>Jest</code> y <code>Supertest</code>.</li>
+        <li>Se evaluaron endpoints reales de los modulos Auth y Torneos.</li>
+        <li>Se verificaron flujos exitosos y manejo de errores.</li>
+      </ul>
+
+      <h3>3.3 Criterios De Exito</h3>
+      <ul>
+        <li>Cada endpoint responde con el codigo HTTP esperado.</li>
+        <li>Las validaciones bloquean payloads invalidos.</li>
+        <li>Las rutas protegidas exigen autenticacion.</li>
+        <li>Los flujos exitosos recorren correctamente controlador, validacion y servicio.</li>
+        <li>Los errores son manejados de forma controlada.</li>
+      </ul>
+
+      <h3>3.4 Flujos Evaluados</h3>
+      <h4>Auth</h4>
+      <ul>
+        <li><code>login</code>, <code>refresh</code>, <code>signup</code>, <code>verify-email</code></li>
+        <li><code>forgot-password</code>, <code>reset-password</code>, <code>verify-token</code></li>
+        <li><code>users</code> y <code>logout</code></li>
+      </ul>
+
+      <h4>Torneos</h4>
+      <ul>
+        <li>Listado publico, detalle publico y ranking publico.</li>
+        <li>Creacion autenticada de torneo.</li>
+        <li>Union a torneo mediante codigo.</li>
+        <li>Cambio de estado.</li>
+        <li>Rechazo de solicitudes invalidas.</li>
+      </ul>
+
+      <h3>3.5 Evidencia De Ejecucion</h3>
+      <p>
+        Backend integración: comando
+        <code>npx jest --config ./test/jest-e2e.json --runInBand</code>. Resultado:
+        <code>3 suites</code>, <code>22 pruebas</code>, <code>0 fallos</code>.
+      </p>
+      <div class="figure">
+        <img src="./capturas/backend-integracion.png" alt="Pruebas de integracion en backend" />
+        <p class="caption">
+          Figura 3. Ejecucion exitosa de pruebas de integracion en backend para los modulos
+          Auth y Torneos.
+        </p>
+      </div>
+
+      <h2>4. Pruebas De Usabilidad</h2>
+      <p>
+        Las pruebas de usabilidad no se presentan en este documento como evidencia ejecutada,
+        ya que requieren sesiones controladas con usuarios reales. Esta fase se desarrollara
+        posteriormente para evaluar facilidad de uso, claridad de flujos, tiempos de
+        completitud de tareas y nivel de satisfaccion del usuario.
+      </p>
+
+      <h2>5. Conclusión</h2>
+      <p>
+        Con base en la evidencia obtenida, se concluye que los modulos <code>Auth</code> y
+        <code>Torneos</code> cumplen satisfactoriamente con los escenarios funcionales
+        principales definidos para esta fase del proyecto. Las pruebas por componentes
+        confirmaron el funcionamiento correcto de las unidades evaluadas de manera aislada,
+        mientras que las pruebas de integracion validaron la correcta interaccion entre rutas,
+        validaciones, guards y servicios del backend.
+      </p>
+    </main>
+  </body>
+</html>
