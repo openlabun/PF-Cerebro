@@ -2,7 +2,6 @@ function AvatarSection({
   avatar,
   frame,
   name,
-  title,
   nivel,
   experiencia,
   xpNext,
@@ -34,7 +33,6 @@ function AvatarSection({
       <div className="summoner-meta">
         <p className="eyebrow">{isAuthenticated ? 'Cuenta activa' : 'Invitado'}</p>
         <h3>{name}</h3>
-        <p className="profile-title">{title}</p>
 
         {isAuthenticated && (
           <button
@@ -61,3 +59,4 @@ function AvatarSection({
 }
 
 export default AvatarSection
+

@@ -258,6 +258,8 @@ export class GameSessionsService {
     cambioElo: number,
     accessToken: string,
   ): Promise<void> {
+    const normalizedGameId = String(juegoId || '').trim();
+    const isSinglePlayerSudoku = normalizedGameId === 'uVsB-k2rjora';
     const stats = await this.gameStatsService.createIfNotExists(
       usuarioId,
       juegoId,
@@ -275,15 +277,15 @@ export class GameSessionsService {
       partidasJugadas: Number(stats.partidasJugadas ?? 0) + 1,
       elo: Number(stats.elo ?? 0) + Number(cambioElo ?? 0),
       victorias:
-        resultado === 'victoria'
+        !isSinglePlayerSudoku && resultado === 'victoria'
           ? Number(stats.victorias ?? 0) + 1
           : Number(stats.victorias ?? 0),
       derrotas:
-        resultado === 'derrota'
+        !isSinglePlayerSudoku && resultado === 'derrota'
           ? Number(stats.derrotas ?? 0) + 1
           : Number(stats.derrotas ?? 0),
       empates:
-        resultado === 'empate'
+        !isSinglePlayerSudoku && resultado === 'empate'
           ? Number(stats.empates ?? 0) + 1
           : Number(stats.empates ?? 0),
     };

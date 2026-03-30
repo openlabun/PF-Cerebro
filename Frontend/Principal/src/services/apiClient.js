@@ -531,6 +531,14 @@ export const apiClient = {
     })
   },
 
+  getMyPvpRanking(accessToken) {
+    return request('ranking/me', {
+      method: 'GET',
+      baseUrl: 'pvp',
+      token: accessToken,
+    })
+  },
+
   makePvpMove(matchId, payload, accessToken) {
     return request(`match/${matchId}/move`, {
       method: 'POST',

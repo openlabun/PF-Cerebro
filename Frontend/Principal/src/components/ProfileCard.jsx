@@ -66,7 +66,6 @@ function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading, 
           avatar={selectedAvatar}
           frame={selectedFrame}
           name={profileData?.name || 'Invitado#0001'}
-          title={profileData?.title || 'Titulo: "El dios de los números"'}
           nivel={nivel}
           experiencia={safeXp}
           xpNext={xpNext}
@@ -130,3 +129,4 @@ function ProfileCard({ profileData, profileModeStats, isAuthenticated, loading, 
 }
 
 export default ProfileCard
+
