@@ -120,13 +120,15 @@ function ProfilePage() {
     const displayName = getProfileDisplayName(user)
     const tituloTexto = user.tituloActivoTexto || session?.profile?.tituloActivoTexto || `Correo: ${user.email || 'usuario'}`
 
-    setProfileData({
+    setProfileData((prev) => ({
+      ...prev,
       name: displayName,
       title: `Titulo: ${tituloTexto}`,
-      nivel: user.nivel ?? 47,
-      experiencia: user.experiencia ?? 680,
-      rachaActual: user.rachaActual ?? 0,
-    })
+      nivel: user.nivel ?? prev.nivel ?? 47,
+      experiencia: user.experiencia ?? prev.experiencia ?? 680,
+      // Evita pisar una racha ya refrescada desde API con un valor stale de la sesion.
+      rachaActual: prev.rachaActual || Number(user.rachaActual ?? 0),
+    }))
   }, [isAuthenticated, user, session])
 
   // Cargar logros desde la base de datos al iniciar sesión

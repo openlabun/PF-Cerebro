@@ -18,6 +18,7 @@ import {
   getDifficultyByKey,
   getHintLimit,
 } from '../lib/sudoku.js'
+import { syncSudokuStreak } from '../lib/streaks.js'
 import { apiClient } from '../services/apiClient.js'
 
 const GAME_ID_SUDOKU = 'uVsB-k2rjora'
@@ -69,6 +70,10 @@ async function registerSudokuActivity(accessToken, nextScore, gameSession) {
   if (!accessToken) return { recorded: false, newlyUnlockedAchievements: [] }
 
   try {
+    if (gameSession?.jugadoEn) {
+      await syncSudokuStreak(accessToken, GAME_ID_SUDOKU, gameSession)
+    }
+
     const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU)
     const partidasJugadas = Number(stats?.partidasJugadas || 0) + 1
     const elo = Number(stats?.elo || 0)

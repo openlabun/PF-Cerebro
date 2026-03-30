@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { cloneNotes, useSudokuGame } from '../context/SudokuGameContext.jsx'
 import { useSudokuKeyboardControls } from './useSudokuKeyboardControls.js'
 import { apiClient } from '../services/apiClient.js'
+import { syncSudokuStreak } from '../lib/streaks.js'
 import {
   calculateProgress,
   calculateScore,
@@ -19,7 +20,6 @@ import {
 } from '../lib/sudoku.js'
 
 const GAME_ID_SUDOKU = 'uVsB-k2rjora'
-const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000
 
 const ACHIEVEMENT_BADGES = [
   { key: 'first-game', label: 'Primera partida', icon: '🏁', description: 'Completa tu primera partida de Sudoku.' },
@@ -61,21 +61,6 @@ function toAchievementPopupItems(keys) {
       title: badge.label,
       description: badge.description,
     }))
-}
-
-function parseIsoDate(value) {
-  const date = new Date(String(value || ''))
-  if (Number.isNaN(date.getTime())) return null
-  return date
-}
-
-function getSessionDayKey(value) {
-  const date = parseIsoDate(value)
-  if (!date) return null
-  const yyyy = date.getUTCFullYear()
-  const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(date.getUTCDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
 }
 
 function noteViolatesCurrentBoard(board, row, col, num) {
@@ -329,29 +314,11 @@ export function useLocalSudokuGame() {
 
       if (gameSession?.jugadoEn) {
         try {
-          const currentPlayedAt = parseIsoDate(gameSession.jugadoEn) || new Date()
-          const previousSession = await apiClient.getLatestGameSession(accessToken, GAME_ID_SUDOKU, {
-            excludeSessionId: String(gameSession._id || ''),
-          })
-
-          const previousPlayedAt = parseIsoDate(previousSession?.jugadoEn)
-          const currentSessionDayKey = getSessionDayKey(gameSession.jugadoEn)
-          const previousSessionDayKey = getSessionDayKey(previousSession?.jugadoEn)
-          const isSameSessionDay = currentSessionDayKey && previousSessionDayKey && currentSessionDayKey === previousSessionDayKey
-          const elapsedMs = previousPlayedAt ? currentPlayedAt.getTime() - previousPlayedAt.getTime() : null
-          const isWithinStreakWindow = elapsedMs !== null && elapsedMs <= STREAK_SESSION_WINDOW_MS
-
-          const shouldReset = elapsedMs !== null && !isSameSessionDay && elapsedMs > STREAK_SESSION_WINDOW_MS
-          const shouldIncrease = elapsedMs === null || (!isSameSessionDay && isWithinStreakWindow)
-
-          if (shouldReset) {
-            await apiClient.resetStreak(accessToken)
-          }
-          if (shouldIncrease) {
-            await apiClient.increaseStreak(accessToken)
-          }
-
-          const refreshedProfile = await apiClient.getMyProfile(accessToken)
+          const refreshedProfile = await syncSudokuStreak(
+            accessToken,
+            GAME_ID_SUDOKU,
+            gameSession,
+          )
           const streak = Number(refreshedProfile?.rachaActual)
           if (!Number.isNaN(streak)) {
             // Streak message removed

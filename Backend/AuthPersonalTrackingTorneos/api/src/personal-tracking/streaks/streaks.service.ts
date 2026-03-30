@@ -29,11 +29,28 @@ export class StreaksService {
       Boolean(previousSessionDay) &&
       currentSessionDay === previousSessionDay;
 
-    if (isSameSessionDay) {
-      // this.logger.log(
-      //   `Racha no aumentada por misma fecha: usuarioId=${usuarioId}, rachaActual=${rachaActual}, currentSessionDay=${currentSessionDay}, previousSessionDay=${previousSessionDay}`,
-      // );
+    if (isSameSessionDay && rachaActual <= 0) {
+      const repairedMax = Math.max(Number(perfil.rachaMaxima ?? 0), 1);
 
+      const repaired = await this.robleService.update<Perfil>(
+        accessToken,
+        'Perfil',
+        'usuarioId',
+        usuarioId,
+        {
+          rachaActual: 1,
+          rachaMaxima: repairedMax,
+        },
+      );
+
+      return {
+        message: 'Racha reparada para actividad del mismo dia',
+        rachaActual: Number(repaired?.rachaActual ?? 1),
+        rachaMaxima: Number(repaired?.rachaMaxima ?? repairedMax),
+      };
+    }
+
+    if (isSameSessionDay) {
       return {
         message: 'La racha no aumenta mas de una vez por dia',
         rachaActual,
@@ -45,10 +62,6 @@ export class StreaksService {
 
     const nuevaRachaMaxima: number =
       nuevaRacha > perfil.rachaMaxima ? nuevaRacha : perfil.rachaMaxima;
-
-    // this.logger.log(
-    //   `Aumentando racha: usuarioId=${usuarioId}, rachaActual=${rachaActual}, nuevaRacha=${nuevaRacha}`,
-    // );
 
     const updated = await this.robleService.update<Perfil>(
       accessToken,
@@ -63,10 +76,6 @@ export class StreaksService {
 
     const rachaActualActualizada = Number(updated?.rachaActual);
     const rachaMaximaActualizada = Number(updated?.rachaMaxima);
-
-    // this.logger.log(
-    //   `Racha actualizada: usuarioId=${usuarioId}, rachaActual=${Number.isFinite(rachaActualActualizada) ? rachaActualActualizada : nuevaRacha}, rachaMaxima=${Number.isFinite(rachaMaximaActualizada) ? rachaMaximaActualizada : nuevaRachaMaxima}`,
-    // );
 
     return {
       message: 'Racha aumentada correctamente',
@@ -84,10 +93,6 @@ export class StreaksService {
   // ================================
   async resetStreak(usuarioId: string, accessToken: string) {
     const perfil = await this.getProfile(usuarioId, accessToken);
-
-    // this.logger.log(
-    //   `Reseteando racha: usuarioId=${usuarioId}, rachaActual=${Number(perfil.rachaActual ?? 0)}, nuevaRacha=0`,
-    // );
 
     await this.robleService.update<Perfil>(
       accessToken,

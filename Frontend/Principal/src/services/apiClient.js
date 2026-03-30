@@ -597,8 +597,10 @@ export const apiClient = {
   getLatestGameSession(accessToken, gameId, options = {}) {
     const normalizedGameId = String(gameId || '').trim()
     const excludeSessionId = String(options.excludeSessionId || '').trim()
+    const excludePlayedAt = String(options.excludePlayedAt || '').trim()
     const query = new URLSearchParams({ juegoId: normalizedGameId })
     if (excludeSessionId) query.set('excludeSessionId', excludeSessionId)
+    if (excludePlayedAt) query.set('excludePlayedAt', excludePlayedAt)
 
     return request(`game-sessions/latest?${query.toString()}`, {
       method: 'GET',
@@ -620,7 +622,7 @@ export const apiClient = {
   },
 
   increaseStreak(accessToken) {
-    return request('streak/increase', {
+    return request('streaks/increase', {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
@@ -628,7 +630,7 @@ export const apiClient = {
   },
 
   resetStreak(accessToken) {
-    return request('streak/reset', {
+    return request('streaks/reset', {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
