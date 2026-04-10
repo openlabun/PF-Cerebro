@@ -61,7 +61,9 @@ describe('TournamentsPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Debes iniciar sesion para ver los torneos en este entorno'),
+        screen.getByRole('heading', {
+          name: /debes iniciar sesi.n para ver los torneos en este entorno/i,
+        }),
       ).toBeInTheDocument()
     })
 

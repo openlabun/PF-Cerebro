@@ -63,7 +63,9 @@ describe('TournamentManagePage', () => {
   it('asks guests to sign in when they open a private invite link', async () => {
     renderPage('/torneos/torneo-1?codigo=ABC123')
 
-    expect(screen.getByText('Esta invitacion privada requiere sesion')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { name: /esta invitaci.n privada requiere sesi.n/i }),
+    ).toBeInTheDocument()
     expect(mockApiClient.getPublicTournament).not.toHaveBeenCalled()
   })
 

@@ -28,6 +28,25 @@ export class AuthController {
     private readonly bootstrapService: PersonalTrackingBootstrapService,
   ) {}
 
+  private resolveDisplayNameHint(req: RobleRequest): string {
+    const rawHeader = req?.headers?.['x-user-display-name'];
+    const candidate = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
+    if (typeof candidate !== 'string') {
+      return '';
+    }
+
+    const normalized = candidate.trim();
+    if (
+      !normalized ||
+      normalized === 'undefined' ||
+      normalized === 'null'
+    ) {
+      return '';
+    }
+
+    return normalized;
+  }
+
   private resolveBootstrapUser(req: RobleRequest) {
     const payload = ((req && req.robleUser) ? req.robleUser : {}) as Record<string, unknown>;
     const userIdCandidates = [
@@ -47,7 +66,19 @@ export class AuthController {
 
     const email =
       typeof payload.email === 'string' ? payload.email.trim() : '';
-    const nameCandidates = [payload.name, payload.nombre];
+    const hintName = this.resolveDisplayNameHint(req);
+    const combinedTokenName =
+      typeof payload.firstName === 'string' || typeof payload.lastName === 'string'
+        ? `${String(payload.firstName ?? '').trim()} ${String(payload.lastName ?? '').trim()}`.trim()
+        : '';
+    const nameCandidates = [
+      hintName,
+      payload.name,
+      payload.nombre,
+      payload.displayName,
+      payload.fullName,
+      combinedTokenName,
+    ];
     const nameCandidate = nameCandidates.find(
       (candidate) =>
         typeof candidate === 'string' &&

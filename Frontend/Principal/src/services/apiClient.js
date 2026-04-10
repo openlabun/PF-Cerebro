@@ -99,9 +99,14 @@ async function performRequest(path, options = {}, tokenOverride = null) {
   const baseUrl = options.baseUrl || 'auth'
   const token = tokenOverride ?? resolveRequestToken(baseUrl, options.token)
   const signal = options.signal
+  const extraHeaders =
+    options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
+      ? options.headers
+      : {}
 
   const headers = {
     Accept: 'application/json',
+    ...extraHeaders,
   }
 
   if (body !== undefined) {
@@ -288,11 +293,12 @@ export const apiClient = {
     })
   },
 
-  verifyToken(accessToken) {
+  verifyToken(accessToken, options = {}) {
     return request('auth/verify-token', {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,
+      headers: options.headers,
     })
   },
 

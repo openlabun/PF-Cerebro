@@ -14,7 +14,17 @@ import {
   isBoardSolved,
 } from '../lib/sudoku.js'
 
+function normalizeElapsedSeconds(value) {
+  const normalized = Math.trunc(Number(value))
+  return Number.isFinite(normalized) && normalized >= 0 ? normalized : 0
+}
+
 function parseTournamentSessionDate(value) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value <= 0) return 0
+    return value >= 1e12 ? value : value * 1000
+  }
+
   if (value instanceof Date) {
     const timestamp = value.getTime()
     return Number.isFinite(timestamp) ? timestamp : 0
@@ -23,14 +33,48 @@ function parseTournamentSessionDate(value) {
   const normalized = String(value || '').trim()
   if (!normalized) return 0
 
+  const aspNetMatch = normalized.match(/^\/Date\((\d+)\)\/$/)
+  if (aspNetMatch) {
+    const timestamp = Number(aspNetMatch[1])
+    return Number.isFinite(timestamp) ? timestamp : 0
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    const timestamp = Number(normalized)
+    if (!Number.isFinite(timestamp) || timestamp <= 0) return 0
+    return timestamp >= 1e12 ? timestamp : timestamp * 1000
+  }
+
   const withTimeSeparator = normalized.includes(' ') ? normalized.replace(' ', 'T') : normalized
-  const hasExplicitTimezone = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(withTimeSeparator)
+  const withExpandedTimezone = withTimeSeparator.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+  const trimmedFractions = withExpandedTimezone.replace(/\.(\d{3})\d+/, '.$1')
+  const hasExplicitTimezone = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(trimmedFractions)
   const needsTimezone =
     !hasExplicitTimezone &&
-    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(withTimeSeparator)
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/.test(trimmedFractions)
 
-  const timestamp = Date.parse(needsTimezone ? `${withTimeSeparator}-05:00` : withTimeSeparator)
+  const timestamp = Date.parse(needsTimezone ? `${trimmedFractions}-05:00` : trimmedFractions)
   return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function getElapsedSecondsFromSessionStart(session, referenceMs = Date.now()) {
+  const startedAtMs = parseTournamentSessionDate(session?.fechaInicio)
+  if (!startedAtMs) return null
+
+  return normalizeElapsedSeconds(Math.floor((referenceMs - startedAtMs) / 1000))
+}
+
+function getElapsedSecondsFromSnapshot(snapshot, referenceMs = Date.now()) {
+  if (!snapshot || typeof snapshot !== 'object') return null
+
+  const baseElapsedSeconds = normalizeElapsedSeconds(snapshot.elapsedSeconds)
+  const savedAtMs = Number(snapshot.savedAtMs)
+  if (!Number.isFinite(savedAtMs) || savedAtMs <= 0) {
+    return baseElapsedSeconds
+  }
+
+  const extraElapsedSeconds = normalizeElapsedSeconds(Math.floor((referenceMs - savedAtMs) / 1000))
+  return baseElapsedSeconds + extraElapsedSeconds
 }
 
 function noteViolatesCurrentBoard(board, row, col, num) {
@@ -183,7 +227,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   const [game, setGame] = useState(null)
   const [errorCount, setErrorCount] = useState(0)
   const [completedOutcome, setCompletedOutcome] = useState(null)
-  const [nowMs, setNowMs] = useState(() => Date.now())
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [submissionRequested, setSubmissionRequested] = useState(false)
   const [seriesBoards, setSeriesBoards] = useState([])
   const [currentBoardIndex, setCurrentBoardIndex] = useState(0)
@@ -222,8 +266,6 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   }, [currentBoardIndex])
 
   const difficulty = game ? getDifficultyByKey(game.difficultyKey) : getDifficultyByKey('medio')
-  const startedAtMs = parseTournamentSessionDate(session?.fechaInicio)
-  const elapsedSeconds = startedAtMs ? Math.max(0, Math.floor((nowMs - startedAtMs) / 1000)) : 0
   const timeLimitSeconds = Number.isFinite(Number(game?.timeLimitSeconds)) ? Number(game.timeLimitSeconds) : null
   const timeRemainingSeconds =
     timeLimitSeconds === null ? null : Math.max(0, timeLimitSeconds - elapsedSeconds)
@@ -320,6 +362,10 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
       const restoredErrorCount = Math.max(0, Number(snapshot?.errorCount || 0))
       const restoredNoteMode = snapshot?.noteMode === true
       const restoredHighlightEnabled = snapshot?.highlightEnabled !== false
+      const restoredElapsedSeconds = Math.max(
+        getElapsedSecondsFromSessionStart(nextSession) ?? 0,
+        getElapsedSecondsFromSnapshot(snapshot) ?? 0,
+      )
 
       setTournament(nextTournament)
       setSession(nextSession)
@@ -327,7 +373,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
       setSeriesBoards(restoredSeriesBoards)
       setCurrentBoardIndex(resolvedCurrentBoardIndex)
       setErrorCount(restoredErrorCount)
-      setNowMs(Date.now())
+      setElapsedSeconds(restoredElapsedSeconds)
       hydrateSeriesBoard(restoredSeriesBoards, resolvedCurrentBoardIndex, {
         noteMode: restoredNoteMode,
         highlightEnabled: restoredHighlightEnabled,
@@ -383,6 +429,8 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
         solved: entry.solved,
       })),
       errorCount,
+      elapsedSeconds,
+      savedAtMs: Date.now(),
       noteMode,
       highlightEnabled,
     }
@@ -391,6 +439,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   }, [
     board,
     currentBoardIndex,
+    elapsedSeconds,
     errorCount,
     highlightEnabled,
     isCompleted,
@@ -401,14 +450,14 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   ])
 
   useEffect(() => {
-    if (!session || isCompleted) return undefined
+    if (!session || isCompleted || submissionRequested) return undefined
 
     const interval = window.setInterval(() => {
-      setNowMs(Date.now())
+      setElapsedSeconds((current) => current + 1)
     }, 1000)
 
     return () => window.clearInterval(interval)
-  }, [isCompleted, session])
+  }, [isCompleted, session, submissionRequested])
 
   async function finalizeGame(providedBoards) {
     if (!accessToken || !tournamentId || !session?._id || finishInFlightRef.current) {
@@ -435,6 +484,9 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
 
       setCompletedOutcome(payload)
       setSession(payload?.session || session)
+      if (Number.isFinite(Number(payload?.elapsedSeconds))) {
+        setElapsedSeconds(normalizeElapsedSeconds(payload.elapsedSeconds))
+      }
       clearSnapshot(session._id)
       setPageStatus(
         payload?.outcome === 'EXPIRADA'

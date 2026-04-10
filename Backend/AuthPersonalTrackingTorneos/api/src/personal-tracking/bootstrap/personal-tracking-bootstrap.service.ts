@@ -36,16 +36,56 @@ export class PersonalTrackingBootstrapService {
     return normalized;
   }
 
+  private getEmailLocalPart(correo?: string): string {
+    const normalizedEmail = this.normalizeEmail(correo);
+    if (!normalizedEmail || !normalizedEmail.includes('@')) {
+      return '';
+    }
+
+    return normalizedEmail.split('@')[0] || '';
+  }
+
+  private isLikelyOpaqueUserId(value?: string | null): boolean {
+    const normalized = String(value ?? '').trim();
+    if (!normalized) {
+      return false;
+    }
+
+    if (
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        normalized,
+      )
+    ) {
+      return true;
+    }
+
+    return /^[A-Za-z0-9_-]{20,}$/.test(normalized) && !/\s/.test(normalized);
+  }
+
   private shouldHydrateExistingName(
     existingName: string | undefined,
     incomingName: string,
+    correo?: string,
   ): boolean {
     const current = String(existingName ?? '').trim();
     if (!current || current === 'undefined' || current === 'null') {
       return incomingName !== 'Usuario';
     }
 
-    return current === 'Usuario' && incomingName !== 'Usuario';
+    if (current === 'Usuario') {
+      return incomingName !== 'Usuario';
+    }
+
+    const emailLocalPart = this.getEmailLocalPart(correo);
+    if (emailLocalPart && current.toLowerCase() === emailLocalPart.toLowerCase()) {
+      return incomingName !== 'Usuario';
+    }
+
+    if (this.isLikelyOpaqueUserId(current)) {
+      return incomingName !== 'Usuario';
+    }
+
+    return false;
   }
 
   private isInvalidUserId(userId: string): boolean {
@@ -88,6 +128,7 @@ export class PersonalTrackingBootstrapService {
           this.shouldHydrateExistingName(
             existingProfile.nombre,
             normalizedName,
+            existingProfile.correo ?? normalizedEmail,
           )
         ) {
           stage = 'hydrate-existing-profile-name';

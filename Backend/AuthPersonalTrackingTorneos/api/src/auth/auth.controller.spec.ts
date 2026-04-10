@@ -1,5 +1,6 @@
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { PersonalTrackingBootstrapService } from '../personal-tracking/bootstrap/personal-tracking-bootstrap.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -17,6 +18,9 @@ describe('AuthController', () => {
       | 'listUsers'
     >
   >;
+  let bootstrapService: jest.Mocked<
+    Pick<PersonalTrackingBootstrapService, 'ensureInitialized'>
+  >;
 
   beforeEach(() => {
     service = {
@@ -31,7 +35,14 @@ describe('AuthController', () => {
       listUsers: jest.fn(),
     };
 
-    controller = new AuthController(service as unknown as AuthService);
+    bootstrapService = {
+      ensureInitialized: jest.fn(),
+    };
+
+    controller = new AuthController(
+      service as unknown as AuthService,
+      bootstrapService as unknown as PersonalTrackingBootstrapService,
+    );
   });
 
   it('delegates login credentials to the service', async () => {
@@ -138,8 +149,9 @@ describe('AuthController', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('returns the authenticated user on verify-token', () => {
+  it('returns the authenticated user on verify-token', async () => {
     const req = {
+      accessToken: 'token-verify',
       robleUser: {
         sub: 'user-1',
         email: 'user@example.com',
@@ -147,10 +159,40 @@ describe('AuthController', () => {
       },
     } as never;
 
-    expect(controller.verifyToken(req)).toEqual({
+    await expect(controller.verifyToken(req)).resolves.toEqual({
       valid: true,
       user: req.robleUser,
     });
+
+    expect(bootstrapService.ensureInitialized).toHaveBeenCalledWith(
+      'token-verify',
+      'user-1',
+      'Alice',
+      'user@example.com',
+    );
+  });
+
+  it('prefers the forwarded display name over the email alias on verify-token', async () => {
+    const req = {
+      accessToken: 'token-verify',
+      headers: {
+        'x-user-display-name': 'Joseph Felipe Venegas Banda',
+      },
+      robleUser: {
+        sub: 'user-2',
+        email: 'venegasbjf@example.com',
+        name: 'venegasbjf',
+      },
+    } as never;
+
+    await controller.verifyToken(req);
+
+    expect(bootstrapService.ensureInitialized).toHaveBeenCalledWith(
+      'token-verify',
+      'user-2',
+      'Joseph Felipe Venegas Banda',
+      'venegasbjf@example.com',
+    );
   });
 
   it('uses the request access token when listing users', async () => {

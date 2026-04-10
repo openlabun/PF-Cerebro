@@ -795,13 +795,6 @@ export class TorneosService {
     const creatorIds = Array.from(
       new Set(
         torneos
-          .filter(
-            (torneo) =>
-              !this.normalizeDisplayName(
-                torneo.creadorNombre,
-                torneo.creadorId,
-              ),
-          )
           .map((torneo) => this.normalizeUserId(torneo.creadorId))
           .filter(Boolean),
       ),
@@ -819,8 +812,8 @@ export class TorneosService {
     return torneos.map((torneo) => {
       const creatorId = this.normalizeUserId(torneo.creadorId);
       const creatorName =
-        this.normalizeDisplayName(torneo.creadorNombre, creatorId) ||
-        creatorNames.get(creatorId);
+        creatorNames.get(creatorId) ||
+        this.normalizeDisplayName(torneo.creadorNombre, creatorId);
       if (!creatorName) {
         return torneo;
       }
@@ -845,10 +838,6 @@ export class TorneosService {
     const userIds = Array.from(
       new Set(
         rows
-          .filter(
-            (row) =>
-              !this.normalizeDisplayName(row.usuarioNombre, row.usuarioId),
-          )
           .map((row) => this.normalizeUserId(row.usuarioId))
           .filter(Boolean),
       ),
@@ -863,8 +852,8 @@ export class TorneosService {
     return rows.map((row) => {
       const userId = this.normalizeUserId(row.usuarioId);
       const userName =
-        this.normalizeDisplayName(row.usuarioNombre, userId) ||
-        userNames.get(userId);
+        userNames.get(userId) ||
+        this.normalizeDisplayName(row.usuarioNombre, userId);
       if (!userName) {
         return row;
       }

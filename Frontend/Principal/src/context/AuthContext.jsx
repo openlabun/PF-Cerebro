@@ -52,7 +52,10 @@ async function hydrateSession(session) {
     throw new Error('Session without access token')
   }
 
-  const verification = await apiClient.verifyToken(accessToken)
+  const displayNameHint = String(session?.user?.name || '').trim()
+  const verification = await apiClient.verifyToken(accessToken, {
+    headers: displayNameHint ? { 'X-User-Display-Name': displayNameHint } : undefined,
+  })
   return buildUnifiedSession(session, verification?.user || {})
 }
 
