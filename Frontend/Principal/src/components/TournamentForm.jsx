@@ -3,6 +3,7 @@ import {
   buildTournamentConfig,
   fromDateTimeLocal,
   getTournamentFormDefaults,
+  parseTournamentDateValue,
   splitTournamentConfig,
   sudokuDifficultyOptions,
   toDateTimeLocal,
@@ -127,10 +128,10 @@ function TournamentForm({
       }, formData.configExtras),
     }
 
-    const fechaInicio = new Date(payload.fechaInicio || '')
-    const fechaFin = new Date(payload.fechaFin || '')
+    const fechaInicio = parseTournamentDateValue(payload.fechaInicio, { kind: 'schedule' })
+    const fechaFin = parseTournamentDateValue(payload.fechaFin, { kind: 'schedule' })
 
-    if (Number.isNaN(fechaInicio.getTime()) || Number.isNaN(fechaFin.getTime())) {
+    if (!fechaInicio || !fechaFin) {
       setErrorMessage('Las fechas del torneo no son validas.')
       return
     }

@@ -72,6 +72,21 @@ const LEGACY_TOURNAMENT_TYPE_LABELS = {
   PVP: 'PvP',
 }
 
+const TOURNAMENT_TIME_ZONE = 'America/Bogota'
+const TOURNAMENT_UTC_OFFSET = '-05:00'
+const TOURNAMENT_DATE_KIND_SCHEDULE = 'schedule'
+const TOURNAMENT_DATE_KIND_SYSTEM = 'system'
+
+const tournamentDateTimePartsFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TOURNAMENT_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
 const allowedTransitions = {
   BORRADOR: ['PROGRAMADO', 'CANCELADO'],
   PROGRAMADO: ['ACTIVO', 'PAUSADO', 'CANCELADO'],
@@ -117,24 +132,65 @@ export function getTournamentFormDefaults() {
   }
 }
 
-export function toDateTimeLocal(value) {
+function normalizeTournamentDateInput(value) {
   const raw = String(value || '').trim()
   if (!raw) return ''
 
-  const noZoneMatch = raw.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(:\d{2}(?:\.\d{1,3})?)?$/)
-  if (noZoneMatch) {
-    return `${noZoneMatch[1]}T${noZoneMatch[2]}`
+  const withTimeSeparator = raw.includes(' ') ? raw.replace(' ', 'T') : raw
+  const withExpandedTimezone = withTimeSeparator.replace(/([+-]\d{2})(\d{2})$/, '$1:$2')
+  return withExpandedTimezone.replace(/\.(\d{3})\d+/, '.$1')
+}
+
+function resolveTournamentDateCandidate(normalizedValue, kind) {
+  const hasExplicitTimezone = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(normalizedValue)
+  const isoWithoutZonePattern =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/
+
+  if (hasExplicitTimezone || !isoWithoutZonePattern.test(normalizedValue)) {
+    return normalizedValue
   }
 
-  const date = new Date(raw)
-  if (Number.isNaN(date.getTime())) return ''
+  return kind === TOURNAMENT_DATE_KIND_SCHEDULE
+    ? `${normalizedValue}${TOURNAMENT_UTC_OFFSET}`
+    : `${normalizedValue}Z`
+}
 
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  const h = String(date.getHours()).padStart(2, '0')
-  const min = String(date.getMinutes()).padStart(2, '0')
-  return `${y}-${m}-${d}T${h}:${min}`
+function formatBogotaDateTimeLocal(date) {
+  const parts = tournamentDateTimePartsFormatter
+    .formatToParts(date)
+    .reduce((accumulator, part) => {
+      if (part.type !== 'literal') {
+        accumulator[part.type] = part.value
+      }
+      return accumulator
+    }, {})
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`
+}
+
+export function parseTournamentDateValue(value, options = {}) {
+  const normalized = normalizeTournamentDateInput(value)
+  if (!normalized) return null
+
+  const kind =
+    options.kind === TOURNAMENT_DATE_KIND_SCHEDULE
+      ? TOURNAMENT_DATE_KIND_SCHEDULE
+      : TOURNAMENT_DATE_KIND_SYSTEM
+  const candidate = resolveTournamentDateCandidate(normalized, kind)
+  const parsed = new Date(candidate)
+
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed
+}
+
+export function getTournamentTimestamp(value, options = {}) {
+  return parseTournamentDateValue(value, options)?.getTime() ?? 0
+}
+
+export function toDateTimeLocal(value) {
+  const date = parseTournamentDateValue(value, { kind: TOURNAMENT_DATE_KIND_SCHEDULE })
+  if (!date) return ''
+  return formatBogotaDateTimeLocal(date)
 }
 
 export function fromDateTimeLocal(value, options = {}) {
@@ -146,23 +202,24 @@ export function fromDateTimeLocal(value, options = {}) {
   }
 
   const localIsoNoZone = raw.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/)
-  if (localIsoNoZone) return raw
+  if (localIsoNoZone) return `${localIsoNoZone[0].slice(0, 16)}`
 
-  const date = new Date(raw)
-  if (Number.isNaN(date.getTime())) return undefined
-  return date.toISOString()
+  const date = parseTournamentDateValue(raw, { kind: TOURNAMENT_DATE_KIND_SCHEDULE })
+  if (!date) return undefined
+  return formatBogotaDateTimeLocal(date)
 }
 
-export function formatTournamentDate(value) {
+export function formatTournamentDate(value, options = {}) {
   const raw = String(value || '').trim()
   if (!raw) return 'Sin definir'
 
-  const date = new Date(raw)
-  if (Number.isNaN(date.getTime())) {
+  const date = parseTournamentDateValue(raw, options)
+  if (!date) {
     return raw.replace('T', ' ')
   }
 
   return new Intl.DateTimeFormat('es-CO', {
+    timeZone: TOURNAMENT_TIME_ZONE,
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)

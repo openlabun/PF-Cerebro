@@ -8,6 +8,7 @@ import {
   formatTournamentDate,
   formatTournamentState,
   formatTournamentType,
+  getTournamentTimestamp,
   getTournamentOwnerLabel,
   getTournamentStatusTone,
   getTournamentVisibilityLabel,
@@ -30,8 +31,12 @@ function sortTournaments(rows, user) {
 
     if (leftOwned !== rightOwned) return rightOwned - leftOwned
 
-    const leftDate = new Date(left?.fechaInicio || left?.fechaCreacion || 0).getTime()
-    const rightDate = new Date(right?.fechaInicio || right?.fechaCreacion || 0).getTime()
+    const leftDate = left?.fechaInicio
+      ? getTournamentTimestamp(left.fechaInicio, { kind: 'schedule' })
+      : getTournamentTimestamp(left?.fechaCreacion || 0, { kind: 'system' })
+    const rightDate = right?.fechaInicio
+      ? getTournamentTimestamp(right.fechaInicio, { kind: 'schedule' })
+      : getTournamentTimestamp(right?.fechaCreacion || 0, { kind: 'system' })
     return rightDate - leftDate
   })
 }
@@ -169,11 +174,11 @@ function TournamentsPage() {
         <dl className="tournament-meta-list">
           <div>
             <dt>Inicio</dt>
-            <dd>{formatTournamentDate(tournament.fechaInicio)}</dd>
+            <dd>{formatTournamentDate(tournament.fechaInicio, { kind: 'schedule' })}</dd>
           </div>
           <div>
             <dt>Fin</dt>
-            <dd>{formatTournamentDate(tournament.fechaFin)}</dd>
+            <dd>{formatTournamentDate(tournament.fechaFin, { kind: 'schedule' })}</dd>
           </div>
           <div>
             <dt>Visibilidad</dt>

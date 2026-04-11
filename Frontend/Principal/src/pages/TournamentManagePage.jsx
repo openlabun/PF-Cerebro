@@ -333,11 +333,11 @@ function TournamentManagePage() {
             </div>
             <div>
               <dt>Inicio</dt>
-              <dd>{formatTournamentDate(tournament?.fechaInicio)}</dd>
+              <dd>{formatTournamentDate(tournament?.fechaInicio, { kind: 'schedule' })}</dd>
             </div>
             <div>
               <dt>Fin</dt>
-              <dd>{formatTournamentDate(tournament?.fechaFin)}</dd>
+              <dd>{formatTournamentDate(tournament?.fechaFin, { kind: 'schedule' })}</dd>
             </div>
             <div>
               <dt>Recurrencia</dt>

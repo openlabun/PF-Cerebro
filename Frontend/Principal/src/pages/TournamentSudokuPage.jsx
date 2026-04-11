@@ -169,7 +169,7 @@ function TournamentSudokuPageContent() {
             </div>
             <div>
               <dt>Inicio del intento</dt>
-              <dd>{formatTournamentDate(session?.fechaInicio)}</dd>
+              <dd>{formatTournamentDate(session?.fechaInicio, { kind: 'system' })}</dd>
             </div>
             <div>
               <dt>Pistas</dt>
