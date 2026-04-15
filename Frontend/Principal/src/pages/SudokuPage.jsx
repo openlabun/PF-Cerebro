@@ -69,7 +69,6 @@ function SudokuPageContent() {
                 options={difficultyOptions}
                 onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey, { closePreviousActive: true })}
               />
-              <span className="difficulty-label">Dificultad: {difficulty.label}</span>
             </div>
 
             <div className="sudoku-top-right">

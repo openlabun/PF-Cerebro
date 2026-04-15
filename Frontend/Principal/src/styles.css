@@ -40,7 +40,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   color: var(--text);
-  background: radial-gradient(circle at top right, #eceefe, var(--bg) 35%);
+  background: var(--bg);
   overflow-x: hidden;
 }
 
@@ -77,11 +77,25 @@ button:hover:not(:disabled) {
   letter-spacing: -0.05em;
   line-height: 1;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 0.35em;
 }
 
-.logo span {
+.logo-word {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--logo-base);
+}
+
+.logo-word span {
   color: var(--logo-accent);
+}
+
+.logo-mark {
+  height: 1em;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
 }
 
 nav {
@@ -486,6 +500,7 @@ main,
 .app-footer {
   margin-top: 1.25rem;
   color: var(--muted);
+  font-weight: 700;
 }
 
 .app-footer-inner {
@@ -496,6 +511,31 @@ main,
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.footer-logo {
+  width: 1.1rem;
+  height: 1.1rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.footer-logo-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .footer-logo-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .footer-logo-dark {
+  display: block;
 }
 
 .app-footer a {

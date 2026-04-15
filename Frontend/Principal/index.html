@@ -3,9 +3,41 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
     <title>Cerebro</title>
+    <style>
+      #app-loading-screen {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background:
+          radial-gradient(circle at top, rgba(32, 121, 204, 0.12), transparent 42%),
+          linear-gradient(180deg, #070912 0%, #0b0f1a 100%);
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 320ms ease, visibility 320ms ease;
+      }
+
+      #app-loading-screen.is-hidden {
+        opacity: 0;
+        visibility: hidden;
+      }
+
+      .app-loading-image {
+        width: min(78vw, 420px);
+        height: auto;
+        display: block;
+        object-fit: contain;
+        filter: drop-shadow(0 0 32px rgba(77, 157, 226, 0.12));
+      }
+    </style>
   </head>
   <body>
+    <div id="app-loading-screen" aria-hidden="true">
+      <img class="app-loading-image" src="/loading-screen.png" alt="" />
+    </div>
     <div id="root"></div>
     <script type="module" src="./src/main.jsx"></script>
   </body>
