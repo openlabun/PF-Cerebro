@@ -40,10 +40,8 @@
           </label>
           <label>
             Tipo
-            <select id="tipo">
-              <option value="PUNTOS">PUNTOS</option>
-              <option value="TIEMPO">TIEMPO</option>
-              <option value="PVP">PVP</option>
+            <select id="tipo" disabled>
+              <option value="SERIE">SERIE</option>
             </select>
           </label>
           <label>
@@ -90,25 +88,16 @@
           <section class="full config-builder">
             <h4>Reglas del torneo</h4>
             <p class="helper-text">
-              Completa solo lo que aplique. El JSON avanzado queda opcional.
+              Usa las mismas reglas del front principal: duracion maxima, dificultad y numero de tableros.
             </p>
             <div class="config-grid">
-              <label>
-                Maximo participantes
-                <input id="cfgMaxParticipantes" type="number" min="2" step="1" />
-              </label>
               <label>
                 Duracion maxima (min)
                 <input id="cfgDuracionMaximaMin" type="number" min="1" step="1" />
               </label>
               <label>
-                Intentos maximos
-                <input id="cfgIntentosMaximos" type="number" min="1" step="1" />
-              </label>
-              <label>
                 Dificultad
                 <select id="cfgDificultad">
-                  <option value="">No definida</option>
                   <option value="Principiante">Principiante</option>
                   <option value="Iniciado">Iniciado</option>
                   <option value="Intermedio">Intermedio</option>
@@ -118,33 +107,10 @@
                 </select>
               </label>
               <label>
-                Seed fija (opcional)
-                <input id="cfgSeedFija" type="text" />
-              </label>
-              <label class="inline-label config-inline">
-                <input id="cfgPermitirEmpates" type="checkbox" />
-                Permitir empates
+                Numero de tableros
+                <input id="cfgNumeroTableros" type="number" min="1" step="1" />
               </label>
             </div>
-
-            <div class="extra-rules">
-              <div class="extra-rules-head">
-                <h5>Reglas extra</h5>
-                <button id="addExtraRuleBtn" type="button">Agregar regla</button>
-              </div>
-              <p class="helper-text">
-                Para campos personalizados: clave + tipo + valor.
-              </p>
-              <div id="extraRulesRows" class="extra-rules-rows"></div>
-            </div>
-
-            <details class="advanced-config">
-              <summary>Modo avanzado (JSON)</summary>
-              <label class="full">
-                Configuracion (JSON)
-                <textarea id="configuracion" rows="8"></textarea>
-              </label>
-            </details>
           </section>
           <div class="actions full">
             <button id="saveBtn" type="submit">Guardar cambios</button>

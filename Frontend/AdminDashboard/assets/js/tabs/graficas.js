@@ -1,15 +1,337 @@
 const endpoints = {
   snapshot: "/api/admin/snapshot",
+  liveSnapshot: "/api/admin/live/snapshot",
+  liveStream: "/api/admin/live/stream",
 };
 
 const palette = ["#0f5ea6", "#25c985", "#3f7fc7", "#52a7ff", "#8bc34a"];
 const REFRESH_MS = 10000;
 let loading = false;
 let selectedBucket = "daily";
+let liveController = null;
+let liveReconnectTimer = null;
 
 function setText(id, value) {
   const el = document.getElementById(id);
   if (el) el.textContent = String(value);
+}
+
+function clearNode(node) {
+  if (!node) return;
+  while (node.firstChild) {
+    node.removeChild(node.firstChild);
+  }
+}
+
+function formatClock(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleTimeString("es-CO", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+function formatRelativeTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  const seconds = Math.max(0, Math.round((Date.now() - date.getTime()) / 1000));
+  if (seconds < 60) return `hace ${seconds}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `hace ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return `hace ${hours} h`;
+}
+
+function humanizeState(state) {
+  const normalized = String(state || "").trim();
+  if (!normalized) return "-";
+  return normalized.replace(/[_-]+/g, " ");
+}
+
+function getModeLabel(mode) {
+  const normalized = String(mode || "").trim().toLowerCase();
+  if (normalized === "sudoku") return "Sudoku";
+  if (normalized === "pvp") return "PvP";
+  if (normalized === "pvp_lobby") return "Sala PvP";
+  if (normalized === "torneo") return "Torneo";
+  return "Navegacion";
+}
+
+function getLiveModeValue(snapshot, mode) {
+  return Number(snapshot?.sessionsByMode?.[mode]) || 0;
+}
+
+function setLiveStatus(label, tone) {
+  const badge = document.getElementById("liveStatusBadge");
+  if (!badge) return;
+  badge.textContent = label;
+  badge.className = `live-status live-status--${tone}`;
+}
+
+function renderLiveDifficultyChips(mapData) {
+  const container = document.getElementById("liveDifficultyChips");
+  if (!container) return;
+
+  clearNode(container);
+  const entries = Object.entries(mapData || {});
+
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "live-empty";
+    empty.textContent = "Sin jugadores con dificultad reportada.";
+    container.appendChild(empty);
+    return;
+  }
+
+  entries.forEach(([label, value]) => {
+    const chip = document.createElement("span");
+    chip.className = "live-chip";
+
+    const name = document.createElement("strong");
+    name.textContent = label;
+
+    const total = document.createElement("b");
+    total.textContent = String(value);
+
+    chip.append(name, total);
+    container.appendChild(chip);
+  });
+}
+
+function renderLiveEvents(rows) {
+  const container = document.getElementById("liveEvents");
+  if (!container) return;
+
+  clearNode(container);
+  const items = Array.isArray(rows) ? rows.slice(0, 8) : [];
+
+  if (!items.length) {
+    const empty = document.createElement("p");
+    empty.className = "live-empty";
+    empty.textContent = "Todavia no hay eventos recientes.";
+    container.appendChild(empty);
+    return;
+  }
+
+  items.forEach((row) => {
+    const article = document.createElement("article");
+    article.className = "live-event";
+
+    const time = document.createElement("span");
+    time.className = "live-event-time";
+    time.textContent = formatClock(row?.occurredAt);
+
+    const message = document.createElement("p");
+    message.textContent = String(row?.message || "Actividad actualizada.");
+
+    article.append(time, message);
+    container.appendChild(article);
+  });
+}
+
+function renderLiveSessions(rows) {
+  const body = document.getElementById("liveSessionsBody");
+  if (!body) return;
+
+  clearNode(body);
+  const items = Array.isArray(rows) ? rows.slice(0, 12) : [];
+
+  if (!items.length) {
+    const tr = document.createElement("tr");
+    const td = document.createElement("td");
+    td.colSpan = 6;
+    td.className = "live-empty";
+    td.textContent = "No hay sesiones activas en este momento.";
+    tr.appendChild(td);
+    body.appendChild(tr);
+    return;
+  }
+
+  items.forEach((row) => {
+    const tr = document.createElement("tr");
+
+    const userTd = document.createElement("td");
+    const userWrap = document.createElement("div");
+    userWrap.className = "live-session-user";
+    const userName = document.createElement("strong");
+    userName.textContent = String(row?.userName || "Jugador");
+    const userEmail = document.createElement("span");
+    userEmail.textContent = String(row?.email || "");
+    userWrap.append(userName, userEmail);
+    userTd.appendChild(userWrap);
+
+    const modeTd = document.createElement("td");
+    const modeBadge = document.createElement("span");
+    modeBadge.className = "live-mode-badge";
+    modeBadge.textContent = getModeLabel(row?.mode);
+    modeTd.appendChild(modeBadge);
+
+    const difficultyTd = document.createElement("td");
+    difficultyTd.textContent = String(row?.difficulty || "-");
+
+    const stateTd = document.createElement("td");
+    stateTd.textContent = humanizeState(row?.state);
+
+    const pathTd = document.createElement("td");
+    pathTd.textContent = String(row?.path || "-");
+
+    const seenTd = document.createElement("td");
+    seenTd.textContent = formatRelativeTime(row?.lastSeenAt);
+
+    tr.append(userTd, modeTd, difficultyTd, stateTd, pathTd, seenTd);
+    body.appendChild(tr);
+  });
+}
+
+function renderLiveSnapshot(snapshot) {
+  const data = snapshot || {};
+
+  setText("liveMetricUsers", data.onlineUsers ?? 0);
+  setText("liveMetricSessions", data.activeSessions ?? 0);
+  setText("liveMetricSudoku", getLiveModeValue(data, "sudoku"));
+  setText("liveMetricPvp", getLiveModeValue(data, "pvp"));
+  setText("liveMetricTorneos", getLiveModeValue(data, "torneo"));
+  setText("liveMetricLobby", getLiveModeValue(data, "pvp_lobby"));
+  setText("liveUpdatedAt", `Actualizado ${formatClock(data.generatedAt)}`);
+
+  renderLiveDifficultyChips(data.sessionsByDifficulty || {});
+  renderLiveEvents(data.recentEvents || []);
+  renderLiveSessions(data.currentSessions || []);
+}
+
+async function loadLiveSnapshot() {
+  try {
+    const snapshot = await getJson(endpoints.liveSnapshot);
+    renderLiveSnapshot(snapshot);
+  } catch (error) {
+    setLiveStatus("Sin datos", "warning");
+    void error;
+  }
+}
+
+function stopLiveStream({ keepBadge = false } = {}) {
+  if (liveReconnectTimer) {
+    window.clearTimeout(liveReconnectTimer);
+    liveReconnectTimer = null;
+  }
+
+  if (liveController) {
+    liveController.abort();
+    liveController = null;
+  }
+
+  if (!keepBadge) {
+    setLiveStatus("Sin conectar", "idle");
+  }
+}
+
+function scheduleLiveReconnect() {
+  if (liveReconnectTimer || document.hidden) return;
+
+  liveReconnectTimer = window.setTimeout(() => {
+    liveReconnectTimer = null;
+    void connectLiveStream();
+  }, 3000);
+}
+
+function processLiveStreamChunk(chunk) {
+  if (!chunk) return;
+
+  let eventName = "message";
+  const dataLines = [];
+
+  chunk.split(/\r?\n/).forEach((line) => {
+    if (!line || line.startsWith(":")) return;
+    if (line.startsWith("event:")) {
+      eventName = line.slice(6).trim();
+      return;
+    }
+    if (line.startsWith("data:")) {
+      dataLines.push(line.slice(5).trim());
+    }
+  });
+
+  if (eventName !== "snapshot") return;
+  if (!dataLines.length) return;
+
+  try {
+    renderLiveSnapshot(JSON.parse(dataLines.join("\n")));
+    setLiveStatus("En vivo", "live");
+  } catch {
+    setLiveStatus("Reconectando...", "warning");
+  }
+}
+
+async function connectLiveStream() {
+  if (document.hidden || liveController) return;
+
+  const session = window.AdminAuth.requireSession({ redirectOnFail: false });
+  if (!session?.accessToken) return;
+
+  const controller = new AbortController();
+  liveController = controller;
+  setLiveStatus("Conectando...", "connecting");
+
+  try {
+    const response = await fetch(endpoints.liveStream, {
+      method: "GET",
+      headers: {
+        Accept: "text/event-stream",
+        Authorization: `Bearer ${session.accessToken}`,
+      },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      window.AdminAuth.redirectToLogin(
+        response.status === 403
+          ? "Tu cuenta no tiene permisos de administrador."
+          : "Tu sesion expiro. Inicia sesion de nuevo.",
+      );
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    if (!response.body || typeof response.body.getReader !== "function") {
+      throw new Error("El navegador no permite leer el stream live.");
+    }
+
+    setLiveStatus("En vivo", "live");
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const chunks = buffer.split(/\r?\n\r?\n/);
+      buffer = chunks.pop() || "";
+      chunks.forEach(processLiveStreamChunk);
+    }
+
+    if (!controller.signal.aborted) {
+      throw new Error("El stream live se cerro.");
+    }
+  } catch (error) {
+    if (controller.signal.aborted) return;
+    setLiveStatus("Reconectando...", "warning");
+    scheduleLiveReconnect();
+    void error;
+  } finally {
+    if (liveController === controller) {
+      liveController = null;
+    }
+  }
 }
 
 async function getJson(url) {
@@ -334,11 +656,21 @@ async function loadGraficas() {
 window.addEventListener("focus", () => {
   if (window.AdminAuth.requireSession({ redirectOnFail: false })) {
     loadGraficas();
+    loadLiveSnapshot();
+    void connectLiveStream();
   }
 });
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden && window.AdminAuth.requireSession({ redirectOnFail: false })) {
+  if (document.hidden) {
+    stopLiveStream({ keepBadge: true });
+    setLiveStatus("En pausa", "idle");
+    return;
+  }
+
+  if (window.AdminAuth.requireSession({ redirectOnFail: false })) {
     loadGraficas();
+    loadLiveSnapshot();
+    void connectLiveStream();
   }
 });
 window.addEventListener("load", () => {
@@ -355,9 +687,14 @@ window.addEventListener("load", () => {
   }
 
   loadGraficas();
+  loadLiveSnapshot();
+  void connectLiveStream();
   window.setInterval(() => {
     if (!document.hidden && window.AdminAuth.requireSession({ redirectOnFail: false })) {
       loadGraficas();
     }
   }, REFRESH_MS);
+});
+window.addEventListener("beforeunload", () => {
+  stopLiveStream({ keepBadge: true });
 });

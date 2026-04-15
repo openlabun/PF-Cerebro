@@ -135,6 +135,7 @@ export class GameSessionsService {
     juegoId: string,
     accessToken: string,
     excludeSessionId?: string,
+    excludePlayedAt?: string,
   ): Promise<GameSession | null> {
     const normalizedJuegoId = String(juegoId || '').trim();
     if (!normalizedJuegoId) {
@@ -145,6 +146,7 @@ export class GameSessionsService {
     }
 
     const normalizedExcludedId = this.normalizeSessionId(excludeSessionId);
+    const normalizedExcludedPlayedAt = String(excludePlayedAt || '').trim();
     const rows = await this.robleService.read<GameSession>(
       accessToken,
       'SesionJuego',
@@ -157,6 +159,10 @@ export class GameSessionsService {
         return !normalizedExcludedId || sessionId !== normalizedExcludedId;
       })
       .filter((row) => {
+        const playedAt = String(row?.jugadoEn || '').trim();
+        return !normalizedExcludedPlayedAt || playedAt !== normalizedExcludedPlayedAt;
+      })
+      .filter((row) => {
         const playedAt = new Date(String(row?.jugadoEn || ''));
         return !Number.isNaN(playedAt.getTime());
       })
@@ -165,12 +171,6 @@ export class GameSessionsService {
         const right = new Date(String(b.jugadoEn)).getTime();
         return right - left;
       });
-
-    // this.logger.log(
-    //   `Ultima sesion consultada: usuarioId=${usuarioID}, juegoId=${normalizedJuegoId}, excludeSessionId=${normalizedExcludedId ?? 'none'}, ultimaSesion=${JSON.stringify(
-    //     sorted[0] ?? null,
-    //   )}`,
-    // );
 
     return sorted[0] ?? null;
   }
@@ -258,6 +258,8 @@ export class GameSessionsService {
     cambioElo: number,
     accessToken: string,
   ): Promise<void> {
+    const normalizedGameId = String(juegoId || '').trim();
+    const isSinglePlayerSudoku = normalizedGameId === 'uVsB-k2rjora';
     const stats = await this.gameStatsService.createIfNotExists(
       usuarioId,
       juegoId,
@@ -275,15 +277,15 @@ export class GameSessionsService {
       partidasJugadas: Number(stats.partidasJugadas ?? 0) + 1,
       elo: Number(stats.elo ?? 0) + Number(cambioElo ?? 0),
       victorias:
-        resultado === 'victoria'
+        !isSinglePlayerSudoku && resultado === 'victoria'
           ? Number(stats.victorias ?? 0) + 1
           : Number(stats.victorias ?? 0),
       derrotas:
-        resultado === 'derrota'
+        !isSinglePlayerSudoku && resultado === 'derrota'
           ? Number(stats.derrotas ?? 0) + 1
           : Number(stats.derrotas ?? 0),
       empates:
-        resultado === 'empate'
+        !isSinglePlayerSudoku && resultado === 'empate'
           ? Number(stats.empates ?? 0) + 1
           : Number(stats.empates ?? 0),
     };

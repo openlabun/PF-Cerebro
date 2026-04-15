@@ -7,12 +7,15 @@ services:
       dockerfile: Dockerfile.frontend
       args:
         VITE_APP_BASE_PATH: "/"
+        VITE_AUTH_API_BASE_URL: "/api"
+        VITE_PVP_WEBHOOK_RECEIVER_URL: "http://frontend/api/webhooks"
     ports:
       - "5051:80"
     restart: unless-stopped
     depends_on:
       - cerebro-api
       - backend-pvp
+      - backend-admin
 
   cerebro-api:
     container_name: cerebro-api

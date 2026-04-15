@@ -82,5 +82,10 @@ export default defineConfig(() => {
   return {
     base: basePath,
     plugins: [react(), pvpWebhookReceiverPlugin(basePath)],
+    test: {
+      environment: 'jsdom',
+      setupFiles: './src/test/setupTests.js',
+      globals: true,
+    },
   }
 })

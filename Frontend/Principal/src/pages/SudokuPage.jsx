@@ -4,6 +4,7 @@ import DifficultySelect from '../components/DifficultySelect.jsx'
 import { SudokuGameProvider } from '../context/SudokuGameContext.jsx'
 import { formatSudokuTime } from '../context/SudokuGameContext.jsx'
 import { useLocalSudokuGame } from '../hooks/useLocalSudokuGame.js'
+import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { difficultyLevels } from '../lib/sudoku.js'
 
 function SudokuPageContent() {
@@ -27,18 +28,27 @@ function SudokuPageContent() {
     statusOk,
     progress,
     correctCounts,
+    showResumePrompt,
+    pendingResumeSnapshot,
     showAchievementPopup,
     achievementPopupItems,
-    streakMessage,
     setPaused,
     setNoteMode,
     setHighlightEnabled,
     setShowAchievementPopup,
     startNewGame,
+    resumeSavedGame,
+    discardSavedGame,
     applyValue,
     applyHint,
     clearSelectedCell,
   } = useLocalSudokuGame()
+
+  useLiveHeartbeat({
+    mode: 'sudoku',
+    difficulty: difficulty.label,
+    state: completed ? 'completed' : paused ? 'paused' : 'playing',
+  })
 
   return (
     <main>
@@ -57,9 +67,8 @@ function SudokuPageContent() {
                 id="difficulty-select"
                 value={difficultyKey}
                 options={difficultyOptions}
-                onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey)}
+                onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey, { closePreviousActive: true })}
               />
-              <span className="difficulty-label">Dificultad: {difficulty.label}</span>
             </div>
 
             <div className="sudoku-top-right">
@@ -69,7 +78,11 @@ function SudokuPageContent() {
               <button className="btn ghost btn-pause" type="button" onClick={() => setPaused((current) => !current)}>
                 {paused ? 'Reanudar' : 'Pausar'}
               </button>
-              <button className="btn btn-new-game" type="button" onClick={() => startNewGame(difficultyKey)}>
+              <button
+                className="btn btn-new-game"
+                type="button"
+                onClick={() => startNewGame(difficultyKey, { closePreviousActive: true })}
+              >
                 Nuevo Juego
               </button>
             </div>
@@ -119,7 +132,7 @@ function SudokuPageContent() {
         <div className="sudoku-pause-overlay" role="dialog" aria-modal="true">
           <div className="sudoku-pause-card">
             <h3 className="sudoku-pause-title">Juego en pausa</h3>
-            <p className="sudoku-pause-text">El tiempo esta detenido. Presiona reanudar para continuar.</p>
+            <p className="sudoku-pause-text">El tiempo está detenido. Presiona reanudar para continuar.</p>
             <button className="btn primary sudoku-pause-resume-btn" type="button" onClick={() => setPaused(false)}>
               Reanudar
             </button>
@@ -135,16 +148,39 @@ function SudokuPageContent() {
             <p className="sudoku-pause-text">
               Tiempo: {formatSudokuTime(seconds)} | Errores: {errorCount} | Pistas: {hintsUsed}
             </p>
-            <button className="btn primary sudoku-pause-resume-btn" type="button" onClick={() => startNewGame(difficultyKey)}>
+            <button
+              className="btn primary sudoku-pause-resume-btn"
+              type="button"
+              onClick={() => startNewGame(difficultyKey, { closePreviousActive: false })}
+            >
               Jugar otra vez
             </button>
           </div>
         </div>
       ) : null}
 
-      {streakMessage ? (
-        <div className="sudoku-streak-note" role="status" aria-live="polite">
-          {streakMessage}
+      {showResumePrompt ? (
+        <div className="sudoku-pause-overlay" role="alertdialog" aria-modal="true">
+          <div className="sudoku-pause-card sudoku-completion-card">
+            <h3 className="sudoku-pause-title">Partida anterior detectada</h3>
+            <p className="sudoku-pause-text">
+              Encontramos una partida en curso
+              {pendingResumeSnapshot?.difficultyLabel ? ` (${pendingResumeSnapshot.difficultyLabel})` : ''}.
+            </p>
+            <p className="sudoku-pause-text">
+              Tiempo: {formatSudokuTime(Number(pendingResumeSnapshot?.seconds || 0))} | Errores:{' '}
+              {Number(pendingResumeSnapshot?.errorCount || 0)} | Pistas usadas:{' '}
+              {Number(pendingResumeSnapshot?.hintsUsed || 0)}
+            </p>
+            <div className="board-actions controls">
+              <button className="btn primary" type="button" onClick={resumeSavedGame}>
+                Continuar partida
+              </button>
+              <button className="btn ghost" type="button" onClick={discardSavedGame}>
+                Iniciar una nueva
+              </button>
+            </div>
+          </div>
         </div>
       ) : null}
 

@@ -23,7 +23,7 @@ export class CreateTorneoDto {
   @IsBoolean()
   esPublico!: boolean;
 
-  @ApiProperty({ example: 'PUNTOS' })
+  @ApiProperty({ example: 'SERIE' })
   @IsString()
   @IsNotEmpty()
   tipo!: string;
@@ -41,7 +41,14 @@ export class CreateTorneoDto {
   @IsString()
   recurrencia?: string;
 
-  @ApiProperty({ example: { dificultad: 'Intermedio' }, required: false })
+  @ApiProperty({
+    example: {
+      duracionMaximaMin: 20,
+      dificultad: 'Intermedio',
+      numeroTableros: 3,
+    },
+    required: false,
+  })
   @IsOptional()
   @IsObject()
   configuracion?: Record<string, unknown>;

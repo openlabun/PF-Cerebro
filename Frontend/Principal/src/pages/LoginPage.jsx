@@ -11,7 +11,8 @@ function LoginPage() {
   const [message, setMessage] = useState('')
   const [tone, setTone] = useState('info')
 
-  const nextPath = location.state?.from?.pathname || '/'
+  const nextLocation = location.state?.from || { pathname: '/' }
+  const nextPath = `${nextLocation.pathname || '/'}${nextLocation.search || ''}${nextLocation.hash || ''}`
 
   useEffect(() => {
     if (!isAuthenticated) return
@@ -29,13 +30,13 @@ function LoginPage() {
 
     if (!form.email.trim() || !form.password) {
       setTone('error')
-      setMessage('Completa correo y contrasena.')
+      setMessage('Completa correo y contraseña.')
       return
     }
 
     setIsSubmitting(true)
     setTone('info')
-    setMessage('Iniciando sesion...')
+    setMessage('Iniciando sesión...')
 
     try {
       await login({
@@ -45,7 +46,7 @@ function LoginPage() {
       navigate(nextPath, { replace: true })
     } catch (error) {
       setTone('error')
-      setMessage(error instanceof Error ? error.message : 'No fue posible iniciar sesion.')
+      setMessage(error instanceof Error ? error.message : 'No fue posible iniciar sesión.')
     } finally {
       setIsSubmitting(false)
     }
@@ -55,14 +56,14 @@ function LoginPage() {
     <main>
       <section className="auth-page">
         <div className="auth-page-header">
-          <h1>Iniciar sesion</h1>
+          <h1>Iniciar sesión</h1>
         </div>
 
         <div className="auth-shell">
           <article className="auth-card">
             <div className="auth-tabs">
               <button className="auth-tab active" type="button">
-                Iniciar sesion
+                Iniciar sesión
               </button>
               <Link className="auth-tab" to="/signup">
                 Crear cuenta
@@ -93,7 +94,7 @@ function LoginPage() {
                   autoCorrect="off"
                   name="password"
                   onChange={handleChange}
-                  placeholder="Tu contrasena"
+                  placeholder="Tu contraseña"
                   spellCheck="false"
                   type="password"
                   value={form.password}
@@ -106,6 +107,14 @@ function LoginPage() {
             </form>
 
             <p className={`auth-feedback${tone !== 'info' ? ` ${tone}` : ''}`}>{message || ' '}</p>
+
+            <p className="auth-links">
+              Olvidaste tu contraseña? <Link to="/forgot-password">Recuperarla</Link>
+            </p>
+
+            <p className="auth-links">
+              Tienes un código de verificación? <Link to="/verify-email">Validar correo</Link>
+            </p>
 
             <p className="auth-links">
               No tienes cuenta? <Link to="/signup">Crear cuenta</Link>

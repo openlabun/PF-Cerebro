@@ -22,6 +22,7 @@ function SudokuControlsPanel({
   highlightDisabled = false,
   hintDisabled = false,
   hintCount = 0,
+  showHint = true,
   keypadLabel = 'Teclado numerico',
   getNumberHidden = defaultNumberVisibility,
   getNumberDisabled = defaultNumberDisabled,
@@ -73,18 +74,20 @@ function SudokuControlsPanel({
           <span className="btn-icon-badge notes-badge">{noteMode ? 'ON' : 'OFF'}</span>
           <NotesIcon />
         </button>
-        <button
-          id="hint"
-          className="btn-control btn-icon-circle"
-          type="button"
-          aria-label="Pista"
-          title="Pista"
-          disabled={hintDisabled}
-          onClick={onHint}
-        >
-          <span className="btn-icon-badge hint-badge">{hintCount}</span>
-          <HintIcon />
-        </button>
+        {showHint ? (
+          <button
+            id="hint"
+            className="btn-control btn-icon-circle"
+            type="button"
+            aria-label="Pista"
+            title="Pista"
+            disabled={hintDisabled}
+            onClick={onHint}
+          >
+            <span className="btn-icon-badge hint-badge">{hintCount}</span>
+            <HintIcon />
+          </button>
+        ) : null}
       </div>
 
       <div className="board-actions controls notes-actions">

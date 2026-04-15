@@ -14,7 +14,7 @@ function SignUpPage() {
     confirmPassword: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [message, setMessage] = useState('Escribe y confirma tu contrasena.')
+  const [message, setMessage] = useState('Escribe y confirma tu contraseña.')
   const [tone, setTone] = useState('info')
 
   useEffect(() => {
@@ -33,11 +33,11 @@ function SignUpPage() {
     }
 
     if (!passwordPolicy.test(form.password)) {
-      return 'La contrasena debe tener minimo 8 caracteres, mayuscula, numero y simbolo.'
+      return 'La contraseña debe tener mínimo 8 caracteres, mayúscula, número y símbolo.'
     }
 
     if (form.password !== form.confirmPassword) {
-      return 'Las contrasenas no coinciden.'
+      return 'Las contraseñas no coinciden.'
     }
 
     return ''
@@ -59,9 +59,10 @@ function SignUpPage() {
     setMessage('Creando cuenta...')
 
     try {
+      const normalizedEmail = form.email.trim().toLowerCase()
       const result = await signup({
         name: form.name.trim(),
-        email: form.email.trim(),
+        email: normalizedEmail,
         password: form.password,
       })
 
@@ -70,13 +71,12 @@ function SignUpPage() {
         return
       }
 
-      setTone('success')
-      setMessage('Cuenta creada. Si tu backend exige verificacion, revisa tu correo antes de iniciar sesion.')
-      setForm({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
+      navigate(`/verify-email?email=${encodeURIComponent(normalizedEmail)}`, {
+        replace: true,
+        state: {
+          message:
+            'Cuenta creada. Revisa tu correo, copia el código y valida tu cuenta para poder iniciar sesión.',
+        },
       })
     } catch (error) {
       setTone('error')
@@ -90,14 +90,14 @@ function SignUpPage() {
     <main>
       <section className="auth-page">
         <div className="auth-page-header">
-          <h1>Iniciar sesion</h1>
+          <h1>Crear cuenta</h1>
         </div>
 
         <div className="auth-shell">
           <article className="auth-card">
             <div className="auth-tabs">
               <Link className="auth-tab" to="/login">
-                Iniciar sesion
+                Iniciar sesión
               </Link>
               <button className="auth-tab active" type="button">
                 Crear cuenta
@@ -135,19 +135,19 @@ function SignUpPage() {
                   autoComplete="new-password"
                   name="password"
                   onChange={handleChange}
-                  placeholder="Minimo 8 caracteres, una mayuscula y un simbolo"
+                  placeholder="Mínimo 8 caracteres, una mayúscula y un símbolo"
                   type="password"
                   value={form.password}
                 />
               </label>
 
               <label className="auth-field">
-                <span>Confirmar contrasena</span>
+                <span>Confirmar contraseña</span>
                 <input
                   autoComplete="new-password"
                   name="confirmPassword"
                   onChange={handleChange}
-                  placeholder="Repite tu contrasena"
+                  placeholder="Repite tu contraseña"
                   type="password"
                   value={form.confirmPassword}
                 />
@@ -163,7 +163,11 @@ function SignUpPage() {
             </form>
 
             <p className="auth-links">
-              Ya tienes cuenta? <Link to="/login">Iniciar sesion</Link>
+              Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+            </p>
+
+            <p className="auth-links">
+              Ya tienes un código? <Link to="/verify-email">Verificar correo</Link>
             </p>
           </article>
         </div>

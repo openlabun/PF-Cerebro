@@ -27,6 +27,7 @@ export class GameSessionsController {
   async getLatestSession(
     @Query('juegoId') juegoId: string,
     @Query('excludeSessionId') excludeSessionId: string | undefined,
+    @Query('excludePlayedAt') excludePlayedAt: string | undefined,
     @Req() req: robleAuthGuard.RobleRequest,
   ) {
     const usuarioID = String(req.robleUser.sub);
@@ -36,6 +37,7 @@ export class GameSessionsController {
       juegoId,
       accessToken,
       excludeSessionId,
+      excludePlayedAt,
     );
   }
 

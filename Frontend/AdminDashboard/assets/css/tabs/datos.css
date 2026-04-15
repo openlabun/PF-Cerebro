@@ -124,10 +124,24 @@ th {
 tbody tr:nth-child(even) { background: #fbfdff; }
 tbody tr:hover { background: #f1f7ff; }
 td:first-child {
-  font-family: "Consolas", "Courier New", monospace;
-  font-size: 0.82rem;
+  font-size: 0.92rem;
+  font-weight: 700;
   max-width: 220px;
   overflow-wrap: anywhere;
+}
+
+.badge-official {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 0.45rem;
+  border-radius: 999px;
+  padding: 0.14rem 0.55rem;
+  background: #fff1d8;
+  color: #8a5a11;
+  font-size: 0.75rem;
+  font-weight: 800;
+  vertical-align: middle;
 }
 
 .status-text { margin: 0 0 0.55rem; color: var(--muted); }

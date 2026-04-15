@@ -16,10 +16,15 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
-  it('/ (GET)', () => {
+  afterEach(async () => {
+    if (app) {
+      await app.close();
+    }
+  });
+
+  it('rejects protected auth routes without a bearer token', () => {
     return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+      .get('/auth/users')
+      .expect(401);
   });
 });

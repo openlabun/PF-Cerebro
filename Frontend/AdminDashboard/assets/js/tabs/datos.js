@@ -12,7 +12,7 @@ const TORNEOS_ESTADOS = [
   "FINALIZADO",
   "CANCELADO",
 ];
-const TORNEOS_TIPOS = ["PVP", "TIEMPO", "PUNTOS"];
+const TORNEOS_TIPOS = ["SERIE"];
 const SUDOKU_DIFFICULTIES = [
   "Principiante",
   "Iniciado",
@@ -66,6 +66,10 @@ function getVisibilityLabel(row) {
 
 function getVisibilityClass(row) {
   return isPrivateTorneo(row) ? "badge-private" : "badge-public";
+}
+
+function isOfficialTorneo(row) {
+  return row?.esOficial === true || row?.configuracion?.esOficial === true;
 }
 
 function warmAccessCodeCache(rows) {
@@ -137,6 +141,18 @@ function applyTorneosFilter() {
   torneosState.page = Math.min(torneosState.page, totalPages);
 }
 
+function sortTorneosRows(rows) {
+  return [...(rows || [])].sort((left, right) => {
+    const leftOfficial = isOfficialTorneo(left) ? 1 : 0;
+    const rightOfficial = isOfficialTorneo(right) ? 1 : 0;
+    if (leftOfficial !== rightOfficial) return rightOfficial - leftOfficial;
+
+    const leftDate = new Date(left?.fechaInicio || left?.fechaCreacion || 0).getTime();
+    const rightDate = new Date(right?.fechaInicio || right?.fechaCreacion || 0).getTime();
+    return rightDate - leftDate;
+  });
+}
+
 function formatCreatorCell(torneo) {
   const creatorId = String(torneo?.creadorId || "").trim();
   const creatorName = String(
@@ -160,6 +176,14 @@ function renderVisibilityCell(torneo) {
   const label = getVisibilityLabel(torneo);
   const klass = getVisibilityClass(torneo);
   return `<span class="visibility-badge ${klass}">${escapeHtml(label)}</span>`;
+}
+
+function renderNameCell(torneo) {
+  const name = escapeHtml(torneo?.nombre || "-");
+  const officialBadge = isOfficialTorneo(torneo)
+    ? ' <span class="badge-official">Oficial</span>'
+    : "";
+  return `${name}${officialBadge}`;
 }
 
 async function resolveAccessCode(torneoId) {
@@ -294,7 +318,7 @@ function renderTorneosTable() {
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${escapeHtml(torneo?.nombre || "-")}</td>
+        <td>${renderNameCell(torneo)}</td>
         <td>${escapeHtml(formatCreatorCell(torneo))}</td>
         <td>${renderVisibilityCell(torneo)}</td>
         <td>${escapeHtml(torneo?.estado || "-")}</td>
@@ -360,7 +384,7 @@ function refreshTorneosFilters(rows) {
 }
 
 function setTorneosData(rows) {
-  torneosState.all = Array.isArray(rows) ? rows : [];
+  torneosState.all = sortTorneosRows(Array.isArray(rows) ? rows : []);
   warmAccessCodeCache(torneosState.all);
   refreshTorneosFilters(torneosState.all);
   applyTorneosFilter();

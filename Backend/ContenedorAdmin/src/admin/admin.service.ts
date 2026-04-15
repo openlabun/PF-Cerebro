@@ -4,8 +4,18 @@ import { CreateTorneoDto } from './dto/create-torneo.dto';
 
 type TorneoRecord = {
   _id?: string;
+  nombre?: string;
+  descripcion?: string;
   creadorId?: string;
   creadorNombre?: string;
+  codigoAcceso?: string | null;
+  esPublico?: boolean;
+  estado?: string;
+  tipo?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  recurrencia?: string | null;
+  configuracion?: Record<string, unknown> | null;
   fechaCreacion?: string;
 };
 
@@ -138,6 +148,73 @@ export class AdminService {
     experto: 'Experto',
     maestro: 'Profesional',
   };
+  private readonly tournamentTypeSerie = 'SERIE';
+
+  private isPlainObject(value: unknown): value is Record<string, unknown> {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+  }
+
+  private normalizeText(value: unknown) {
+    return String(value ?? '').trim();
+  }
+
+  private resolvePositiveInteger(value: unknown) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+    return Math.trunc(parsed);
+  }
+
+  private resolveTournamentDifficulty(value: unknown) {
+    const normalized = this.normalizeDifficulty(value);
+    const match = this.sudokuDifficulties.find(
+      (difficulty) => this.normalizeDifficulty(difficulty) === normalized,
+    );
+    return match || 'Intermedio';
+  }
+
+  private normalizeTournamentRecurrence(value: unknown) {
+    const normalized = this.normalizeText(value).toUpperCase();
+    const allowed = ['NINGUNA', 'DIARIA', 'SEMANAL', 'MENSUAL'];
+    return allowed.includes(normalized) ? normalized : 'NINGUNA';
+  }
+
+  private sanitizeTournamentConfig(value: unknown): Record<string, unknown> {
+    const config = this.isPlainObject(value) ? value : {};
+    return {
+      duracionMaximaMin:
+        this.resolvePositiveInteger(config.duracionMaximaMin) ?? 20,
+      dificultad: this.resolveTournamentDifficulty(config.dificultad),
+      numeroTableros:
+        this.resolvePositiveInteger(
+          config.numeroTableros ?? config.cantidadTableros ?? config.tableros,
+        ) ?? 3,
+      esOficial: config.esOficial === true,
+    };
+  }
+
+  private sanitizeTournamentPayload(
+    value: CreateTorneoDto | Record<string, unknown>,
+    options: { forceOfficial?: boolean } = {},
+  ): Record<string, unknown> {
+    const source = this.isPlainObject(value) ? value : {};
+    const config = this.sanitizeTournamentConfig(source.configuracion);
+    if (options.forceOfficial) {
+      config.esOficial = true;
+    }
+    const payload: Record<string, unknown> = {
+      tipo: this.tournamentTypeSerie,
+      recurrencia: this.normalizeTournamentRecurrence(source.recurrencia),
+      configuracion: config,
+    };
+
+    if ('nombre' in source) payload.nombre = source.nombre;
+    if ('descripcion' in source) payload.descripcion = source.descripcion;
+    if ('esPublico' in source) payload.esPublico = source.esPublico;
+    if ('fechaInicio' in source) payload.fechaInicio = source.fechaInicio;
+    if ('fechaFin' in source) payload.fechaFin = source.fechaFin;
+
+    return payload;
+  }
 
   async buildOverview(accessToken: string) {
     const snapshot = await this.getAggregatedSnapshot(accessToken);
@@ -437,11 +514,7 @@ export class AdminService {
   }
 
   async createTorneo(accessToken: string, dto: CreateTorneoDto) {
-    const payload = {
-      ...dto,
-      recurrencia: dto.recurrencia || 'NINGUNA',
-      configuracion: dto.configuracion || {},
-    };
+    const payload = this.sanitizeTournamentPayload(dto, { forceOfficial: true });
     const result = await this.requestContenedor1('torneos', 'POST', payload, {
       accessToken,
     });
@@ -478,10 +551,40 @@ export class AdminService {
     torneoId: string,
     payload: Record<string, unknown>,
   ) {
+    let forceOfficial = false;
+    try {
+      const currentPayload = await this.requestContenedor1(
+        `torneos/${torneoId}`,
+        'GET',
+        undefined,
+        { accessToken },
+      );
+      const currentRecord =
+        currentPayload &&
+        typeof currentPayload === 'object' &&
+        !Array.isArray(currentPayload) &&
+        typeof (currentPayload as { data?: unknown }).data === 'object' &&
+        (currentPayload as { data?: unknown }).data !== null &&
+        !Array.isArray((currentPayload as { data?: unknown }).data)
+          ? ((currentPayload as { data: TorneoRecord }).data ?? null)
+          : currentPayload &&
+              typeof currentPayload === 'object' &&
+              !Array.isArray(currentPayload)
+            ? (currentPayload as TorneoRecord)
+            : null;
+      forceOfficial =
+        currentRecord?.configuracion?.esOficial === true;
+    } catch {
+      forceOfficial = false;
+    }
+
+    const sanitizedPayload = this.sanitizeTournamentPayload(payload, {
+      forceOfficial,
+    });
     const result = await this.requestContenedor1(
       `torneos/${torneoId}`,
       'PUT',
-      payload,
+      sanitizedPayload,
       { accessToken },
     );
     this.invalidateSnapshotCache();

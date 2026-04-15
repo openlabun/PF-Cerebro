@@ -15,3 +15,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </AuthProvider>
   </React.StrictMode>,
 )
+
+const loadingScreen = document.getElementById('app-loading-screen')
+
+if (loadingScreen) {
+  window.setTimeout(() => {
+    loadingScreen.classList.add('is-hidden')
+
+    window.setTimeout(() => {
+      loadingScreen.remove()
+    }, 320)
+  }, 1000)
+}

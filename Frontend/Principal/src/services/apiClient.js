@@ -3,14 +3,18 @@ import { resolveConfig } from '../config.js'
 function buildUrl(baseUrl, path) {
   const config = resolveConfig()
   const normalizedPath = String(path || '').replace(/^\/+/, '')
-  const resolvedBaseUrl =
-    baseUrl === 'pvp'
-      ? config.PVP_API_BASE_URL
-      : baseUrl === 'pvp-auth'
-        ? config.PVP_AUTH_API_BASE_URL
-        : baseUrl === 'pvp-webhook'
-          ? config.PVP_WEBHOOK_API_BASE_URL
-        : config.AUTH_API_BASE_URL
+  let resolvedBaseUrl = config.AUTH_API_BASE_URL
+
+  if (baseUrl === 'pvp') {
+    resolvedBaseUrl = config.PVP_API_BASE_URL
+  } else if (baseUrl === 'pvp-auth') {
+    resolvedBaseUrl = config.PVP_AUTH_API_BASE_URL
+  } else if (baseUrl === 'pvp-webhook') {
+    resolvedBaseUrl = config.PVP_WEBHOOK_API_BASE_URL
+  } else if (baseUrl === 'admin-live') {
+    resolvedBaseUrl = config.ADMIN_LIVE_API_BASE_URL
+  }
+
   return normalizedPath ? `${resolvedBaseUrl}/${normalizedPath}` : resolvedBaseUrl
 }
 
@@ -24,9 +28,25 @@ function parseResponse(text) {
   }
 }
 
+function getFriendlyStatusMessage(status) {
+  if (status === 401) {
+    return 'Tu sesión no es válida o expiró. Inicia sesión nuevamente.'
+  }
+
+  if (status === 403) {
+    return 'La solicitud fue rechazada por el servicio (403). Si estabas iniciando sesión, revisa tu red, VPN o filtros de seguridad.'
+  }
+
+  if (status === 502 || status === 503 || status === 504) {
+    return 'No se pudo comunicar correctamente con el servicio externo. Intenta de nuevo.'
+  }
+
+  return `Request failed with status ${status}`
+}
+
 function getPayloadErrorMessage(payload, status) {
   if (typeof payload !== 'object' || payload === null) {
-    return `Request failed with status ${status}`
+    return getFriendlyStatusMessage(status)
   }
 
   const rawMessage = payload.message
@@ -41,17 +61,23 @@ function getPayloadErrorMessage(payload, status) {
 
   if (rawMessage !== undefined && rawMessage !== null) {
     const message = String(rawMessage).trim()
-    if (message) return message
+    if (message) {
+      if (/^Request failed with status code \d+$/i.test(message)) {
+        return getFriendlyStatusMessage(status)
+      }
+
+      return message
+    }
   }
 
-  return `Request failed with status ${status}`
+  return getFriendlyStatusMessage(status)
 }
 
 function getStoredAccessTokenForBase(baseUrl) {
   const session = authStorage.getSession()
   if (!session) return null
 
-  if (baseUrl === 'auth') {
+  if (baseUrl === 'auth' || baseUrl === 'admin-live') {
     return session.c1AccessToken || session.accessToken || null
   }
 
@@ -73,9 +99,15 @@ async function performRequest(path, options = {}, tokenOverride = null) {
   const baseUrl = options.baseUrl || 'auth'
   const token = tokenOverride ?? resolveRequestToken(baseUrl, options.token)
   const signal = options.signal
+  const keepalive = Boolean(options.keepalive)
+  const extraHeaders =
+    options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
+      ? options.headers
+      : {}
 
   const headers = {
     Accept: 'application/json',
+    ...extraHeaders,
   }
 
   if (body !== undefined) {
@@ -88,9 +120,11 @@ async function performRequest(path, options = {}, tokenOverride = null) {
 
   const response = await fetch(buildUrl(baseUrl, path), {
     method,
+    cache: 'no-store',
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
+    keepalive,
   })
 
   const raw = await response.text()
@@ -110,7 +144,7 @@ async function refreshSessionForBase(baseUrl) {
   const session = authStorage.getSession()
   if (!session) return null
 
-  if (baseUrl === 'auth') {
+  if (baseUrl === 'auth' || baseUrl === 'admin-live') {
     const refreshToken = session.c1RefreshToken || session.refreshToken
     if (!refreshToken) return null
 
@@ -261,11 +295,12 @@ export const apiClient = {
     })
   },
 
-  verifyToken(accessToken) {
+  verifyToken(accessToken, options = {}) {
     return request('auth/verify-token', {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,
+      headers: options.headers,
     })
   },
 
@@ -335,9 +370,33 @@ export const apiClient = {
     })
   },
 
+  getTournaments(accessToken) {
+    return request('torneos', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getPublicTournaments() {
+    return request('torneos/public', {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
   createTournament(payload, accessToken) {
     return request('torneos', {
       method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: payload,
+    })
+  },
+
+  updateTournament(tournamentId, payload, accessToken) {
+    return request(`torneos/${tournamentId}`, {
+      method: 'PUT',
       baseUrl: 'auth',
       token: accessToken,
       body: payload,
@@ -361,6 +420,13 @@ export const apiClient = {
     })
   },
 
+  getPublicTournament(tournamentId) {
+    return request(`torneos/public/${tournamentId}`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
   getTournamentParticipants(tournamentId, accessToken) {
     return request(`torneos/${tournamentId}/participantes`, {
       method: 'GET',
@@ -369,12 +435,71 @@ export const apiClient = {
     })
   },
 
-  joinTournament(tournamentId, accessToken) {
+  getPublicTournamentParticipants(tournamentId) {
+    return request(`torneos/public/${tournamentId}/participantes`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
+  getTournamentRanking(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}/ranking`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  getPublicTournamentRanking(tournamentId) {
+    return request(`torneos/public/${tournamentId}/ranking`, {
+      method: 'GET',
+      baseUrl: 'auth',
+    })
+  },
+
+  getTournamentResultsByUser(userId, accessToken) {
+    return request(`torneos/usuarios/${userId}/resultados`, {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  deleteTournament(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}`, {
+      method: 'DELETE',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  joinTournament(tournamentId, payloadOrToken = {}, maybeAccessToken) {
+    const legacySignature = typeof payloadOrToken === 'string' && maybeAccessToken === undefined
+    const body = legacySignature ? {} : payloadOrToken || {}
+    const accessToken = legacySignature ? payloadOrToken : maybeAccessToken
+
     return request(`torneos/${tournamentId}/unirse`, {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
-      body: {},
+      body,
+    })
+  },
+
+  startTournamentSession(tournamentId, accessToken) {
+    return request(`torneos/${tournamentId}/sesiones/iniciar`, {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  finishTournamentSession(tournamentId, sessionId, payload, accessToken) {
+    return request(`torneos/${tournamentId}/sesiones/${sessionId}/finalizar`, {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: payload,
     })
   },
 
@@ -396,12 +521,29 @@ export const apiClient = {
     })
   },
 
+  joinPvpMatchByCode(payload = {}, accessToken) {
+    return request('match/join-by-code', {
+      method: 'POST',
+      baseUrl: 'pvp',
+      token: accessToken,
+      body: payload,
+    })
+  },
+
   getPvpMatch(matchId, accessToken, signal) {
     return request(`match/${matchId}`, {
       method: 'GET',
       baseUrl: 'pvp',
       token: accessToken,
       signal,
+    })
+  },
+
+  getMyPvpRanking(accessToken) {
+    return request('ranking/me', {
+      method: 'GET',
+      baseUrl: 'pvp',
+      token: accessToken,
     })
   },
 
@@ -448,7 +590,7 @@ export const apiClient = {
   },
 
   getMyAchievements(accessToken) {
-    return request('my-achievements', {
+    return request('achievements/me', {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,
@@ -456,10 +598,11 @@ export const apiClient = {
   },
 
   unlockAchievement(accessToken, logroId) {
-    return request(`achievements/${logroId}/unlock`, {
+    return request('achievements/unlock', {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
+      body: { logroId },
     })
   },
 
@@ -484,8 +627,10 @@ export const apiClient = {
   getLatestGameSession(accessToken, gameId, options = {}) {
     const normalizedGameId = String(gameId || '').trim()
     const excludeSessionId = String(options.excludeSessionId || '').trim()
+    const excludePlayedAt = String(options.excludePlayedAt || '').trim()
     const query = new URLSearchParams({ juegoId: normalizedGameId })
     if (excludeSessionId) query.set('excludeSessionId', excludeSessionId)
+    if (excludePlayedAt) query.set('excludePlayedAt', excludePlayedAt)
 
     return request(`game-sessions/latest?${query.toString()}`, {
       method: 'GET',
@@ -506,16 +651,57 @@ export const apiClient = {
     })
   },
 
+  getActiveSudokuProgress(accessToken) {
+    return request('game-progress/sudoku/active', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  upsertActiveSudokuProgress(accessToken, payload, options = {}) {
+    return request('game-progress/sudoku/active', {
+      method: 'PUT',
+      baseUrl: 'auth',
+      token: accessToken,
+      keepalive: Boolean(options.keepalive),
+      skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      body: payload,
+    })
+  },
+
+  closeActiveSudokuProgress(accessToken, estado = 'descartada', options = {}) {
+    return request('game-progress/sudoku/active/close', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      keepalive: Boolean(options.keepalive),
+      skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      body: {
+        estado,
+      },
+    })
+  },
+
   increaseStreak(accessToken) {
-    return request('streak/increase', {
+    return request('streaks/increase', {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,
     })
   },
 
+  sendLiveHeartbeat(payload, accessToken) {
+    return request('heartbeat', {
+      method: 'POST',
+      baseUrl: 'admin-live',
+      token: accessToken,
+      body: payload,
+    })
+  },
+
   resetStreak(accessToken) {
-    return request('streak/reset', {
+    return request('streaks/reset', {
       method: 'POST',
       baseUrl: 'auth',
       token: accessToken,

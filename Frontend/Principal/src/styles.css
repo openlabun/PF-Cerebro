@@ -40,7 +40,7 @@ body {
   min-width: 320px;
   min-height: 100vh;
   color: var(--text);
-  background: radial-gradient(circle at top right, #eceefe, var(--bg) 35%);
+  background: var(--bg);
   overflow-x: hidden;
 }
 
@@ -77,11 +77,25 @@ button:hover:not(:disabled) {
   letter-spacing: -0.05em;
   line-height: 1;
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
+  gap: 0.35em;
 }
 
-.logo span {
+.logo-word {
+  display: inline-flex;
+  align-items: baseline;
+  color: var(--logo-base);
+}
+
+.logo-word span {
   color: var(--logo-accent);
+}
+
+.logo-mark {
+  height: 1em;
+  width: auto;
+  flex-shrink: 0;
+  display: block;
 }
 
 nav {
@@ -120,6 +134,7 @@ nav {
   color: var(--primary-dark);
   border-radius: 999px;
   padding: 0.45rem 0.9rem;
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
   text-decoration: none;
@@ -192,6 +207,7 @@ main,
   border: 0;
   border-radius: 12px;
   padding: 0.72rem 1.1rem;
+  font: inherit;
   font-weight: 700;
   cursor: pointer;
   text-decoration: none;
@@ -346,6 +362,39 @@ main,
   line-height: 1.45;
 }
 
+.simulation-pvp-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.simulation-pvp-panel {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--border));
+  background: color-mix(in srgb, var(--surface) 92%, var(--primary) 8%);
+}
+
+.simulation-pvp-panel--join {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 20%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface) 88%, var(--primary) 12%);
+}
+
+.simulation-subtitle {
+  margin: 0;
+  font-size: clamp(1.3rem, 2.3vw, 1.8rem);
+  color: var(--text);
+}
+
+.simulation-panel-copy {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .simulation-cta {
   width: 100%;
   min-height: 54px;
@@ -362,6 +411,31 @@ main,
 .simulation-field span {
   color: var(--text);
   font-weight: 700;
+}
+
+.simulation-code-input {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--primary) 10%);
+  padding: 1rem 1.1rem;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
+.simulation-code-input::placeholder {
+  color: color-mix(in srgb, var(--muted) 78%, transparent);
+  letter-spacing: 0.18em;
+}
+
+.simulation-code-input:focus {
+  outline: 2px solid color-mix(in srgb, var(--primary) 42%, transparent);
+  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border));
 }
 
 .section-heading {
@@ -426,6 +500,7 @@ main,
 .app-footer {
   margin-top: 1.25rem;
   color: var(--muted);
+  font-weight: 700;
 }
 
 .app-footer-inner {
@@ -436,6 +511,31 @@ main,
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.footer-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.footer-logo {
+  width: 1.1rem;
+  height: 1.1rem;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.footer-logo-dark {
+  display: none;
+}
+
+:root[data-theme='dark'] .footer-logo-light {
+  display: none;
+}
+
+:root[data-theme='dark'] .footer-logo-dark {
+  display: block;
 }
 
 .app-footer a {
@@ -532,6 +632,12 @@ main,
   color: var(--muted);
 }
 
+.auth-copy {
+  margin: 0 0 1.2rem;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
 .auth-field input {
   width: 100%;
   border: 1px solid var(--border);
@@ -604,7 +710,9 @@ main,
 
 .sudoku-page-title {
   margin: 0;
+  font-family: inherit;
   font-size: clamp(2rem, 4vw, 3.2rem);
+  font-weight: 700;
 }
 
 .sudoku-game-card {
@@ -640,17 +748,30 @@ main,
   margin: 0;
 }
 
-.pvp-invite-box {
-  overflow-x: auto;
+.pvp-code-box {
+  display: grid;
+  justify-items: center;
+  gap: 0.45rem;
   border-radius: 14px;
   border: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface) 88%, var(--text) 12%);
-  padding: 0.85rem 1rem;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface) 84%, var(--primary) 16%), color-mix(in srgb, var(--surface) 96%, var(--primary) 4%));
+  padding: 1rem 1.2rem;
 }
 
-.pvp-invite-box code {
-  white-space: nowrap;
-  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+.pvp-code-label {
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.pvp-code-value {
+  color: var(--text);
+  font-size: clamp(2rem, 5vw, 2.8rem);
+  font-weight: 900;
+  letter-spacing: 0.22em;
 }
 
 .pvp-opponent-card {
@@ -858,6 +979,12 @@ main,
   border-radius: 14px;
   padding: 0.6rem 1.1rem;
   font-weight: 700;
+}
+
+:root[data-theme='dark'] .sudoku-game-card .btn-pause {
+  background: color-mix(in srgb, var(--surface) 82%, #ffffff 18%);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+  color: #ffffff;
 }
 
 .sudoku-main {
@@ -1281,9 +1408,34 @@ main,
   min-width: 180px;
 }
 
+.pvp-finish-card {
+  width: min(92vw, 460px);
+  padding: 1.35rem 1.15rem 1.2rem;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 52%),
+    linear-gradient(160deg, var(--surface), color-mix(in srgb, var(--surface) 84%, #d3f1e0 16%));
+}
+
+.pvp-finish-winner {
+  margin: 0 0 0.85rem;
+  color: var(--text);
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.pvp-finish-meta {
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 930px) {
   nav {
-    display: none;
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
   }
 
   .hero,
@@ -1313,9 +1465,25 @@ main,
   .simulation-card--pvp {
     gap: 1.5rem;
   }
+
+  .simulation-pvp-layout {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {
+  .topbar {
+    justify-content: center;
+  }
+
+  nav {
+    gap: 0.5rem;
+  }
+
+  .nav-btn {
+    text-align: center;
+  }
+
   .auth-page-header {
     align-items: flex-start;
     flex-direction: column;
@@ -1334,13 +1502,31 @@ main,
     align-items: flex-start;
   }
 
+  .session-actions {
+    justify-content: center;
+  }
+
   .sudoku-main {
     gap: 1.25rem;
   }
 
+  .sudoku-grid-wrap,
+  .sudoku-controls {
+    width: 100%;
+  }
+
+  .sudoku-controls {
+    min-width: 0;
+  }
+
   .sudoku-game-card .board {
-    width: min(540px, calc(100vw - 2rem));
-    height: min(540px, calc(100vw - 2rem));
+    width: min(100%, 540px);
+    height: auto;
+    margin: 0 auto;
+  }
+
+  .sudoku-game-card .keypad-nums {
+    margin: 0 auto;
   }
 
   .simulation-card--pvp {

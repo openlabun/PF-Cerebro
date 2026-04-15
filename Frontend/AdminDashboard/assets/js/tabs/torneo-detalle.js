@@ -14,12 +14,9 @@ let fechaInicioDirty = false;
 let fechaFinDirty = false;
 
 const COMMON_CONFIG_KEYS = [
-  "maxParticipantes",
   "duracionMaximaMin",
-  "intentosMaximos",
   "dificultad",
-  "seedFija",
-  "permitirEmpates",
+  "numeroTableros",
 ];
 
 function byId(id) {
@@ -124,7 +121,7 @@ function getCreateDefaults() {
 
   return {
     nombre: "",
-    tipo: "PUNTOS",
+    tipo: "SERIE",
     estado: "BORRADOR",
     creadorId: "",
     descripcion: "",
@@ -132,7 +129,11 @@ function getCreateDefaults() {
     fechaFin: formatDateAsLocalDateTime(end),
     recurrencia: "NINGUNA",
     esPublico: true,
-    configuracion: {},
+    configuracion: {
+      duracionMaximaMin: 20,
+      dificultad: "Intermedio",
+      numeroTableros: 3,
+    },
   };
 }
 
@@ -220,64 +221,53 @@ function addExtraRuleRow(initial = {}) {
 
 function fillConfigBuilder(configuracion) {
   const config = isPlainObject(configuracion) ? configuracion : {};
-  baseConfigForMerge = cloneConfig(config);
+  baseConfigForMerge = {};
   managedConfigKeys = new Set(COMMON_CONFIG_KEYS);
 
-  setValue(
-    "cfgMaxParticipantes",
-    Object.prototype.hasOwnProperty.call(config, "maxParticipantes")
-      ? config.maxParticipantes
-      : "",
-  );
   setValue(
     "cfgDuracionMaximaMin",
     Object.prototype.hasOwnProperty.call(config, "duracionMaximaMin")
       ? config.duracionMaximaMin
-      : "",
-  );
-  setValue(
-    "cfgIntentosMaximos",
-    Object.prototype.hasOwnProperty.call(config, "intentosMaximos")
-      ? config.intentosMaximos
-      : "",
+      : 20,
   );
   setSelectValue(
     "cfgDificultad",
     Object.prototype.hasOwnProperty.call(config, "dificultad")
       ? String(config.dificultad || "")
-      : "",
-    "",
+      : "Intermedio",
+    "Intermedio",
   );
   setValue(
-    "cfgSeedFija",
-    Object.prototype.hasOwnProperty.call(config, "seedFija")
-      ? config.seedFija
-      : "",
+    "cfgNumeroTableros",
+    Object.prototype.hasOwnProperty.call(config, "numeroTableros")
+      ? config.numeroTableros
+      : Object.prototype.hasOwnProperty.call(config, "cantidadTableros")
+        ? config.cantidadTableros
+        : Object.prototype.hasOwnProperty.call(config, "tableros")
+          ? config.tableros
+          : 3,
   );
 
-  const permitirEmpates = byId("cfgPermitirEmpates");
-  if (permitirEmpates) {
-    const hasValue = Object.prototype.hasOwnProperty.call(config, "permitirEmpates");
-    permitirEmpates.checked = Boolean(config.permitirEmpates);
-    permitirEmpates.dataset.hasValue = hasValue ? "1" : "0";
-  }
+  const normalizedConfig = {
+    duracionMaximaMin:
+      Object.prototype.hasOwnProperty.call(config, "duracionMaximaMin")
+        ? config.duracionMaximaMin
+        : 20,
+    dificultad:
+      Object.prototype.hasOwnProperty.call(config, "dificultad")
+        ? String(config.dificultad || "") || "Intermedio"
+        : "Intermedio",
+    numeroTableros:
+      Object.prototype.hasOwnProperty.call(config, "numeroTableros")
+        ? config.numeroTableros
+        : Object.prototype.hasOwnProperty.call(config, "cantidadTableros")
+          ? config.cantidadTableros
+          : Object.prototype.hasOwnProperty.call(config, "tableros")
+            ? config.tableros
+            : 3,
+  };
 
-  clearExtraRuleRows();
-  for (const [key, value] of Object.entries(config)) {
-    if (COMMON_CONFIG_KEYS.includes(key)) continue;
-    const valueType = typeof value;
-    if (!["string", "number", "boolean"].includes(valueType)) {
-      continue;
-    }
-    managedConfigKeys.add(key);
-    addExtraRuleRow({
-      key,
-      type: inferExtraType(value),
-      value,
-    });
-  }
-
-  const json = JSON.stringify(config, null, 2);
+  const json = JSON.stringify(normalizedConfig, null, 2);
   setValue("configuracion", json);
   initialAdvancedConfigText = json.trim();
 }
@@ -285,9 +275,11 @@ function fillConfigBuilder(configuracion) {
 function fillForm(torneo) {
   currentTorneo = torneo || null;
   setValue("nombre", torneo?.nombre || "");
-  setSelectValue("tipo", String(torneo?.tipo || "PUNTOS").trim().toUpperCase(), "PUNTOS");
+  setSelectValue("tipo", "SERIE", "SERIE");
   setValue("estadoActual", torneo?.estado || "");
-  setValue("creadorId", torneo?.creadorId || "");
+  const creatorId = String(torneo?.creadorId || "").trim();
+  const creatorName = String(torneo?.creadorNombre || "").trim();
+  setValue("creadorId", creatorName && creatorId ? `${creatorName} (${creatorId})` : creatorId);
   setValue("codigoAcceso", torneo?.codigoAcceso || "");
   setValue("descripcion", torneo?.descripcion || "");
   originalFechaInicioRaw = String(torneo?.fechaInicio || "").trim();
@@ -386,7 +378,7 @@ function setCreateModeUi() {
   if (detailTitle) detailTitle.textContent = "Crear Torneo";
   if (saveBtn) saveBtn.textContent = "Crear torneo";
   if (estadoSection) estadoSection.style.display = "none";
-  setStatus("Completa el formulario para crear un torneo nuevo.");
+  setStatus("Completa el formulario para crear un torneo SERIE.");
 }
 
 function setEditModeUi() {
@@ -457,53 +449,32 @@ function parseExtraRulesOrThrow() {
 }
 
 function buildAssistedConfigOrThrow() {
-  const config = cloneConfig(baseConfigForMerge);
-
-  for (const key of managedConfigKeys) {
-    delete config[key];
-  }
-
-  const maxParticipantes = parseOptionalNumberField(
-    "cfgMaxParticipantes",
-    "Maximo participantes",
-  );
-  if (maxParticipantes !== undefined) config.maxParticipantes = maxParticipantes;
-
   const duracionMaximaMin = parseOptionalNumberField(
     "cfgDuracionMaximaMin",
     "Duracion maxima",
   );
-  if (duracionMaximaMin !== undefined) {
-    config.duracionMaximaMin = duracionMaximaMin;
+  if (duracionMaximaMin === undefined || duracionMaximaMin <= 0) {
+    throw new Error("Duracion maxima debe ser un numero valido mayor a 0.");
   }
-
-  const intentosMaximos = parseOptionalNumberField(
-    "cfgIntentosMaximos",
-    "Intentos maximos",
-  );
-  if (intentosMaximos !== undefined) config.intentosMaximos = intentosMaximos;
 
   const dificultad = String(byId("cfgDificultad")?.value || "").trim();
-  if (dificultad) config.dificultad = dificultad;
-
-  const seedFija = String(byId("cfgSeedFija")?.value || "").trim();
-  if (seedFija) config.seedFija = seedFija;
-
-  const permitirEmpates = byId("cfgPermitirEmpates");
-  if (permitirEmpates) {
-    const includeValue =
-      permitirEmpates.dataset.hasValue === "1" || permitirEmpates.checked;
-    if (includeValue) {
-      config.permitirEmpates = Boolean(permitirEmpates.checked);
-    }
+  if (!dificultad) {
+    throw new Error("Debes seleccionar una dificultad.");
   }
 
-  const extraRules = parseExtraRulesOrThrow();
-  for (const [key, value] of Object.entries(extraRules)) {
-    config[key] = value;
+  const numeroTableros = parseOptionalNumberField(
+    "cfgNumeroTableros",
+    "Numero de tableros",
+  );
+  if (numeroTableros === undefined || numeroTableros <= 0) {
+    throw new Error("Numero de tableros debe ser un numero valido mayor a 0.");
   }
 
-  return config;
+  return {
+    duracionMaximaMin,
+    dificultad,
+    numeroTableros,
+  };
 }
 
 function parseJsonConfigOrThrow(raw) {
@@ -522,11 +493,6 @@ function parseJsonConfigOrThrow(raw) {
 }
 
 function buildConfigOrThrow() {
-  const rawConfig = byId("configuracion")?.value || "";
-  if (rawConfig.trim() !== initialAdvancedConfigText) {
-    return parseJsonConfigOrThrow(rawConfig);
-  }
-
   const assisted = buildAssistedConfigOrThrow();
   const json = JSON.stringify(assisted, null, 2);
   setValue("configuracion", json);
@@ -537,7 +503,7 @@ function buildPayloadFromForm() {
   const payload = {
     nombre: (byId("nombre")?.value || "").trim(),
     descripcion: (byId("descripcion")?.value || "").trim(),
-    tipo: (byId("tipo")?.value || "").trim().toUpperCase(),
+    tipo: "SERIE",
     esPublico: Boolean(byId("esPublico")?.checked),
     fechaInicio: fromDateTimeLocal(byId("fechaInicio")?.value || "", {
       keepOriginal: !fechaInicioDirty,

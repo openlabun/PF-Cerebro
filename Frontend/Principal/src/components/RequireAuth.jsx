@@ -10,7 +10,7 @@ function RequireAuth() {
       <main>
         <section className="auth-shell">
           <div className="auth-card auth-card--compact">
-            <p className="auth-feedback">Validando sesion...</p>
+            <p className="auth-feedback">Validando sesión...</p>
           </div>
         </section>
       </main>

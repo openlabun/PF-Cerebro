@@ -22,6 +22,78 @@
     </header>
 
     <main class="layout">
+      <section class="card live-card">
+        <div class="card-head">
+          <div>
+            <h2>Actividad en vivo</h2>
+            <p class="live-subtitle">
+              Sesiones reportadas por la app principal sin consultar la base.
+            </p>
+          </div>
+          <span id="liveStatusBadge" class="live-status live-status--idle">Sin conectar</span>
+        </div>
+
+        <div class="live-metrics-grid">
+          <article class="live-metric">
+            <span>Usuarios conectados</span>
+            <strong id="liveMetricUsers">-</strong>
+          </article>
+          <article class="live-metric">
+            <span>Sesiones activas</span>
+            <strong id="liveMetricSessions">-</strong>
+          </article>
+          <article class="live-metric">
+            <span>Sudoku ahora</span>
+            <strong id="liveMetricSudoku">-</strong>
+          </article>
+          <article class="live-metric">
+            <span>PvP ahora</span>
+            <strong id="liveMetricPvp">-</strong>
+          </article>
+          <article class="live-metric">
+            <span>Torneos ahora</span>
+            <strong id="liveMetricTorneos">-</strong>
+          </article>
+          <article class="live-metric">
+            <span>Lobby PvP</span>
+            <strong id="liveMetricLobby">-</strong>
+          </article>
+        </div>
+
+        <div class="live-grid">
+          <section class="live-panel">
+            <div class="live-panel-head">
+              <h3>Dificultades activas</h3>
+              <span id="liveUpdatedAt" class="live-updated-at">Actualizando...</span>
+            </div>
+            <div id="liveDifficultyChips" class="live-chip-list"></div>
+          </section>
+
+          <section class="live-panel">
+            <div class="live-panel-head">
+              <h3>Eventos recientes</h3>
+            </div>
+            <div id="liveEvents" class="live-events"></div>
+          </section>
+        </div>
+
+        <div class="table-wrap">
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Modo</th>
+                <th>Dificultad</th>
+                <th>Estado</th>
+                <th>Ruta</th>
+                <th>Ultimo latido</th>
+              </tr>
+            </thead>
+            <tbody id="liveSessionsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="card">
         <h2>Indicadores Rapidos</h2>
         <div class="quick-metrics">
@@ -58,6 +130,6 @@
     </main>
 
     <script src="/assets/js/auth.js?v=20260320-2"></script>
-    <script src="/assets/js/tabs/graficas.js?v=20260320-3"></script>
+    <script src="/assets/js/tabs/graficas.js?v=20260328-1"></script>
   </body>
 </html>

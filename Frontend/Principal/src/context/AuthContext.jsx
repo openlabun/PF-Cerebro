@@ -52,8 +52,62 @@ async function hydrateSession(session) {
     throw new Error('Session without access token')
   }
 
-  const verification = await apiClient.verifyToken(accessToken)
+  const displayNameHint = String(session?.user?.name || '').trim()
+  const verification = await apiClient.verifyToken(accessToken, {
+    headers: displayNameHint ? { 'X-User-Display-Name': displayNameHint } : undefined,
+  })
   return buildUnifiedSession(session, verification?.user || {})
+}
+
+// ========== Lógica de Rachas ==========
+const GAME_ID_SUDOKU = 'uVsB-k2rjora'
+const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000 // 28 horas en milisegundos
+
+function parseIsoDate(value) {
+  const date = new Date(String(value || ''))
+  if (Number.isNaN(date.getTime())) return null
+  return date
+}
+
+function getSessionDayKey(value) {
+  const date = parseIsoDate(value)
+  if (!date) return null
+  const yyyy = date.getUTCFullYear()
+  const mm = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const dd = String(date.getUTCDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+async function validateAndResetStreakOnLogin(accessToken) {
+  try {
+    const previousSession = await apiClient.getLatestGameSession(accessToken, GAME_ID_SUDOKU)
+    if (!previousSession?.jugadoEn) {
+      // Primera vez que el usuario juega, o no hay sesiones previas
+      return
+    }
+
+    const previousPlayedAt = parseIsoDate(previousSession.jugadoEn)
+    if (!previousPlayedAt) return
+
+    const now = new Date()
+    const elapsedMs = now.getTime() - previousPlayedAt.getTime()
+    const previousSessionDayKey = getSessionDayKey(previousSession.jugadoEn)
+    const currentSessionDayKey = getSessionDayKey(now)
+
+    // Si es el mismo día, no hacer nada
+    if (previousSessionDayKey === currentSessionDayKey) {
+      return
+    }
+
+    // Si pasaron más de 28 horas desde la última partida, resetear racha
+    if (elapsedMs > STREAK_SESSION_WINDOW_MS) {
+      await apiClient.resetStreak(accessToken).catch((err) => {
+        // Error resetting streak removed
+      })
+    }
+  } catch (error) {
+    // Silenciosamente ignorar errors al validar racha, no afecta el login
+  }
 }
 
 export function AuthProvider({ children }) {
@@ -119,6 +173,11 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function login(credentials) {
+    // Si el usuario decide iniciar sesion otra vez, arrancamos desde un estado local limpio
+    // para no mezclar tokens viejos con una autenticacion nueva tras reinicios de Docker/ROBLE.
+    authStorage.clearSession()
+    setSession(null)
+
     const response = await apiClient.login(credentials)
 
     if (!response?.accessToken) {
@@ -137,6 +196,10 @@ export function AuthProvider({ children }) {
 
     authStorage.setSession(hydrated)
     setSession(hydrated)
+
+    // Valida y resetea la racha si fue hace > 28 horas desde última partida
+    void validateAndResetStreakOnLogin(hydrated.accessToken)
+
     return hydrated
   }
 
