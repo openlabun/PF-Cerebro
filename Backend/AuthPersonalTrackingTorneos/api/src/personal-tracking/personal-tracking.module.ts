@@ -6,6 +6,7 @@ import { TitlesModule } from './tittles/tittles.module';
 import { GameSessionsModule } from './game-sessions/game-sessions.module';
 import { GameStatsModule } from './game-stats/game-stats.module';
 import { PvpHistoryModule } from './pvp-history/pvp-history.module';
+import { GameProgressModule } from './game-progress/game-progress.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { PvpHistoryModule } from './pvp-history/pvp-history.module';
     GameSessionsModule,
     GameStatsModule,
     PvpHistoryModule,
+    GameProgressModule,
   ],
 })
 export class PersonalTrackingModule {}

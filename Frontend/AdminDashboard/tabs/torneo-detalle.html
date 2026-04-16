@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Admin Dashboard - Torneo</title>
-    <link rel="stylesheet" href="/assets/css/tabs/torneo-detalle.css" />
+    <link rel="stylesheet" href="/assets/css/tabs/torneo-detalle.css?v=20260416-1" />
   </head>
   <body>
     <header class="topbar">
@@ -132,9 +132,62 @@
           <button id="updateEstadoBtn" type="button">Actualizar estado</button>
         </div>
       </section>
+
+      <section class="card" id="participantesSection">
+        <div class="history-head">
+          <div>
+            <h3>Participantes</h3>
+            <p class="helper-text">Consulta quienes se unieron al torneo y cuando lo hicieron.</p>
+          </div>
+          <span id="participantesCount" class="history-chip">0</span>
+        </div>
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Usuario</th>
+                <th>Fecha de union</th>
+              </tr>
+            </thead>
+            <tbody id="participantesBody">
+              <tr>
+                <td colspan="2">Cargando participantes...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card" id="rankingSection">
+        <div class="history-head">
+          <div>
+            <h3>Ranking</h3>
+            <p class="helper-text">Revisa posiciones, puntajes y tiempos registrados en el torneo.</p>
+          </div>
+          <span id="rankingCount" class="history-chip">0</span>
+        </div>
+        <div class="history-table-wrap">
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Usuario</th>
+                <th>Puntaje</th>
+                <th>Tiempo</th>
+                <th>Registro</th>
+              </tr>
+            </thead>
+            <tbody id="rankingBody">
+              <tr>
+                <td colspan="5">Cargando ranking...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <script src="/assets/js/auth.js?v=20260320-1"></script>
-    <script src="/assets/js/tabs/torneo-detalle.js?v=20260320-1"></script>
+    <script src="/assets/js/tabs/torneo-detalle.js?v=20260416-1"></script>
   </body>
 </html>

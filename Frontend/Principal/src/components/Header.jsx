@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { applyTheme, getNextTheme, getStoredTheme, getThemeLabel } from '../lib/theme.js'
+import logoCerebroDark from '../assets/logo-cerebro.png'
+import logoCerebroLight from '../assets/logo-cerebro-light.png'
 
 function Header() {
   const navigate = useNavigate()
   const { isAuthenticated, user, logout } = useAuth()
   const [theme, setTheme] = useState(() => getStoredTheme())
+  const logoCerebro = theme === 'dark' ? logoCerebroDark : logoCerebroLight
 
   useEffect(() => {
     applyTheme(theme)
@@ -25,7 +28,10 @@ function Header() {
   return (
     <header className="topbar">
       <NavLink className="logo" to="/">
-        Cere<span>bro</span>
+        <img className="logo-mark" src={logoCerebro} alt="" />
+        <span className="logo-word">
+          Cere<span>bro</span>
+        </span>
       </NavLink>
       <nav>
         <NavLink

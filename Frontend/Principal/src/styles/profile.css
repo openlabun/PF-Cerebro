@@ -1,6 +1,8 @@
 /* Profile Card Styles */
 .profile-page {
   margin-top: 1rem;
+  display: grid;
+  gap: 1rem;
 }
 
 .profile-card h3 {
@@ -10,6 +12,96 @@
 .lol-profile {
   display: grid;
   gap: 1rem;
+}
+
+.profile-history-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.profile-history-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.profile-history-head h3 {
+  margin: 0.1rem 0 0.35rem;
+}
+
+.profile-history-kicker {
+  margin: 0;
+  color: var(--primary-dark);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.profile-history-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.9rem;
+}
+
+.profile-history-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  display: grid;
+  gap: 0.8rem;
+}
+
+.profile-history-card-head {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.profile-history-card h4 {
+  margin: 0.2rem 0 0;
+}
+
+.profile-history-state {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.profile-history-meta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.profile-history-meta div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.profile-history-meta dt {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.profile-history-meta dd {
+  margin: 0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.profile-history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.profile-history-empty {
+  margin: 0;
+  color: var(--muted);
 }
 
 /* Summoner Header - Avatar + Profile Info */
@@ -506,6 +598,14 @@
   }
 
   .mode-grid-selector {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-history-head {
+    flex-direction: column;
+  }
+
+  .profile-history-meta {
     grid-template-columns: 1fr;
   }
 }

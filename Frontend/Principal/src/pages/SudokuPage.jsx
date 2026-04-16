@@ -28,6 +28,8 @@ function SudokuPageContent() {
     statusOk,
     progress,
     correctCounts,
+    showResumePrompt,
+    pendingResumeSnapshot,
     showAchievementPopup,
     achievementPopupItems,
     setPaused,
@@ -35,6 +37,8 @@ function SudokuPageContent() {
     setHighlightEnabled,
     setShowAchievementPopup,
     startNewGame,
+    resumeSavedGame,
+    discardSavedGame,
     applyValue,
     applyHint,
     clearSelectedCell,
@@ -63,9 +67,8 @@ function SudokuPageContent() {
                 id="difficulty-select"
                 value={difficultyKey}
                 options={difficultyOptions}
-                onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey)}
+                onChange={(nextDifficultyKey) => startNewGame(nextDifficultyKey, { closePreviousActive: true })}
               />
-              <span className="difficulty-label">Dificultad: {difficulty.label}</span>
             </div>
 
             <div className="sudoku-top-right">
@@ -75,7 +78,11 @@ function SudokuPageContent() {
               <button className="btn ghost btn-pause" type="button" onClick={() => setPaused((current) => !current)}>
                 {paused ? 'Reanudar' : 'Pausar'}
               </button>
-              <button className="btn btn-new-game" type="button" onClick={() => startNewGame(difficultyKey)}>
+              <button
+                className="btn btn-new-game"
+                type="button"
+                onClick={() => startNewGame(difficultyKey, { closePreviousActive: true })}
+              >
                 Nuevo Juego
               </button>
             </div>
@@ -141,9 +148,38 @@ function SudokuPageContent() {
             <p className="sudoku-pause-text">
               Tiempo: {formatSudokuTime(seconds)} | Errores: {errorCount} | Pistas: {hintsUsed}
             </p>
-            <button className="btn primary sudoku-pause-resume-btn" type="button" onClick={() => startNewGame(difficultyKey)}>
+            <button
+              className="btn primary sudoku-pause-resume-btn"
+              type="button"
+              onClick={() => startNewGame(difficultyKey, { closePreviousActive: false })}
+            >
               Jugar otra vez
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showResumePrompt ? (
+        <div className="sudoku-pause-overlay" role="alertdialog" aria-modal="true">
+          <div className="sudoku-pause-card sudoku-completion-card">
+            <h3 className="sudoku-pause-title">Partida anterior detectada</h3>
+            <p className="sudoku-pause-text">
+              Encontramos una partida en curso
+              {pendingResumeSnapshot?.difficultyLabel ? ` (${pendingResumeSnapshot.difficultyLabel})` : ''}.
+            </p>
+            <p className="sudoku-pause-text">
+              Tiempo: {formatSudokuTime(Number(pendingResumeSnapshot?.seconds || 0))} | Errores:{' '}
+              {Number(pendingResumeSnapshot?.errorCount || 0)} | Pistas usadas:{' '}
+              {Number(pendingResumeSnapshot?.hintsUsed || 0)}
+            </p>
+            <div className="board-actions controls">
+              <button className="btn primary" type="button" onClick={resumeSavedGame}>
+                Continuar partida
+              </button>
+              <button className="btn ghost" type="button" onClick={discardSavedGame}>
+                Iniciar una nueva
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

@@ -24,6 +24,7 @@ import {
 
 const GAME_ID_SUDOKU = 'uVsB-k2rjora'
 const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000
+const ACTIVE_PROGRESS_SAVE_INTERVAL_MS = 30000
 
 const ACHIEVEMENT_BADGES = [
   { key: 'first-game', label: 'Primera partida', icon: '🏁', description: 'Completa tu primera partida de Sudoku.' },
@@ -159,6 +160,103 @@ function buildTrackedGame(difficultyKey, remoteSeedConfig = null) {
   }
 }
 
+function isValidSudokuMatrix(value) {
+  if (!Array.isArray(value) || value.length !== 9) return false
+  return value.every(
+    (row) =>
+      Array.isArray(row) &&
+      row.length === 9 &&
+      row.every((cell) => Number.isInteger(cell) && cell >= 0 && cell <= 9),
+  )
+}
+
+function serializeNotes(notes) {
+  if (!Array.isArray(notes) || notes.length !== 9) return []
+  return notes.map((row) =>
+    Array.isArray(row)
+      ? row.map((cell) => {
+          const values = Array.isArray(cell) ? cell : Array.from(cell || [])
+          return values
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 1 && value <= 9)
+            .sort((a, b) => a - b)
+        })
+      : [],
+  )
+}
+
+function deserializeNotes(rawNotes) {
+  const fallback = createEmptyNotes()
+  if (!Array.isArray(rawNotes) || rawNotes.length !== 9) return fallback
+
+  return rawNotes.map((row, rowIndex) =>
+    Array.isArray(row) && row.length === 9
+      ? row.map((cell, colIndex) => {
+          if (!Array.isArray(cell)) return fallback[rowIndex][colIndex]
+          const valid = cell
+            .map((value) => Number(value))
+            .filter((value) => Number.isInteger(value) && value >= 1 && value <= 9)
+          return new Set(valid)
+        })
+      : fallback[rowIndex],
+  )
+}
+
+function normalizeSelectedCell(cell) {
+  if (!cell || typeof cell !== 'object') return null
+  const row = Number(cell.row)
+  const col = Number(cell.col)
+  if (!Number.isInteger(row) || !Number.isInteger(col)) return null
+  if (row < 0 || row > 8 || col < 0 || col > 8) return null
+  return { row, col }
+}
+
+function normalizeProgressSnapshot(record) {
+  const rawSnapshot = record?.snapshot
+  const snapshot = (() => {
+    if (!rawSnapshot) return null
+    if (typeof rawSnapshot === 'object') return rawSnapshot
+    if (typeof rawSnapshot !== 'string') return null
+    try {
+      const parsed = JSON.parse(rawSnapshot)
+      return parsed && typeof parsed === 'object' ? parsed : null
+    } catch {
+      return null
+    }
+  })()
+
+  if (!snapshot || typeof snapshot !== 'object') return null
+  if (!isValidSudokuMatrix(snapshot.board)) return null
+  if (!isValidSudokuMatrix(snapshot.puzzle)) return null
+  if (!isValidSudokuMatrix(snapshot.solution)) return null
+
+  const difficultyKey = String(snapshot.difficultyKey || '').trim() || difficultyLevels[2].key
+  const resolvedDifficulty = getDifficultyByKey(difficultyKey)
+  const notes = deserializeNotes(snapshot.notes)
+
+  return {
+    difficultyKey,
+    difficultyLabel: String(snapshot.difficultyLabel || resolvedDifficulty.label).trim() || resolvedDifficulty.label,
+    board: snapshot.board.map((row) => [...row]),
+    puzzle: snapshot.puzzle.map((row) => [...row]),
+    solution: snapshot.solution.map((row) => [...row]),
+    notes,
+    selectedCell: normalizeSelectedCell(snapshot.selectedCell),
+    noteMode: Boolean(snapshot.noteMode),
+    highlightEnabled: snapshot.highlightEnabled !== false,
+    paused: Boolean(snapshot.paused),
+    completed: Boolean(snapshot.completed),
+    seconds: Math.max(0, Number(snapshot.seconds || 0)),
+    errorCount: Math.max(0, Number(snapshot.errorCount || 0)),
+    hintsUsed: Math.max(0, Number(snapshot.hintsUsed || 0)),
+    hintLimit: Math.max(0, Number(snapshot.hintLimit || 0)),
+    hintsRemaining: Math.max(0, Number(snapshot.hintsRemaining || 0)),
+    seed: Number(snapshot.seed || 0) || 0,
+    seedId: String(snapshot.seedId || '').trim(),
+    statusMessage: String(snapshot.statusMessage || '').trim(),
+  }
+}
+
 export function useLocalSudokuGame() {
   const [difficultyKey, setDifficultyKey] = useState(difficultyLevels[2].key)
   const [paused, setPaused] = useState(false)
@@ -169,11 +267,37 @@ export function useLocalSudokuGame() {
   const [score, setScore] = useState(0)
   const [seed, setSeed] = useState(0)
   const [seedId, setSeedId] = useState('')
+  const [showResumePrompt, setShowResumePrompt] = useState(false)
+  const [pendingResumeSnapshot, setPendingResumeSnapshot] = useState(null)
   const difficulty = getDifficultyByKey(difficultyKey)
   const { isAuthenticated, accessToken, isVerified, user, isLoading } = useAuth()
   const latestMetricsRef = useRef({ seconds: 0, errorCount: 0, hintsUsed: 0 })
   const bestSudokuScoreRef = useRef(0)
   const gameLoadRequestRef = useRef(0)
+  const didBootstrapGameRef = useRef(false)
+  const prefetchedSeedByDifficultyRef = useRef(new Map())
+  const seedPrefetchInFlightRef = useRef(new Map())
+  const activeProgressStateRef = useRef({
+    isAuthenticated: false,
+    accessToken: '',
+    difficultyKey: difficultyLevels[2].key,
+    difficultyLabel: getDifficultyByKey(difficultyLevels[2].key).label,
+    board: [],
+    puzzle: [],
+    solution: [],
+    notes: [],
+    selectedCell: null,
+    noteMode: false,
+    highlightEnabled: true,
+    paused: false,
+    completed: false,
+    seconds: 0,
+    errorCount: 0,
+    hintsUsed: 0,
+    seed: 0,
+    seedId: '',
+    status: '',
+  })
 
   const [unlockedBadges, setUnlockedBadges] = useState(new Set())
   const [showAchievementPopup, setShowAchievementPopup] = useState(false)
@@ -199,6 +323,154 @@ export function useLocalSudokuGame() {
     clearSelectedCell,
     toggleSelectedNote,
   } = useSudokuGame()
+
+  function canPersistActiveProgressFromSnapshot(snapshot) {
+    return Boolean(
+      snapshot?.isAuthenticated &&
+        snapshot?.accessToken &&
+        Array.isArray(snapshot?.board) &&
+        Array.isArray(snapshot?.puzzle) &&
+        Array.isArray(snapshot?.solution) &&
+        snapshot.board.length === 9 &&
+        snapshot.puzzle.length === 9 &&
+        snapshot.solution.length === 9 &&
+        !snapshot?.completed,
+    )
+  }
+
+  function canPersistActiveProgress() {
+    return canPersistActiveProgressFromSnapshot({
+      isAuthenticated,
+      accessToken,
+      board,
+      puzzle,
+      solution,
+      completed,
+    })
+  }
+
+  function buildActiveProgressPayload(snapshot = activeProgressStateRef.current) {
+    const resolvedDifficulty = getDifficultyByKey(snapshot?.difficultyKey || difficultyLevels[2].key)
+    const resolvedHintLimit = getHintLimit(resolvedDifficulty)
+    const payload = {
+      difficultyKey: snapshot?.difficultyKey || difficultyLevels[2].key,
+      difficultyLabel: snapshot?.difficultyLabel || resolvedDifficulty.label,
+      board: Array.isArray(snapshot?.board) ? snapshot.board.map((row) => [...row]) : [],
+      puzzle: Array.isArray(snapshot?.puzzle) ? snapshot.puzzle.map((row) => [...row]) : [],
+      solution: Array.isArray(snapshot?.solution) ? snapshot.solution.map((row) => [...row]) : [],
+      notes: serializeNotes(snapshot?.notes),
+      selectedCell: snapshot?.selectedCell ? { row: snapshot.selectedCell.row, col: snapshot.selectedCell.col } : null,
+      noteMode: Boolean(snapshot?.noteMode),
+      highlightEnabled: Boolean(snapshot?.highlightEnabled),
+      paused: Boolean(snapshot?.paused),
+      completed: Boolean(snapshot?.completed),
+      seconds: Number(snapshot?.seconds || 0),
+      errorCount: Number(snapshot?.errorCount || 0),
+      hintsUsed: Number(snapshot?.hintsUsed || 0),
+      hintLimit: Number(resolvedHintLimit || 0),
+      hintsRemaining: Math.max(0, Number(resolvedHintLimit || 0) - Number(snapshot?.hintsUsed || 0)),
+      seed: Number(snapshot?.seed || 0) || 0,
+      seedId: String(snapshot?.seedId || '').trim(),
+      statusMessage: String(snapshot?.status || ''),
+    }
+
+    return payload
+  }
+
+  async function saveActiveProgress(options = {}) {
+    const snapshot = activeProgressStateRef.current
+    if (!canPersistActiveProgressFromSnapshot(snapshot)) return
+    const payload = buildActiveProgressPayload(snapshot)
+    try {
+      await apiClient.upsertActiveSudokuProgress(snapshot.accessToken, payload, {
+        keepalive: Boolean(options.keepalive),
+        skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      })
+    } catch (error) {
+      if (!options.silent) {
+        console.warn('No se pudo guardar la partida activa de Sudoku:', error)
+      }
+    }
+  }
+
+  async function closeActiveProgress(estado = 'descartada', options = {}) {
+    const snapshot = activeProgressStateRef.current
+    if (!snapshot?.isAuthenticated || !snapshot?.accessToken) return
+    try {
+      await apiClient.closeActiveSudokuProgress(snapshot.accessToken, estado, {
+        keepalive: Boolean(options.keepalive),
+        skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      })
+    } catch (error) {
+      if (!options.silent) {
+        console.warn(`No se pudo cerrar la partida activa (${estado}):`, error)
+      }
+    }
+  }
+
+  async function prefetchOfficialSeed(difficultyEntry) {
+    if (!accessToken || !difficultyEntry?.key) return
+    const difficultyKeyToFetch = String(difficultyEntry.key).trim()
+    if (!difficultyKeyToFetch) return
+    if (prefetchedSeedByDifficultyRef.current.has(difficultyKeyToFetch)) return
+    if (seedPrefetchInFlightRef.current.has(difficultyKeyToFetch)) return
+
+    const prefetchPromise = apiClient
+      .getSudokuSeed(accessToken, difficultyEntry.label)
+      .then((remoteSeedConfig) => {
+        if (remoteSeedConfig) {
+          prefetchedSeedByDifficultyRef.current.set(difficultyKeyToFetch, remoteSeedConfig)
+        }
+      })
+      .catch(() => {
+        // La seed oficial es opcional para no bloquear fluidez.
+      })
+      .finally(() => {
+        seedPrefetchInFlightRef.current.delete(difficultyKeyToFetch)
+      })
+
+    seedPrefetchInFlightRef.current.set(difficultyKeyToFetch, prefetchPromise)
+    await prefetchPromise
+  }
+
+  function hydrateFromSavedSnapshot(snapshot) {
+    hydrateGame({
+      puzzle: snapshot.puzzle,
+      solution: snapshot.solution,
+      board: snapshot.board,
+      notes: snapshot.notes,
+      selectedCell: snapshot.selectedCell,
+      noteMode: snapshot.noteMode,
+      highlightEnabled: snapshot.highlightEnabled,
+      cellErrors: {},
+    })
+
+    setDifficultyKey(snapshot.difficultyKey)
+    setPaused(Boolean(snapshot.paused))
+    setCompleted(false)
+    setSeconds(Number(snapshot.seconds || 0))
+    setErrorCount(Number(snapshot.errorCount || 0))
+    setHintsUsed(Number(snapshot.hintsUsed || 0))
+    setScore(0)
+    setSeed(Number(snapshot.seed || 0) || 0)
+    setSeedId(String(snapshot.seedId || ''))
+    setStatus(snapshot.statusMessage || 'Partida anterior reanudada.')
+  }
+
+  function resumeSavedGame() {
+    if (!pendingResumeSnapshot) return
+    hydrateFromSavedSnapshot(pendingResumeSnapshot)
+    setPendingResumeSnapshot(null)
+    setShowResumePrompt(false)
+    setStatus('Partida anterior reanudada.', true)
+  }
+
+  async function discardSavedGame() {
+    setPendingResumeSnapshot(null)
+    setShowResumePrompt(false)
+    await closeActiveProgress('descartada', { silent: true })
+    await startNewGame(difficultyLevels[2].key, { closePreviousActive: false })
+  }
 
   async function getUnlockedKeysFromRemote() {
     if (!accessToken) return []
@@ -418,7 +690,12 @@ export function useLocalSudokuGame() {
     }
   }
 
-  async function startNewGame(nextDifficultyKey = difficultyKey) {
+  async function startNewGame(nextDifficultyKey = difficultyKey, options = {}) {
+    const closePreviousActive = options.closePreviousActive === true
+    if (closePreviousActive && canPersistActiveProgress()) {
+      void closeActiveProgress('descartada', { silent: true })
+    }
+
     const requestId = gameLoadRequestRef.current + 1
     gameLoadRequestRef.current = requestId
     const nextDifficulty = getDifficultyByKey(nextDifficultyKey)
@@ -426,15 +703,13 @@ export function useLocalSudokuGame() {
     setDifficultyKey(nextDifficultyKey)
     setStatus('Cargando tablero...')
 
-    let nextGame = buildGame(nextDifficultyKey)
-    if (accessToken) {
-      try {
-        const remoteSeedConfig = await apiClient.getSudokuSeed(accessToken, nextDifficulty.label)
-        nextGame = buildTrackedGame(nextDifficultyKey, remoteSeedConfig)
-      } catch (error) {
-        console.warn('No se pudo cargar una seed oficial de Sudoku:', error)
-      }
+    const cachedOfficialSeed = prefetchedSeedByDifficultyRef.current.get(nextDifficultyKey) || null
+    if (cachedOfficialSeed) {
+      prefetchedSeedByDifficultyRef.current.delete(nextDifficultyKey)
     }
+    const nextGame = cachedOfficialSeed
+      ? buildTrackedGame(nextDifficultyKey, cachedOfficialSeed)
+      : buildGame(nextDifficultyKey)
 
     if (requestId !== gameLoadRequestRef.current) {
       return
@@ -458,7 +733,13 @@ export function useLocalSudokuGame() {
     setScore(0)
     setSeed(nextGame.seed)
     setSeedId(nextGame.seedId || '')
+    setPendingResumeSnapshot(null)
+    setShowResumePrompt(false)
     setStatus(`Selecciona una celda para comenzar. Limite de pistas: ${getHintLimit(nextGame.difficulty)}.`)
+
+    if (accessToken) {
+      void prefetchOfficialSeed(nextDifficulty)
+    }
   }
 
   function finishGame(nextBoard = board) {
@@ -480,17 +761,92 @@ export function useLocalSudokuGame() {
       true,
     )
 
+    void closeActiveProgress('completada', { silent: true })
     void handleSudokuCompletion(nextScore)
   }
 
   useEffect(() => {
     if (isLoading) return
-    void startNewGame(difficultyLevels[2].key)
-  }, [isLoading])
+    if (didBootstrapGameRef.current) return
+    didBootstrapGameRef.current = true
+
+    let cancelled = false
+
+    async function bootstrapGame() {
+      if (isAuthenticated && accessToken) {
+        try {
+          const progressRecord = await apiClient.getActiveSudokuProgress(accessToken)
+          const snapshot = normalizeProgressSnapshot(progressRecord)
+          if (!cancelled && snapshot && !snapshot.completed) {
+            setPendingResumeSnapshot(snapshot)
+            setShowResumePrompt(true)
+            setStatus('Encontramos una partida anterior pendiente. ¿Deseas continuarla?')
+            return
+          }
+        } catch (error) {
+          console.warn('No se pudo consultar partida activa de Sudoku:', error)
+        }
+      }
+
+      if (!cancelled) {
+        await startNewGame(difficultyLevels[2].key, { closePreviousActive: false })
+      }
+    }
+
+    void bootstrapGame()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isLoading, isAuthenticated, accessToken])
 
   useEffect(() => {
     latestMetricsRef.current = { seconds, errorCount, hintsUsed }
   }, [seconds, errorCount, hintsUsed])
+
+  useEffect(() => {
+    activeProgressStateRef.current = {
+      isAuthenticated: Boolean(isAuthenticated),
+      accessToken: accessToken || '',
+      difficultyKey,
+      difficultyLabel: difficulty.label,
+      board,
+      puzzle,
+      solution,
+      notes,
+      selectedCell,
+      noteMode: Boolean(noteMode),
+      highlightEnabled: Boolean(highlightEnabled),
+      paused: Boolean(paused),
+      completed: Boolean(completed),
+      seconds: Number(seconds || 0),
+      errorCount: Number(errorCount || 0),
+      hintsUsed: Number(hintsUsed || 0),
+      seed: Number(seed || 0) || 0,
+      seedId: String(seedId || '').trim(),
+      status: String(status || ''),
+    }
+  }, [
+    difficultyKey,
+    difficulty.label,
+    board,
+    puzzle,
+    solution,
+    notes,
+    selectedCell,
+    noteMode,
+    highlightEnabled,
+    paused,
+    completed,
+    seconds,
+    errorCount,
+    hintsUsed,
+    seed,
+    seedId,
+    status,
+    isAuthenticated,
+    accessToken,
+  ])
 
   useEffect(() => {
     if (paused || completed || board.length === 0) return undefined
@@ -507,6 +863,56 @@ export function useLocalSudokuGame() {
     if (!isBoardSolved(board, solution)) return
     finishGame(board)
   }, [board, completed, solution])
+
+  useEffect(() => {
+    if (!canPersistActiveProgress()) return undefined
+
+    const interval = window.setInterval(() => {
+      void saveActiveProgress({ silent: true })
+    }, ACTIVE_PROGRESS_SAVE_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [
+    board.length,
+    completed,
+    isAuthenticated,
+    accessToken,
+    difficultyKey,
+  ])
+
+  useEffect(() => {
+    if (!isAuthenticated || !accessToken) return undefined
+
+    function handleBeforeUnload() {
+      if (!canPersistActiveProgressFromSnapshot(activeProgressStateRef.current)) return
+      void saveActiveProgress({
+        keepalive: true,
+        skipAuthRefresh: true,
+        silent: true,
+      })
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('pagehide', handleBeforeUnload)
+
+    function handleVisibilityChange() {
+      if (document.visibilityState !== 'hidden') return
+      handleBeforeUnload()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('pagehide', handleBeforeUnload)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      if (canPersistActiveProgressFromSnapshot(activeProgressStateRef.current)) {
+        void saveActiveProgress({ silent: true })
+      }
+    }
+  }, [isAuthenticated, accessToken, board.length, completed, difficultyKey])
 
   useSudokuKeyboardControls({
     board,
@@ -630,6 +1036,8 @@ export function useLocalSudokuGame() {
     progress,
     correctCounts,
     hintLimit,
+    showResumePrompt,
+    pendingResumeSnapshot,
     showAchievementPopup,
     achievementPopupItems,
     streakMessage,
@@ -637,7 +1045,10 @@ export function useLocalSudokuGame() {
     setNoteMode,
     setHighlightEnabled,
     setShowAchievementPopup,
+    setShowResumePrompt,
     startNewGame,
+    resumeSavedGame,
+    discardSavedGame,
     applyValue,
     applyHint,
     clearSelectedCell,

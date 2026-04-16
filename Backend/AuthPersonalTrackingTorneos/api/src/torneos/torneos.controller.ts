@@ -121,6 +121,17 @@ export class TorneosController {
     return this.service.obtenerResultadosPorUsuario(req.accessToken, usuarioId);
   }
 
+  @Get('me/historial')
+  @ApiBearerAuth()
+  @UseGuards(RobleAuthGuard)
+  async historialParticipacion(@Req() req: robleAuthGuard.RobleRequest) {
+    await this.ensureCurrentUserProfile(req);
+    return this.service.listarHistorialParticipacion(
+      req.accessToken,
+      this.getUserId(req),
+    );
+  }
+
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(RobleAuthGuard)
@@ -275,7 +286,14 @@ export class TorneosController {
     @Param('id') torneoId: string,
   ) {
     await this.ensureCurrentUserProfile(req);
-    return this.service.listarParticipantes(req.accessToken, torneoId);
+    const usuarioId = this.getUserId(req);
+    const userRole = this.getUserRole(req);
+    return this.service.listarParticipantes(
+      req.accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+    );
   }
 
   @Post(':id/resultados')
@@ -305,6 +323,13 @@ export class TorneosController {
     @Param('id') torneoId: string,
   ) {
     await this.ensureCurrentUserProfile(req);
-    return this.service.obtenerRanking(req.accessToken, torneoId);
+    const usuarioId = this.getUserId(req);
+    const userRole = this.getUserRole(req);
+    return this.service.obtenerRanking(
+      req.accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+    );
   }
 }

@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { apiClient } from '../services/apiClient.js'
 import { ACHIEVEMENT_ID_KEY_MAP } from '../lib/achievementIds.js'
+import {
+  formatTournamentState,
+  getTournamentOwnerLabel,
+} from '../lib/tournaments.js'
 import ProfileCard from '../components/ProfileCard.jsx'
 import '../styles/profile.css'
 
@@ -69,6 +74,14 @@ function getProfileDisplayName(userObj) {
   return `Jugador#${String(rawId).slice(-4)}`
 }
 
+function formatElapsedSeconds(value) {
+  const total = Number(value)
+  if (!Number.isFinite(total) || total < 0) return 'Sin registro'
+  const minutes = Math.floor(total / 60)
+  const seconds = Math.floor(total % 60)
+  return `${minutes}m ${String(seconds).padStart(2, '0')}s`
+}
+
 function ProfilePage() {
   const { isAuthenticated, user, accessToken } = useAuth()
   const currentUserId = String(user?.sub || user?.id || '').trim()
@@ -79,10 +92,15 @@ function ProfilePage() {
     experiencia: 680,
     rachaActual: 0,
   })
-  const [profileModeStats, setProfileModeStats] = useState({ ...DEFAULT_PROFILE_MODE_STATS })
+  const [profileModeStats, setProfileModeStats] = useState({
+    ...DEFAULT_PROFILE_MODE_STATS,
+  })
   const [unlockedBadges, setUnlockedBadges] = useState(new Set())
   const [selectedFrame, setSelectedFrame] = useState('frame-royal')
   const [loading, setLoading] = useState(false)
+  const [tournamentHistory, setTournamentHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [activeMode, setActiveMode] = useState('sudoku')
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -93,6 +111,9 @@ function ProfilePage() {
         rachaActual: 0,
       })
       setProfileModeStats({ ...DEFAULT_PROFILE_MODE_STATS })
+      setTournamentHistory([])
+      setHistoryLoading(false)
+      setActiveMode('sudoku')
       return
     }
 
@@ -138,6 +159,7 @@ function ProfilePage() {
     }
 
     loadTournamentStats()
+    loadTournamentHistory()
     loadPvpStats()
   }, [isAuthenticated, accessToken, currentUserId])
 
@@ -148,6 +170,7 @@ function ProfilePage() {
       loadProfileDataFromApi()
       loadSudokuStats()
       loadTournamentStats()
+      loadTournamentHistory()
       loadPvpStats()
       loadRemoteAchievements()
     }
@@ -181,7 +204,9 @@ function ProfilePage() {
   const loadSudokuStats = async () => {
     setLoading(true)
     try {
-      const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU).catch(() => null)
+      const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU).catch(
+        () => null,
+      )
 
       if (stats) {
         const elo = Number(stats.elo ?? 0)
@@ -266,7 +291,11 @@ function ProfilePage() {
       const victorias = Number(ranking?.victorias)
       const derrotas = Number(ranking?.derrotas)
 
-      if (!Number.isFinite(elo) || !Number.isFinite(victorias) || !Number.isFinite(derrotas)) {
+      if (
+        !Number.isFinite(elo) ||
+        !Number.isFinite(victorias) ||
+        !Number.isFinite(derrotas)
+      ) {
         setProfileModeStats((prev) => ({
           ...prev,
           pvp: [...DEFAULT_PROFILE_MODE_STATS.pvp],
@@ -294,6 +323,19 @@ function ProfilePage() {
     }
   }
 
+  const loadTournamentHistory = async () => {
+    setHistoryLoading(true)
+
+    try {
+      const rows = await apiClient.getMyTournamentHistory(accessToken).catch(() => [])
+      setTournamentHistory(Array.isArray(rows) ? rows : [])
+    } catch {
+      setTournamentHistory([])
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
   return (
     <main className="profile-page">
       <div className="game-header">
@@ -307,7 +349,69 @@ function ProfilePage() {
         loading={loading}
         unlockedBadges={unlockedBadges}
         selectedFrame={selectedFrame}
+        activeMode={activeMode}
+        onModeChange={setActiveMode}
       />
+
+      {isAuthenticated && activeMode === 'torneos' ? (
+        <section className="board-card profile-history-panel">
+          <div className="profile-history-head">
+            <div>
+              <p className="profile-history-kicker">Torneos</p>
+              <h3>Resultados de torneos donde participaste</h3>
+            </div>
+          </div>
+
+          {historyLoading ? (
+            <p className="profile-history-empty">Cargando tu historial de torneos...</p>
+          ) : tournamentHistory.length ? (
+            <div className="profile-history-grid">
+              {tournamentHistory.map((tournament) => (
+                <article
+                  key={tournament._id || `${tournament.nombre}-${tournament.fechaFin}`}
+                  className="profile-history-card"
+                >
+                  <div className="profile-history-card-head">
+                    <p className="profile-history-state">
+                      {formatTournamentState(tournament?.estado)}
+                    </p>
+                    <h4>{tournament?.nombre || 'Torneo sin nombre'}</h4>
+                  </div>
+
+                  <dl className="profile-history-meta">
+                    <div>
+                      <dt>Creador</dt>
+                      <dd>{getTournamentOwnerLabel(tournament, user)}</dd>
+                    </div>
+                    <div>
+                      <dt>Puntaje</dt>
+                      <dd>{tournament?.miPuntaje ?? 'Sin registro'}</dd>
+                    </div>
+                    <div>
+                      <dt>Tiempo</dt>
+                      <dd>{formatElapsedSeconds(tournament?.miTiempo)}</dd>
+                    </div>
+                    <div>
+                      <dt>Puesto</dt>
+                      <dd>{tournament?.miPosicion ? `#${tournament.miPosicion}` : 'Sin puesto'}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="profile-history-actions">
+                    <Link className="btn ghost" to={`/torneos/${tournament._id}`}>
+                      Ver detalle del torneo
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <p className="profile-history-empty">
+              Cuando participes en torneos que ya finalizaron, aparecerán aquí.
+            </p>
+          )}
+        </section>
+      ) : null}
     </main>
   )
 }

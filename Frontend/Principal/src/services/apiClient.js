@@ -99,6 +99,7 @@ async function performRequest(path, options = {}, tokenOverride = null) {
   const baseUrl = options.baseUrl || 'auth'
   const token = tokenOverride ?? resolveRequestToken(baseUrl, options.token)
   const signal = options.signal
+  const keepalive = Boolean(options.keepalive)
   const extraHeaders =
     options.headers && typeof options.headers === 'object' && !Array.isArray(options.headers)
       ? options.headers
@@ -123,6 +124,7 @@ async function performRequest(path, options = {}, tokenOverride = null) {
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     signal,
+    keepalive,
   })
 
   const raw = await response.text()
@@ -463,6 +465,14 @@ export const apiClient = {
     })
   },
 
+  getMyTournamentHistory(accessToken) {
+    return request('torneos/me/historial', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
   deleteTournament(tournamentId, accessToken) {
     return request(`torneos/${tournamentId}`, {
       method: 'DELETE',
@@ -646,6 +656,38 @@ export const apiClient = {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,
+    })
+  },
+
+  getActiveSudokuProgress(accessToken) {
+    return request('game-progress/sudoku/active', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
+  upsertActiveSudokuProgress(accessToken, payload, options = {}) {
+    return request('game-progress/sudoku/active', {
+      method: 'PUT',
+      baseUrl: 'auth',
+      token: accessToken,
+      keepalive: Boolean(options.keepalive),
+      skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      body: payload,
+    })
+  },
+
+  closeActiveSudokuProgress(accessToken, estado = 'descartada', options = {}) {
+    return request('game-progress/sudoku/active/close', {
+      method: 'POST',
+      baseUrl: 'auth',
+      token: accessToken,
+      keepalive: Boolean(options.keepalive),
+      skipAuthRefresh: Boolean(options.skipAuthRefresh),
+      body: {
+        estado,
+      },
     })
   },
 
