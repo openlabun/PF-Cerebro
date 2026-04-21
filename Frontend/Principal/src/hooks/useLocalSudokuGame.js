@@ -509,9 +509,20 @@ export function useLocalSudokuGame() {
       return { recorded: false, newlyUnlockedAchievements: [] }
     }
 
-    const previousUnlocked = new Set(unlockedBadges)
-    bestSudokuScoreRef.current = Math.max(bestSudokuScoreRef.current, nextScore)
+    // Obtener logros antes de la partida desde backend
+    let achievementsBefore = []
+    try {
+      achievementsBefore = await apiClient.getMyAchievements(accessToken)
+    } catch (e) {
+      achievementsBefore = []
+    }
+    const beforeIds = new Set(
+      Array.isArray(achievementsBefore)
+        ? achievementsBefore.map((item) => ACHIEVEMENT_ID_KEY_MAP[String(item?.logroId || '').trim()]).filter(Boolean)
+        : []
+    )
 
+    bestSudokuScoreRef.current = Math.max(bestSudokuScoreRef.current, nextScore)
     const nextUnlocked = new Set(unlockedBadges)
     if (bestSudokuScoreRef.current > 500) nextUnlocked.add('score-over-500')
 
@@ -523,12 +534,23 @@ export function useLocalSudokuGame() {
 
       await unlockRemoteAchievements(nextUnlocked)
 
-      const remoteKeys = await getUnlockedKeysFromRemote()
-      remoteKeys.forEach((key) => nextUnlocked.add(key))
+      // Obtener logros después de la partida desde backend
+      let achievementsAfter = []
+      try {
+        achievementsAfter = await apiClient.getMyAchievements(accessToken)
+      } catch (e) {
+        achievementsAfter = []
+      }
+      const afterIds = new Set(
+        Array.isArray(achievementsAfter)
+          ? achievementsAfter.map((item) => ACHIEVEMENT_ID_KEY_MAP[String(item?.logroId || '').trim()]).filter(Boolean)
+          : []
+      )
 
-      setUnlockedBadges(nextUnlocked)
+      setUnlockedBadges(afterIds)
 
-      const newlyUnlockedKeys = [...nextUnlocked].filter((key) => !previousUnlocked.has(key))
+      // Solo mostrar popup si hay logros realmente nuevos
+      const newlyUnlockedKeys = [...afterIds].filter((key) => !beforeIds.has(key))
       const newlyUnlockedAchievements = toAchievementPopupItems(newlyUnlockedKeys)
       if (newlyUnlockedAchievements.length > 0) {
         setAchievementPopupItems(newlyUnlockedAchievements)
