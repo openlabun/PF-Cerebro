@@ -21,6 +21,8 @@ import {
 } from '../lib/sudoku.js'
 import { apiClient } from '../services/apiClient.js'
 
+const MATCH_FETCH_TIMEOUT_MS = 8000
+
 function findFirstEditableCell(puzzle, boardState) {
   for (let row = 0; row < 9; row += 1) {
     for (let col = 0; col < 9; col += 1) {
@@ -213,9 +215,33 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   }
 
   async function fetchMatch({ updateBoard = false, signal } = {}) {
-    const nextMatch = await apiClient.getPvpMatch(matchId, c2AccessToken, signal)
-    applyMatchState(nextMatch, updateBoard)
-    return nextMatch
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => {
+      controller.abort()
+    }, MATCH_FETCH_TIMEOUT_MS)
+
+    function relayAbort() {
+      controller.abort()
+    }
+
+    if (signal) {
+      if (signal.aborted) {
+        relayAbort()
+      } else {
+        signal.addEventListener('abort', relayAbort, { once: true })
+      }
+    }
+
+    try {
+      const nextMatch = await apiClient.getPvpMatch(matchId, c2AccessToken, controller.signal)
+      applyMatchState(nextMatch, updateBoard)
+      return nextMatch
+    } finally {
+      window.clearTimeout(timeoutId)
+      if (signal) {
+        signal.removeEventListener('abort', relayAbort)
+      }
+    }
   }
 
   useEffect(() => {
@@ -514,7 +540,12 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
       } else {
         setStatus(result?.esCorrecta ? 'Movimiento correcto.' : 'Movimiento incorrecto.', Boolean(result?.esCorrecta))
       }
-      await fetchMatch()
+
+      try {
+        await fetchMatch()
+      } catch (syncError) {
+        console.warn('No se pudo refrescar el estado del match despues de la jugada:', syncError)
+      }
     } catch (error) {
       setBoard((currentBoard) => {
         const nextBoard = currentBoard.map((line) => [...line])

@@ -12,6 +12,7 @@ export class RobleService {
   private readonly dbName: string;
   private readonly authBase: string;
   private readonly dbBase: string;
+  private readonly requestTimeoutMs: number;
 
   constructor(
     private readonly http: HttpService,
@@ -20,6 +21,13 @@ export class RobleService {
     this.dbName = this.config.getOrThrow<string>('ROBLE_DBNAME');
     this.authBase = this.config.getOrThrow<string>('ROBLE_AUTH_BASE');
     this.dbBase = this.config.getOrThrow<string>('ROBLE_DB_BASE');
+    const parsedTimeout = Number(
+      this.config.get<string>('ROBLE_REQUEST_TIMEOUT_MS') ?? 8000,
+    );
+    this.requestTimeoutMs =
+      Number.isFinite(parsedTimeout) && parsedTimeout > 0
+        ? Math.floor(parsedTimeout)
+        : 8000;
   }
 
   // Verificación de token en ROBLE
@@ -30,6 +38,7 @@ export class RobleService {
       const response = await firstValueFrom(
         this.http.get<RobleVerifyTokenResponse>(url, {
           headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: this.requestTimeoutMs,
         }),
       );
 
@@ -51,7 +60,10 @@ export class RobleService {
       this.http.post<RobleInsertResponse<T>>(
         url,
         { tableName, records },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: this.requestTimeoutMs,
+        },
       ),
     );
 
@@ -69,6 +81,7 @@ export class RobleService {
       this.http.get<T[]>(url, {
         headers: { Authorization: `Bearer ${accessToken}` },
         params: { tableName, ...(filters ?? {}) },
+        timeout: this.requestTimeoutMs,
       }),
     );
 
@@ -93,7 +106,10 @@ export class RobleService {
           idValue,
           updates,
         },
-        { headers: { Authorization: `Bearer ${accessToken}` } },
+        {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          timeout: this.requestTimeoutMs,
+        },
       ),
     );
 

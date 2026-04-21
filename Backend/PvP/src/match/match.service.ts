@@ -136,10 +136,15 @@ function normalizeStoredBoolean(value: unknown): boolean {
 export class MatchService {
   private readonly logger = new Logger(MatchService.name);
   private readonly contenedor1Url: string;
+  private readonly contenedor1RequestTimeoutMs: number;
   private readonly matchOwnerToken = new Map<string, string>();
   private readonly userTokenCache = new Map<string, string>();
   private readonly userDisplayNameCache = new Map<string, string>();
   private readonly reservedStandaloneJoinCodes = new Set<string>();
+  private readonly generatedBoardCache = new Map<
+    string,
+    { board: number[][]; solution: number[][] }
+  >();
   private reservedStandaloneJoinCodesLoaded = false;
 
   constructor(
@@ -153,6 +158,13 @@ export class MatchService {
   ) {
     this.contenedor1Url =
       this.config.get<string>('CONTENEDOR1_BASE_URL')?.trim() ?? '';
+    const parsedTimeout = Number(
+      this.config.get<string>('CONTENEDOR1_REQUEST_TIMEOUT_MS') ?? 8000,
+    );
+    this.contenedor1RequestTimeoutMs =
+      Number.isFinite(parsedTimeout) && parsedTimeout > 0
+        ? Math.floor(parsedTimeout)
+        : 8000;
   }
 
   private stripSolution(state: MatchState) {
@@ -222,6 +234,7 @@ export class MatchService {
           {},
           {
             headers: { Authorization: `Bearer ${token}` },
+            timeout: this.contenedor1RequestTimeoutMs,
           },
         ),
       );
@@ -257,6 +270,32 @@ export class MatchService {
     const randomValue = randomBytes(4).readUInt32BE(0);
     const numericRange = PVP_JOIN_CODE_MAX - PVP_JOIN_CODE_MIN + 1;
     return String(PVP_JOIN_CODE_MIN + (randomValue % numericRange));
+  }
+
+  private getCachedGeneratedBoard(
+    seed: number,
+    difficultyKey?: string | null,
+  ): { board: number[][]; solution: number[][] } {
+    const normalizedDifficulty =
+      this.sudokuService.normalizeDifficultyKey(difficultyKey) ?? 'legacy';
+    const cacheKey = `${seed}:${normalizedDifficulty}`;
+    const cached = this.generatedBoardCache.get(cacheKey);
+    if (cached) return cached;
+
+    const generated = this.sudokuService.generateBoard(
+      seed,
+      normalizedDifficulty === 'legacy' ? undefined : normalizedDifficulty,
+    );
+
+    if (this.generatedBoardCache.size >= 500) {
+      const oldestKey = this.generatedBoardCache.keys().next().value;
+      if (oldestKey) {
+        this.generatedBoardCache.delete(oldestKey);
+      }
+    }
+
+    this.generatedBoardCache.set(cacheKey, generated);
+    return generated;
   }
 
   private async ensureReservedJoinCodesLoaded(token: string) {
@@ -823,9 +862,9 @@ export class MatchService {
     const storedTorneoId = this.normalizeOptionalString(base.torneoId);
     const standaloneScope = this.parseStandaloneScope(storedTorneoId);
     const difficultyKey = standaloneScope?.difficultyKey ?? null;
-    const { board, solution } = this.sudokuService.generateBoard(
+    const { board, solution } = this.getCachedGeneratedBoard(
       Number(base.seed),
-      difficultyKey ?? undefined,
+      difficultyKey,
     );
     const referenceNowMs = Date.now();
     const startedAt = legacy.fechaInicio ?? base.fechaInicio ?? null;
@@ -885,6 +924,7 @@ export class MatchService {
       const res = await firstValueFrom(
         this.http.get(`${this.contenedor1Url}/torneos/${torneoId}`, {
           headers: { Authorization: `Bearer ${tokenC1}` },
+          timeout: this.contenedor1RequestTimeoutMs,
         }),
       );
       const torneo = res.data;
@@ -922,7 +962,10 @@ export class MatchService {
       const res = await firstValueFrom(
         this.http.get(
           `${this.contenedor1Url}/torneos/${torneoId}/participantes`,
-          { headers: { Authorization: `Bearer ${tokenC1}` } },
+          {
+            headers: { Authorization: `Bearer ${tokenC1}` },
+            timeout: this.contenedor1RequestTimeoutMs,
+          },
         ),
       );
       const participantes: any[] = res.data;
@@ -974,7 +1017,7 @@ export class MatchService {
     }
 
     const seed = Math.floor(Math.random() * 1000000);
-    const { solution } = this.sudokuService.generateBoard(
+    const { solution } = this.getCachedGeneratedBoard(
       seed,
       normalizedDifficultyKey,
     );
@@ -1095,7 +1138,9 @@ export class MatchService {
 
     let matches: MatchRecord[] = [];
     try {
-      matches = await this.roble.read<MatchRecord>(token, 'Matches');
+      matches = await this.roble.read<MatchRecord>(token, 'Matches', {
+        estado: 'WAITING',
+      });
     } catch (error) {
       this.logger.warn(
         `No se pudieron leer matches para unirse por codigo PvP: ${(error as Error)?.message || error}`,
@@ -1109,7 +1154,10 @@ export class MatchService {
       .filter((match) => match?._id)
       .filter((match) => {
         const standaloneScope = this.parseStandaloneScope(match.torneoId);
-        return standaloneScope?.inviteToken === normalizedJoinCode;
+        return (
+          standaloneScope?.inviteToken === normalizedJoinCode &&
+          !this.normalizeOptionalString(match.jugador2Id)
+        );
       })
       .sort(
         (left, right) =>
@@ -1119,21 +1167,14 @@ export class MatchService {
 
     for (const candidate of candidates) {
       try {
-        const state = await this.rebuildState(candidate._id!, token);
-        if (
-          !state.torneoId &&
-          state.inviteToken === normalizedJoinCode &&
-          state.estado === 'WAITING'
-        ) {
-          return this.joinMatch(
-            state._id,
-            usuarioId,
-            token,
-            undefined,
-            normalizedJoinCode,
-            displayName,
-          );
-        }
+        return this.joinMatch(
+          candidate._id!,
+          usuarioId,
+          token,
+          undefined,
+          normalizedJoinCode,
+          displayName,
+        );
       } catch (error) {
         this.logger.warn(
           `No se pudo evaluar el match ${candidate._id} para join-by-code: ${(error as Error)?.message || error}`,
@@ -1170,9 +1211,9 @@ export class MatchService {
       throw new BadRequestException('Ya terminaste tu partida');
     }
 
-    const { board } = this.sudokuService.generateBoard(
+    const { board } = this.getCachedGeneratedBoard(
       state.seed,
-      state.difficultyKey ?? undefined,
+      state.difficultyKey,
     );
     if (board[row][col] !== 0) {
       throw new BadRequestException('No puedes modificar una celda fija');

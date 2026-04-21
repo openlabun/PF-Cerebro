@@ -2,7 +2,7 @@ import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
 import { apiClient } from '../services/apiClient.js'
 
-const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/
+const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_.-])[A-Za-z\d!@#$_.-]{8,}$/
 
 function ResetPasswordPage() {
   const location = useLocation()
