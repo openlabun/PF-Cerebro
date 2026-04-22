@@ -53,7 +53,7 @@ describe('LoginPage', () => {
 
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
-    expect(screen.getByText('Completa correo y contrasena.')).toBeInTheDocument()
+    expect(screen.getByText('Completa correo y contraseña.')).toBeInTheDocument()
     expect(mockAuth.login).not.toHaveBeenCalled()
   })
 
@@ -63,7 +63,7 @@ describe('LoginPage', () => {
     renderPage()
 
     await user.type(screen.getByLabelText('Correo'), 'USER@Example.COM')
-    await user.type(screen.getByLabelText('Contrasena'), 'Secret1!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Secret1!')
     await user.click(screen.getByRole('button', { name: 'Entrar' }))
 
     await waitFor(() => {

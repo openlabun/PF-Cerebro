@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CEREBRO Admin Dashboard - Login</title>
-    <link rel="stylesheet" href="/assets/css/login.css?v=20260320-1" />
+    <link rel="stylesheet" href="/assets/css/login.css?v=20260422-1" />
   </head>
   <body>
     <main class="login-shell">
@@ -33,7 +33,7 @@
 
       <section class="login-card">
         <p class="eyebrow">Acceso seguro</p>
-        <h2>Iniciar sesion</h2>
+        <h2>Iniciar sesión</h2>
         <p>Usa tus credenciales admin para entrar al dashboard.</p>
 
         <form id="loginForm" class="login-form">
@@ -43,16 +43,44 @@
           </label>
 
           <label>
-            Contrasena
-            <input
-              id="password"
-              type="password"
-              autocomplete="current-password"
-              required
-            />
+            Contraseña
+            <div class="password-input-wrap">
+              <input
+                id="password"
+                type="password"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                id="passwordToggle"
+                class="password-toggle"
+                type="button"
+                aria-label="Mostrar contraseña"
+                aria-pressed="false"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path
+                    d="M1.5 12s3.8-6.5 10.5-6.5S22.5 12 22.5 12s-3.8 6.5-10.5 6.5S1.5 12 1.5 12Z"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.8"
+                  />
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="3.25"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
+                </svg>
+              </button>
+            </div>
           </label>
 
-          <button id="loginBtn" type="submit">Entrar al dashboard</button>
+          <button id="loginBtn" class="login-submit" type="submit">Entrar al dashboard</button>
         </form>
 
         <p id="loginStatus" class="status-text"></p>
@@ -60,6 +88,6 @@
     </main>
 
     <script src="/assets/js/auth.js?v=20260320-1"></script>
-    <script src="/assets/js/login.js?v=20260320-1"></script>
+    <script src="/assets/js/login.js?v=20260422-1"></script>
   </body>
 </html>
