@@ -17,9 +17,9 @@ export class ResetPasswordDto {
   })
   @IsString({ message: 'La nueva contrasena debe ser texto' })
   @IsNotEmpty({ message: 'La nueva contrasena es obligatoria' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/, {
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_.-])[A-Za-z\d!@#$_.-]{8,}$/, {
     message:
-      'La nueva contrasena debe tener minimo 8 caracteres, una mayuscula, una minuscula, un numero y un simbolo permitido (!, @, #, $, _, -)',
+      'La nueva contrasena debe tener minimo 8 caracteres, una mayuscula, una minuscula, un numero y un simbolo permitido (!, @, #, $, _, -, .)',
   })
   newPassword!: string;
 }

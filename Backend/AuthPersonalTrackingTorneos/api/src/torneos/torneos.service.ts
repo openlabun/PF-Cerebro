@@ -118,6 +118,14 @@ type FinishTournamentSessionResponse = {
   totalBoards: number;
 };
 
+type HistorialParticipacionRecord = TorneoRecord & {
+  fechaUnion: string | null;
+  miPosicion: number | null;
+  miPuntaje: number | null;
+  miTiempo: number | null;
+  miFechaRegistro: string | null;
+};
+
 @Injectable()
 export class TorneosService {
   private readonly TABLE_TORNEOS = 'Torneos';
@@ -689,6 +697,10 @@ export class TorneosService {
     return estado === EstadoTorneo.PROGRAMADO || estado === EstadoTorneo.ACTIVO;
   }
 
+  private isParticipantHistoricalState(value: string): boolean {
+    return this.toEstadoTorneo(value) === EstadoTorneo.FINALIZADO;
+  }
+
   private canSeeTournamentInList(
     torneo: TorneoRecord,
     usuarioId?: string,
@@ -697,12 +709,12 @@ export class TorneosService {
   ): boolean {
     const normalizedUserId = String(usuarioId ?? '').trim();
 
-    if (!this.isBrowsableState(torneo.estado)) {
-      return false;
-    }
-
     if (this.canManageTournament(torneo, normalizedUserId, userRole)) {
       return true;
+    }
+
+    if (!this.isBrowsableState(torneo.estado)) {
+      return false;
     }
 
     if (torneo.esPublico) {
@@ -719,16 +731,52 @@ export class TorneosService {
     joinedTournamentIds: Set<string> = new Set(),
   ): boolean {
     const normalizedUserId = String(usuarioId ?? '').trim();
+    const isJoined = Boolean(torneo._id && joinedTournamentIds.has(torneo._id));
 
     if (this.canManageTournament(torneo, normalizedUserId, userRole)) {
       return true;
     }
 
-    if (torneo._id && joinedTournamentIds.has(torneo._id)) {
+    if (!this.isBrowsableState(torneo.estado)) {
+      return this.isParticipantHistoricalState(torneo.estado) && isJoined;
+    }
+
+    if (isJoined) {
       return true;
     }
 
-    return this.isBrowsableState(torneo.estado);
+    return true;
+  }
+
+  private async getAuthenticatedReadableTournament(
+    accessToken: string,
+    torneoId: string,
+    usuarioId: string,
+    userRole: string,
+  ): Promise<TorneoRecord> {
+    const torneo = await this.obtenerTorneoPorId(accessToken, torneoId);
+    if (!torneo) {
+      throw new NotFoundException('Torneo no existe');
+    }
+
+    const sincronizado = await this.syncEstadoPorFecha(accessToken, torneo);
+    const joinedTournamentIds = await this.getJoinedTournamentIds(
+      accessToken,
+      usuarioId,
+    );
+
+    if (
+      !this.canOpenTournamentDetail(
+        sincronizado,
+        usuarioId,
+        userRole,
+        joinedTournamentIds,
+      )
+    ) {
+      throw new NotFoundException('Torneo no disponible');
+    }
+
+    return sincronizado;
   }
 
   private sanitizeTournamentForViewer(
@@ -1082,27 +1130,12 @@ export class TorneosService {
     usuarioId: string,
     userRole: string,
   ): Promise<TorneoRecord> {
-    const torneo = await this.obtenerTorneoPorId(accessToken, torneoId);
-    if (!torneo) {
-      throw new NotFoundException('Torneo no existe');
-    }
-
-    const sincronizado = await this.syncEstadoPorFecha(accessToken, torneo);
-    const joinedTournamentIds = await this.getJoinedTournamentIds(
+    const sincronizado = await this.getAuthenticatedReadableTournament(
       accessToken,
+      torneoId,
       usuarioId,
+      userRole,
     );
-
-    if (
-      !this.canOpenTournamentDetail(
-        sincronizado,
-        usuarioId,
-        userRole,
-        joinedTournamentIds,
-      )
-    ) {
-      throw new NotFoundException('Torneo no disponible');
-    }
 
     const [enriched] = await this.attachCreatorNames(
       [
@@ -1606,7 +1639,16 @@ export class TorneosService {
   async listarParticipantes(
     accessToken: string,
     torneoId: string,
+    usuarioId: string,
+    userRole: string,
   ): Promise<ParticipanteRecord[]> {
+    await this.getAuthenticatedReadableTournament(
+      accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+    );
+
     const participantes = await this.roble.read<ParticipanteRecord>(
       accessToken,
       this.TABLE_PARTICIPANTES,
@@ -1995,7 +2037,16 @@ export class TorneosService {
   async obtenerRanking(
     accessToken: string,
     torneoId: string,
+    usuarioId: string,
+    userRole: string,
   ): Promise<ResultadoRecord[]> {
+    await this.getAuthenticatedReadableTournament(
+      accessToken,
+      torneoId,
+      usuarioId,
+      userRole,
+    );
+
     const resultados = await this.roble.read<ResultadoRecord>(
       accessToken,
       this.TABLE_RESULTADOS,
@@ -2026,6 +2077,118 @@ export class TorneosService {
     return this.attachUserNames(this.sortRankingRows(resultados), {
       usePublicToken: true,
     });
+  }
+
+  async listarHistorialParticipacion(
+    accessToken: string,
+    usuarioId: string,
+  ): Promise<HistorialParticipacionRecord[]> {
+    const normalizedUserId = this.normalizeUserId(usuarioId);
+    if (!normalizedUserId) {
+      return [];
+    }
+
+    const participaciones = await this.roble.read<ParticipanteRecord>(
+      accessToken,
+      this.TABLE_PARTICIPANTES,
+      { usuarioId: normalizedUserId },
+    );
+
+    if (!participaciones.length) {
+      return [];
+    }
+
+    const fechaUnionPorTorneo = new Map<string, string>();
+    for (const row of participaciones) {
+      const torneoId = String(row.torneoId ?? '').trim();
+      if (!torneoId || fechaUnionPorTorneo.has(torneoId)) {
+        continue;
+      }
+      fechaUnionPorTorneo.set(torneoId, row.fechaUnion);
+    }
+
+    const torneos = (
+      await Promise.all(
+        Array.from(fechaUnionPorTorneo.keys()).map(async (torneoId) => {
+          const torneo = await this.obtenerTorneoPorId(accessToken, torneoId);
+          if (!torneo) {
+            return null;
+          }
+          return this.syncEstadoPorFecha(accessToken, torneo);
+        }),
+      )
+    ).filter((torneo): torneo is TorneoRecord => Boolean(torneo));
+
+    const finalizados = torneos.filter((torneo) =>
+      this.isParticipantHistoricalState(torneo.estado),
+    );
+    if (!finalizados.length) {
+      return [];
+    }
+
+    const torneosConNombre = await this.attachCreatorNames(finalizados, {
+      accessToken,
+    });
+
+    const misResultados = await this.roble.read<ResultadoRecord>(
+      accessToken,
+      this.TABLE_RESULTADOS,
+      { usuarioId: normalizedUserId },
+    );
+    const misResultadosPorTorneo = new Map<string, ResultadoRecord>();
+    for (const row of this.sortRankingRows(misResultados)) {
+      const torneoId = String(row.torneoId ?? '').trim();
+      if (!torneoId || misResultadosPorTorneo.has(torneoId)) {
+        continue;
+      }
+      misResultadosPorTorneo.set(torneoId, row);
+    }
+
+    const rankingPorTorneo = new Map<string, ResultadoRecord[]>();
+    await Promise.all(
+      torneosConNombre.map(async (torneo) => {
+        const torneoId = String(torneo._id ?? '').trim();
+        if (!torneoId) {
+          return;
+        }
+        const rows = await this.roble.read<ResultadoRecord>(
+          accessToken,
+          this.TABLE_RESULTADOS,
+          { torneoId },
+        );
+        rankingPorTorneo.set(torneoId, this.sortRankingRows(rows));
+      }),
+    );
+
+    return torneosConNombre
+      .map((torneo) => {
+        const torneoId = String(torneo._id ?? '').trim();
+        const miResultado = misResultadosPorTorneo.get(torneoId) ?? null;
+        const ranking = rankingPorTorneo.get(torneoId) ?? [];
+        const miPosicion = miResultado
+          ? ranking.findIndex(
+              (row) => this.normalizeUserId(row.usuarioId) === normalizedUserId,
+            ) + 1
+          : 0;
+
+        return {
+          ...this.sanitizeTournamentForViewer(torneo),
+          fechaUnion: fechaUnionPorTorneo.get(torneoId) ?? null,
+          miPosicion: miPosicion > 0 ? miPosicion : null,
+          miPuntaje: miResultado?.puntaje ?? null,
+          miTiempo: miResultado?.tiempo ?? null,
+          miFechaRegistro: miResultado?.fechaRegistro ?? null,
+        };
+      })
+      .sort((left, right) => {
+        const leftTime = new Date(
+          left.miFechaRegistro || left.fechaFin || left.fechaUnion || 0,
+        ).getTime();
+        const rightTime = new Date(
+          right.miFechaRegistro || right.fechaFin || right.fechaUnion || 0,
+        ).getTime();
+        return rightTime - leftTime;
+      });
   }
 
   async obtenerResultadosPorUsuario(

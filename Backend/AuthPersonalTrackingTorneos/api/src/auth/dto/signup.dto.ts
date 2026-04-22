@@ -12,25 +12,25 @@ export class SignupDto {
     example: 'usuario@uninorte.edu.co',
     description: 'Correo institucional',
   })
-  @IsEmail({}, { message: 'El correo no es válido' })
+  @IsEmail({}, { message: 'El correo no es valido' })
   @IsNotEmpty({ message: 'El correo es obligatorio' })
   email!: string;
 
   @ApiProperty({
     example: '12345678Aa!',
     description:
-      'Contraseña con al menos 8 caracteres, una mayuscula, una minúscula, un número y un símbolo',
+      'Contrasena con al menos 8 caracteres, una mayuscula, una minuscula, un numero y un simbolo',
   })
-  @IsString({ message: 'La contraseña debe ser texto' })
-  @IsNotEmpty({ message: 'La contraseña es obligatoria' })
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/, {
+  @IsString({ message: 'La contrasena debe ser texto' })
+  @IsNotEmpty({ message: 'La contrasena es obligatoria' })
+  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_.-])[A-Za-z\d!@#$_.-]{8,}$/, {
     message:
-      'La contraseña debe tener mínimo 8 caracteres, una mayúscula, una minúscula, un número y un símbolo permitido (!, @, #, $, _, -)',
+      'La contrasena debe tener minimo 8 caracteres, una mayuscula, una minuscula, un numero y un simbolo permitido (!, @, #, $, _, -, .)',
   })
   password!: string;
 
   @ApiProperty({
-    example: 'Juan Pérez',
+    example: 'Juan Perez',
     description: 'Nombre completo',
   })
   @IsString({ message: 'El nombre debe ser texto' })

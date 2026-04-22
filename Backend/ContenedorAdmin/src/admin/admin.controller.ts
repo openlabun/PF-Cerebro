@@ -218,6 +218,45 @@ export class AdminController {
     }
   }
 
+  @Get('torneos/:id/participantes')
+  @ApiOperation({ summary: 'Obtener participantes de un torneo desde Contenedor1' })
+  @ApiParam({ name: 'id', type: String })
+  async getTorneoParticipantes(
+    @Req() req: RobleRequest,
+    @Param('id') id: string,
+  ) {
+    try {
+      const data = await this.adminService.getTorneoParticipantes(
+        req.accessToken,
+        id,
+      );
+      return { source: 'contenedor1', data };
+    } catch (error) {
+      throw new BadGatewayException({
+        message:
+          'No fue posible consultar los participantes del torneo solicitado.',
+        details: error instanceof Error ? error.message : String(error),
+        source: 'contenedor-admin',
+      });
+    }
+  }
+
+  @Get('torneos/:id/ranking')
+  @ApiOperation({ summary: 'Obtener ranking de un torneo desde Contenedor1' })
+  @ApiParam({ name: 'id', type: String })
+  async getTorneoRanking(@Req() req: RobleRequest, @Param('id') id: string) {
+    try {
+      const data = await this.adminService.getTorneoRanking(req.accessToken, id);
+      return { source: 'contenedor1', data };
+    } catch (error) {
+      throw new BadGatewayException({
+        message: 'No fue posible consultar el ranking del torneo solicitado.',
+        details: error instanceof Error ? error.message : String(error),
+        source: 'contenedor-admin',
+      });
+    }
+  }
+
   @Get('torneos/:id')
   @ApiOperation({ summary: 'Obtener detalle de torneo por id desde Contenedor1' })
   @ApiParam({ name: 'id', type: String })

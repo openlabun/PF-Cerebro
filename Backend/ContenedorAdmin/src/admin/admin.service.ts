@@ -20,8 +20,19 @@ type TorneoRecord = {
 };
 
 type ParticipanteRecord = {
+  _id?: string;
   usuarioId?: string;
+  usuarioNombre?: string;
   fechaUnion?: string;
+};
+
+type TorneoRankingRecord = {
+  _id?: string;
+  usuarioId?: string;
+  usuarioNombre?: string;
+  puntaje?: number;
+  tiempo?: number | string | null;
+  fechaRegistro?: string;
 };
 
 type RankingRecord = {
@@ -544,6 +555,36 @@ export class AdminService {
     return this.requestContenedor1(`torneos/${torneoId}`, 'GET', undefined, {
       accessToken,
     });
+  }
+
+  async getTorneoParticipantes(accessToken: string, torneoId: string) {
+    const payload = await this.requestContenedor1(
+      `torneos/${torneoId}/participantes`,
+      'GET',
+      undefined,
+      { accessToken },
+    );
+    const payloadRecord = payload as { data?: unknown } | null;
+    if (Array.isArray(payload)) return payload as ParticipanteRecord[];
+    if (payloadRecord?.data && Array.isArray(payloadRecord.data)) {
+      return payloadRecord.data as ParticipanteRecord[];
+    }
+    return [] as ParticipanteRecord[];
+  }
+
+  async getTorneoRanking(accessToken: string, torneoId: string) {
+    const payload = await this.requestContenedor1(
+      `torneos/${torneoId}/ranking`,
+      'GET',
+      undefined,
+      { accessToken },
+    );
+    const payloadRecord = payload as { data?: unknown } | null;
+    if (Array.isArray(payload)) return payload as TorneoRankingRecord[];
+    if (payloadRecord?.data && Array.isArray(payloadRecord.data)) {
+      return payloadRecord.data as TorneoRankingRecord[];
+    }
+    return [] as TorneoRankingRecord[];
   }
 
   async updateTorneo(

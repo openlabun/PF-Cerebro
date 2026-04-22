@@ -465,6 +465,14 @@ export const apiClient = {
     })
   },
 
+  getMyTournamentHistory(accessToken) {
+    return request('torneos/me/historial', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    })
+  },
+
   deleteTournament(tournamentId, accessToken) {
     return request(`torneos/${tournamentId}`, {
       method: 'DELETE',

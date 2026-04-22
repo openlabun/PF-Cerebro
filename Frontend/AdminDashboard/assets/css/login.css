@@ -159,7 +159,63 @@ body {
   box-shadow: 0 0 0 4px rgba(121, 182, 255, 0.16);
 }
 
-.login-form button {
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrap input {
+  padding-right: 3.8rem;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.password-toggle:hover:not(:disabled) {
+  transform: translateY(-50%);
+  box-shadow: none;
+  filter: none;
+  color: var(--text);
+}
+
+.password-toggle:focus-visible {
+  outline: 2px solid rgba(121, 182, 255, 0.32);
+  outline-offset: 1px;
+}
+
+.password-toggle svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.password-toggle.is-visible::after {
+  content: "";
+  position: absolute;
+  width: 1.7px;
+  height: 1.45rem;
+  border-radius: 999px;
+  background: currentColor;
+  transform: rotate(-38deg);
+}
+
+.login-submit {
   border: 0;
   border-radius: 14px;
   padding: 0.85rem 1rem;
@@ -170,7 +226,7 @@ body {
   background: linear-gradient(120deg, #0f5ea6, #0f2f57);
 }
 
-.login-form button[disabled] {
+.login-submit[disabled] {
   opacity: 0.7;
   cursor: progress;
 }

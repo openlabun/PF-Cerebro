@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import { within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { vi } from 'vitest'
@@ -52,11 +51,11 @@ describe('SignUpPage', () => {
 
     await user.type(screen.getByLabelText('Nombre de usuario'), 'Alice')
     await user.type(screen.getByLabelText('Correo'), 'alice@example.com')
-    await user.type(screen.getByLabelText('Contrasena'), 'Secret1!')
-    await user.type(screen.getByLabelText('Confirmar contrasena'), 'Secret2!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Secret1!')
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'Secret2!')
     await user.click(getSubmitButton())
 
-    expect(screen.getByText('Las contrasenas no coinciden.')).toBeInTheDocument()
+    expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument()
     expect(mockAuth.signup).not.toHaveBeenCalled()
   })
 
@@ -67,8 +66,8 @@ describe('SignUpPage', () => {
 
     await user.type(screen.getByLabelText('Nombre de usuario'), 'Alice')
     await user.type(screen.getByLabelText('Correo'), 'ALICE@Example.com')
-    await user.type(screen.getByLabelText('Contrasena'), 'Secret1!')
-    await user.type(screen.getByLabelText('Confirmar contrasena'), 'Secret1!')
+    await user.type(screen.getByLabelText('Contraseña'), 'Secret1!')
+    await user.type(screen.getByLabelText('Confirmar contraseña'), 'Secret1!')
     await user.click(getSubmitButton())
 
     await waitFor(() => {

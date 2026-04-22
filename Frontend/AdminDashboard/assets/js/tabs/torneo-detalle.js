@@ -1,6 +1,12 @@
 const endpoints = {
   torneos: "/api/admin/torneos",
 };
+const TOURNAMENT_TIME_ZONE = "America/Bogota";
+const SYSTEM_DATE_FORMATTER = new Intl.DateTimeFormat("es-CO", {
+  timeZone: TOURNAMENT_TIME_ZONE,
+  dateStyle: "medium",
+  timeStyle: "short",
+});
 
 let torneoId = "";
 let isCreateMode = false;
@@ -30,6 +36,128 @@ function setStatus(message) {
 
 async function getJson(url, options = {}) {
   return window.AdminAuth.fetchJson(url, options);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function normalizeDateInput(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const withTimeSeparator = raw.includes(" ") ? raw.replace(" ", "T") : raw;
+  const withExpandedTimezone = withTimeSeparator.replace(
+    /([+-]\d{2})(\d{2})$/,
+    "$1:$2",
+  );
+  return withExpandedTimezone.replace(/\.(\d{3})\d+/, ".$1");
+}
+
+function parseSystemDateValue(value) {
+  const normalized = normalizeDateInput(value);
+  if (!normalized) return null;
+
+  const hasExplicitTimezone = /(?:[zZ]|[+-]\d{2}:\d{2})$/.test(normalized);
+  const isoWithoutZonePattern =
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?$/;
+  const candidate =
+    !hasExplicitTimezone && isoWithoutZonePattern.test(normalized)
+      ? `${normalized}Z`
+      : normalized;
+
+  const parsed = new Date(candidate);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function formatSystemDate(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Sin definir";
+  const parsed = parseSystemDateValue(raw);
+  if (!parsed) return raw.replace("T", " ");
+  return SYSTEM_DATE_FORMATTER.format(parsed);
+}
+
+function formatElapsedSeconds(value) {
+  const totalSeconds = Number(value);
+  if (!Number.isFinite(totalSeconds) || totalSeconds < 0) return "-";
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+  return `${minutes}m ${String(seconds).padStart(2, "0")}s`;
+}
+
+function getDisplayName(row) {
+  const displayName = String(row?.usuarioNombre || "").trim();
+  const userId = String(row?.usuarioId || "").trim();
+  return displayName || userId || "Usuario";
+}
+
+function setSectionVisibility(sectionId, visible) {
+  const section = byId(sectionId);
+  if (section) {
+    section.style.display = visible ? "" : "none";
+  }
+}
+
+function renderParticipants(participants) {
+  const body = byId("participantesBody");
+  const count = byId("participantesCount");
+  if (!body) return;
+
+  const rows = Array.isArray(participants) ? participants : [];
+  if (count) count.textContent = String(rows.length);
+
+  if (!rows.length) {
+    body.innerHTML =
+      '<tr><td colspan="2" class="history-empty">No hay participantes registrados.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows
+    .map((row) => {
+      return `
+        <tr>
+          <td>${escapeHtml(getDisplayName(row))}</td>
+          <td>${escapeHtml(formatSystemDate(row?.fechaUnion))}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+function renderRanking(ranking) {
+  const body = byId("rankingBody");
+  const count = byId("rankingCount");
+  if (!body) return;
+
+  const rows = Array.isArray(ranking) ? ranking : [];
+  if (count) count.textContent = String(rows.length);
+
+  if (!rows.length) {
+    body.innerHTML =
+      '<tr><td colspan="5" class="history-empty">No hay resultados registrados.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows
+    .map((row, index) => {
+      return `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(getDisplayName(row))}</td>
+          <td>${escapeHtml(row?.puntaje ?? "-")}</td>
+          <td>${escapeHtml(formatElapsedSeconds(row?.tiempo))}</td>
+          <td>${escapeHtml(formatSystemDate(row?.fechaRegistro))}</td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 function toDateTimeLocal(value) {
@@ -378,6 +506,8 @@ function setCreateModeUi() {
   if (detailTitle) detailTitle.textContent = "Crear Torneo";
   if (saveBtn) saveBtn.textContent = "Crear torneo";
   if (estadoSection) estadoSection.style.display = "none";
+  setSectionVisibility("participantesSection", false);
+  setSectionVisibility("rankingSection", false);
   setStatus("Completa el formulario para crear un torneo SERIE.");
 }
 
@@ -389,6 +519,8 @@ function setEditModeUi() {
   if (detailTitle) detailTitle.textContent = "Detalle de Torneo";
   if (saveBtn) saveBtn.textContent = "Guardar cambios";
   if (estadoSection) estadoSection.style.display = "";
+  setSectionVisibility("participantesSection", true);
+  setSectionVisibility("rankingSection", true);
 }
 
 function parseOptionalNumberField(id, fieldName) {
@@ -535,12 +667,49 @@ async function loadTorneo(options = {}) {
   }
 
   try {
-    const payload = await getJson(`${endpoints.torneos}/${encodeURIComponent(torneoId)}`);
-    const torneo = payload?.data || payload;
+    const encodedId = encodeURIComponent(torneoId);
+    const [torneoResult, participantesResult, rankingResult] = await Promise.allSettled([
+      getJson(`${endpoints.torneos}/${encodedId}`),
+      getJson(`${endpoints.torneos}/${encodedId}/participantes`),
+      getJson(`${endpoints.torneos}/${encodedId}/ranking`),
+    ]);
+
+    if (torneoResult.status !== "fulfilled") {
+      throw torneoResult.reason;
+    }
+
+    const torneoPayload = torneoResult.value;
+    const torneo = torneoPayload?.data || torneoPayload;
+    const participantes =
+      participantesResult.status === "fulfilled"
+        ? participantesResult.value?.data || participantesResult.value || []
+        : [];
+    const ranking =
+      rankingResult.status === "fulfilled"
+        ? rankingResult.value?.data || rankingResult.value || []
+        : [];
+
     fillForm(torneo);
-    if (!silent) setStatus(`Torneo cargado: ${torneo?.nombre || torneoId}`);
+    renderParticipants(participantes);
+    renderRanking(ranking);
+
+    if (!silent) {
+      const warnings = [];
+      if (participantesResult.status !== "fulfilled") warnings.push("participantes");
+      if (rankingResult.status !== "fulfilled") warnings.push("ranking");
+
+      if (warnings.length) {
+        setStatus(
+          `Torneo cargado: ${torneo?.nombre || torneoId}. No fue posible recuperar ${warnings.join(" y ")} en este momento.`,
+        );
+      } else {
+        setStatus(`Torneo cargado: ${torneo?.nombre || torneoId}`);
+      }
+    }
     return torneo;
   } catch (error) {
+    renderParticipants([]);
+    renderRanking([]);
     if (!silent) setStatus(`Error al cargar torneo: ${error.message}`);
     return null;
   }
