@@ -7,6 +7,7 @@ import {
   SudokuGameProvider,
   cloneNotes,
   formatSudokuTime,
+  noteViolatesCurrentBoard,
   useSudokuGame,
 } from '../context/SudokuGameContext.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -15,6 +16,7 @@ import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { generatePvpBoard } from '../lib/pvpSudoku.js'
 import {
   clearNotesCell,
+  countCorrectByNumber,
   createEmptyNotes,
   getDifficultyByKey,
   getHintLimit,
@@ -54,6 +56,38 @@ function countResolvedCells(puzzle, boardState) {
       ),
     0,
   )
+}
+
+function removeCandidateFromPeerNotes(notes, row, col, num) {
+  for (let currentCol = 0; currentCol < 9; currentCol += 1) {
+    if (currentCol !== col) notes[row][currentCol].delete(num)
+  }
+
+  for (let currentRow = 0; currentRow < 9; currentRow += 1) {
+    if (currentRow !== row) notes[currentRow][col].delete(num)
+  }
+
+  const startRow = Math.floor(row / 3) * 3
+  const startCol = Math.floor(col / 3) * 3
+  for (let currentRow = startRow; currentRow < startRow + 3; currentRow += 1) {
+    for (let currentCol = startCol; currentCol < startCol + 3; currentCol += 1) {
+      if (currentRow === row && currentCol === col) continue
+      notes[currentRow][currentCol].delete(num)
+    }
+  }
+}
+
+function revalidateAllNotes(puzzle, board, notes) {
+  for (let row = 0; row < 9; row += 1) {
+    for (let col = 0; col < 9; col += 1) {
+      if (puzzle[row][col] !== 0) continue
+      for (const note of Array.from(notes[row][col])) {
+        if (noteViolatesCurrentBoard(board, row, col, note)) {
+          notes[row][col].delete(note)
+        }
+      }
+    }
+  }
 }
 
 function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
@@ -487,18 +521,21 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
       return
     }
 
-    setBoard((currentBoard) => {
-      const nextBoard = currentBoard.map((line) => [...line])
-      nextBoard[row][col] = num
-      return nextBoard
-    })
+    const expectedCorrectness = solution[row]?.[col] === num
+    const nextBoard = board.map((line) => [...line])
+    nextBoard[row][col] = num
+
+    setBoard(nextBoard)
     clearCellError(row, col)
     setNotes((currentNotes) => {
       const nextNotes = cloneNotes(currentNotes)
       clearNotesCell(nextNotes, row, col)
+      if (expectedCorrectness) {
+        removeCandidateFromPeerNotes(nextNotes, row, col, num)
+        revalidateAllNotes(puzzle, nextBoard, nextNotes)
+      }
       return nextNotes
     })
-    const expectedCorrectness = solution[row]?.[col] === num
     if (!expectedCorrectness) {
       markCellError(row, col, true)
     }
@@ -593,6 +630,7 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
   }
   const editableCellCount = useMemo(() => countEditableCells(puzzle), [puzzle])
   const localResolvedCellCount = useMemo(() => countResolvedCells(puzzle, confirmedBoard), [confirmedBoard, puzzle])
+  const correctCounts = useMemo(() => (solution.length ? countCorrectByNumber(board, solution) : Array(10).fill(0)), [board, solution])
   const resolvedCellCount = useMemo(() => {
     const serverResolved = typeof myGame?.correctCells === 'number' ? myGame.correctCells : 0
     return Math.max(serverResolved, localResolvedCellCount)
@@ -689,6 +727,8 @@ function PvpMatchPageContent({ confirmedBoard, onConfirmedBoardChange }) {
                 noteMode={noteMode}
                 highlightEnabled={highlightEnabled}
                 hintCount={0}
+                getNumberHidden={(num) => correctCounts[num] >= 9}
+                getNumberDisabled={(num) => correctCounts[num] >= 9}
                 keypadDisabled={!isActive || submittingMove}
                 clearDisabled={!isActive || submittingMove}
                 noteDisabled={!isActive || submittingMove}

@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import PasswordField from '../components/PasswordField.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
-const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/
+const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_.-])[A-Za-z\d!@#$_.-]{8,}$/
 
 function SignUpPage() {
   const navigate = useNavigate()
@@ -129,29 +130,23 @@ function SignUpPage() {
                 />
               </label>
 
-              <label className="auth-field">
-                <span>Contrasena</span>
-                <input
-                  autoComplete="new-password"
-                  name="password"
-                  onChange={handleChange}
-                  placeholder="Mínimo 8 caracteres, una mayúscula y un símbolo"
-                  type="password"
-                  value={form.password}
-                />
-              </label>
+              <PasswordField
+                autoComplete="new-password"
+                label="Contraseña"
+                name="password"
+                onChange={handleChange}
+                placeholder="Mínimo 8 caracteres, una mayúscula y un símbolo"
+                value={form.password}
+              />
 
-              <label className="auth-field">
-                <span>Confirmar contraseña</span>
-                <input
-                  autoComplete="new-password"
-                  name="confirmPassword"
-                  onChange={handleChange}
-                  placeholder="Repite tu contraseña"
-                  type="password"
-                  value={form.confirmPassword}
-                />
-              </label>
+              <PasswordField
+                autoComplete="new-password"
+                label="Confirmar contraseña"
+                name="confirmPassword"
+                onChange={handleChange}
+                placeholder="Repite tu contraseña"
+                value={form.confirmPassword}
+              />
 
               <p className={`auth-feedback auth-feedback--inline${tone !== 'info' ? ` ${tone}` : ''}`}>
                 {message}
@@ -163,11 +158,11 @@ function SignUpPage() {
             </form>
 
             <p className="auth-links">
-              Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
+              ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
             </p>
 
             <p className="auth-links">
-              Ya tienes un código? <Link to="/verify-email">Verificar correo</Link>
+              ¿Ya tienes un código? <Link to="/verify-email">Verificar correo</Link>
             </p>
           </article>
         </div>

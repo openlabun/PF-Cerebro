@@ -31,11 +31,11 @@ describe('ResetPasswordPage', () => {
     const user = userEvent.setup()
     renderPage('/reset-password?token=abc123')
 
-    await user.type(screen.getByLabelText('Nueva contrasena'), 'NuevaClave1!')
-    await user.type(screen.getByLabelText('Confirmar nueva contrasena'), 'OtraClave1!')
-    await user.click(screen.getByRole('button', { name: 'Guardar nueva contrasena' }))
+    await user.type(screen.getByLabelText('Nueva contraseña'), 'NuevaClave1!')
+    await user.type(screen.getByLabelText('Confirmar nueva contraseña'), 'OtraClave1!')
+    await user.click(screen.getByRole('button', { name: 'Guardar nueva contraseña' }))
 
-    expect(screen.getByText('Las contrasenas no coinciden.')).toBeInTheDocument()
+    expect(screen.getByText('Las contraseñas no coinciden.')).toBeInTheDocument()
     expect(mockApiClient.resetPassword).not.toHaveBeenCalled()
   })
 
@@ -44,11 +44,11 @@ describe('ResetPasswordPage', () => {
     mockApiClient.resetPassword.mockResolvedValue({ ok: true })
     renderPage('/reset-password?token=reset-token')
 
-    expect(screen.getByLabelText('Token de recuperacion')).toHaveValue('reset-token')
+    expect(screen.getByLabelText('Token de recuperación')).toHaveValue('reset-token')
 
-    await user.type(screen.getByLabelText('Nueva contrasena'), 'NuevaClave1!')
-    await user.type(screen.getByLabelText('Confirmar nueva contrasena'), 'NuevaClave1!')
-    await user.click(screen.getByRole('button', { name: 'Guardar nueva contrasena' }))
+    await user.type(screen.getByLabelText('Nueva contraseña'), 'NuevaClave1!')
+    await user.type(screen.getByLabelText('Confirmar nueva contraseña'), 'NuevaClave1!')
+    await user.click(screen.getByRole('button', { name: 'Guardar nueva contraseña' }))
 
     await waitFor(() => {
       expect(mockApiClient.resetPassword).toHaveBeenCalledWith({
@@ -58,9 +58,9 @@ describe('ResetPasswordPage', () => {
     })
 
     expect(
-      screen.getByText('Contrasena actualizada. Ya puedes iniciar sesion con tu nueva clave.'),
+      screen.getByText('Contraseña actualizada. Ya puedes iniciar sesión con tu nueva clave.'),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Nueva contrasena')).toHaveValue('')
-    expect(screen.getByLabelText('Confirmar nueva contrasena')).toHaveValue('')
+    expect(screen.getByLabelText('Nueva contraseña')).toHaveValue('')
+    expect(screen.getByLabelText('Confirmar nueva contraseña')).toHaveValue('')
   })
 })

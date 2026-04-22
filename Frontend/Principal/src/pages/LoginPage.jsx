@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import PasswordField from '../components/PasswordField.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 
 function LoginPage() {
@@ -74,8 +75,8 @@ function LoginPage() {
               <label className="auth-field">
                 <span>Correo</span>
                 <input
-                  autoComplete="email"
                   autoCapitalize="none"
+                  autoComplete="email"
                   autoCorrect="off"
                   name="email"
                   onChange={handleChange}
@@ -86,20 +87,14 @@ function LoginPage() {
                 />
               </label>
 
-              <label className="auth-field">
-                <span>Contrasena</span>
-                <input
-                  autoComplete="current-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  name="password"
-                  onChange={handleChange}
-                  placeholder="Tu contraseña"
-                  spellCheck="false"
-                  type="password"
-                  value={form.password}
-                />
-              </label>
+              <PasswordField
+                autoComplete="current-password"
+                label="Contraseña"
+                name="password"
+                onChange={handleChange}
+                placeholder="Tu contraseña"
+                value={form.password}
+              />
 
               <button className="btn primary auth-submit" disabled={isSubmitting} type="submit">
                 {isSubmitting ? 'Entrando...' : 'Entrar'}
@@ -109,15 +104,15 @@ function LoginPage() {
             <p className={`auth-feedback${tone !== 'info' ? ` ${tone}` : ''}`}>{message || ' '}</p>
 
             <p className="auth-links">
-              Olvidaste tu contraseña? <Link to="/forgot-password">Recuperarla</Link>
+              ¿Olvidaste tu contraseña? <Link to="/forgot-password">Recuperarla</Link>
             </p>
 
             <p className="auth-links">
-              Tienes un código de verificación? <Link to="/verify-email">Validar correo</Link>
+              ¿Tienes un código de verificación? <Link to="/verify-email">Validar correo</Link>
             </p>
 
             <p className="auth-links">
-              No tienes cuenta? <Link to="/signup">Crear cuenta</Link>
+              ¿No tienes cuenta? <Link to="/signup">Crear cuenta</Link>
             </p>
           </article>
         </div>

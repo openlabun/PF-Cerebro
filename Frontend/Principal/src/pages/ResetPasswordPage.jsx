@@ -1,8 +1,9 @@
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useState } from 'react'
+import PasswordField from '../components/PasswordField.jsx'
 import { apiClient } from '../services/apiClient.js'
 
-const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_-])[A-Za-z\d!@#$_-]{8,}$/
+const passwordPolicy = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$_.-])[A-Za-z\d!@#$_.-]{8,}$/
 
 function ResetPasswordPage() {
   const location = useLocation()
@@ -115,29 +116,23 @@ function ResetPasswordPage() {
                 />
               </label>
 
-              <label className="auth-field">
-                <span>Nueva contraseña</span>
-                <input
-                  autoComplete="new-password"
-                  name="newPassword"
-                  onChange={handleChange}
-                  placeholder="Mínimo 8 caracteres, una mayúscula y un símbolo"
-                  type="password"
-                  value={form.newPassword}
-                />
-              </label>
+              <PasswordField
+                autoComplete="new-password"
+                label="Nueva contraseña"
+                name="newPassword"
+                onChange={handleChange}
+                placeholder="Mínimo 8 caracteres, una mayúscula y un símbolo"
+                value={form.newPassword}
+              />
 
-              <label className="auth-field">
-                <span>Confirmar nueva contraseña</span>
-                <input
-                  autoComplete="new-password"
-                  name="confirmPassword"
-                  onChange={handleChange}
-                  placeholder="Repite tu nueva contraseña"
-                  type="password"
-                  value={form.confirmPassword}
-                />
-              </label>
+              <PasswordField
+                autoComplete="new-password"
+                label="Confirmar nueva contraseña"
+                name="confirmPassword"
+                onChange={handleChange}
+                placeholder="Repite tu nueva contraseña"
+                value={form.confirmPassword}
+              />
 
               <p className={`auth-feedback auth-feedback--inline${tone !== 'info' ? ` ${tone}` : ''}`}>
                 {message}
@@ -149,11 +144,11 @@ function ResetPasswordPage() {
             </form>
 
             <p className="auth-links">
-              Aún no tienes token? <Link to="/forgot-password">Solicitar recuperación</Link>
+              ¿Aún no tienes token? <Link to="/forgot-password">Solicitar recuperación</Link>
             </p>
 
             <p className="auth-links">
-              Ya quedo lista tu clave? <Link to="/login">Volver al login</Link>
+              ¿Ya quedó lista tu clave? <Link to="/login">Volver al login</Link>
             </p>
           </article>
         </div>
