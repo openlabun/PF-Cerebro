@@ -12,6 +12,7 @@ import {
   getTournamentOwnerLabel,
   getTournamentStatusTone,
   getTournamentVisibilityLabel,
+  isAvailableOfficialTournament,
   isOfficialTournament,
   summarizeTournamentConfig,
   tournamentStateOptions,
@@ -146,6 +147,8 @@ function TournamentsPage() {
   function renderTournamentCard(tournament, sectionKey) {
     const isOwner = canManageTournament(tournament, user)
     const configSummary = summarizeTournamentConfig(tournament.configuracion)
+    const shouldSignalTournamentAction =
+      isAvailableOfficialTournament(tournament) && tournament?.inscrito !== true && !isOwner
 
     return (
       <article key={`${sectionKey}-${tournament._id}`} className="board-card tournament-card tournament-card--compact">
@@ -236,7 +239,10 @@ function TournamentsPage() {
         ) : null}
 
         <div className="tournament-card-actions">
-          <Link className="btn primary" to={`/torneos/${tournament._id}`}>
+          <Link
+            className={`btn primary${shouldSignalTournamentAction ? ' btn--tournament-signal' : ''}`}
+            to={`/torneos/${tournament._id}`}
+          >
             {isOwner ? 'Gestionar' : 'Abrir'}
           </Link>
         </div>
@@ -253,7 +259,20 @@ function TournamentsPage() {
     emptyText,
     panelClassName = '',
   }) {
-    const panelClasses = ['board-card', 'tournament-panel', 'tournament-column-panel', panelClassName]
+    const shouldSignalOfficialSection = String(sectionKey || '').startsWith('official') &&
+      rows.some(
+        (row) =>
+          isAvailableOfficialTournament(row) &&
+          row?.inscrito !== true &&
+          !canManageTournament(row, user),
+      )
+    const panelClasses = [
+      'board-card',
+      'tournament-panel',
+      'tournament-column-panel',
+      shouldSignalOfficialSection ? 'tournament-panel--official-signal' : '',
+      panelClassName,
+    ]
       .filter(Boolean)
       .join(' ')
 

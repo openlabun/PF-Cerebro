@@ -268,6 +268,11 @@ export function isOfficialTournament(tournament) {
   return tournament?.esOficial === true || tournament?.configuracion?.esOficial === true
 }
 
+export function isAvailableOfficialTournament(tournament) {
+  const state = String(tournament?.estado || '').trim().toUpperCase()
+  return isOfficialTournament(tournament) && (state === 'ACTIVO' || state === 'PROGRAMADO')
+}
+
 function isOpaqueUserId(value) {
   const normalized = String(value || '').trim()
   if (!normalized) return false

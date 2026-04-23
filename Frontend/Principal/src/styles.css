@@ -10,6 +10,8 @@
   --muted: #6b6b6b;
   --border: #e0e0e0;
   --shadow: 0 20px 45px rgba(0, 0, 0, 0.08);
+  --tournament-signal: #d98537;
+  --tournament-signal-soft: rgba(217, 133, 55, 0.28);
   font-family: "Inter", sans-serif;
 }
 
@@ -25,6 +27,8 @@
   --muted: #a8b8ba;
   --border: #31363f;
   --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+  --tournament-signal: #f0b735;
+  --tournament-signal-soft: rgba(240, 183, 53, 0.34);
 }
 
 * {
@@ -129,6 +133,7 @@ nav {
 }
 
 .nav-btn {
+  position: relative;
   border: 1px solid var(--border);
   background: color-mix(in srgb, var(--primary) 13%, transparent);
   color: var(--primary-dark);
@@ -149,6 +154,82 @@ nav {
 .nav-btn.active {
   background: var(--primary);
   color: #fff;
+}
+
+.nav-btn--tournament-signal,
+.nav-btn--tournament-signal.active {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 82%, #ffffff 18%),
+    var(--tournament-signal)
+  );
+  border-color: color-mix(in srgb, var(--tournament-signal) 52%, var(--border));
+  color: #fff7ea;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tournament-signal) 12%, transparent);
+  isolation: isolate;
+}
+
+.nav-btn--tournament-signal:hover,
+.nav-btn--tournament-signal.active:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 88%, #ffffff 12%),
+    color-mix(in srgb, var(--tournament-signal) 88%, #6f3f0c 12%)
+  );
+}
+
+.nav-btn--tournament-signal::before,
+.nav-btn--tournament-signal::after {
+  content: '';
+  position: absolute;
+  inset: -5px -8px;
+  border: 1.5px solid var(--tournament-signal-soft);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  animation: tournamentNavWave 2.8s ease-out infinite;
+}
+
+.nav-btn--tournament-signal::after {
+  animation-delay: 1.4s;
+}
+
+:root[data-theme='dark'] .nav-btn--tournament-signal,
+:root[data-theme='dark'] .nav-btn--tournament-signal.active {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 90%, #ffffff 10%),
+    color-mix(in srgb, var(--tournament-signal) 82%, #725207 18%)
+  );
+  border-color: color-mix(in srgb, var(--tournament-signal) 64%, var(--border));
+  color: #fffaf0;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--tournament-signal) 16%, transparent);
+}
+
+:root[data-theme='dark'] .nav-btn--tournament-signal:hover,
+:root[data-theme='dark'] .nav-btn--tournament-signal.active:hover {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 95%, #ffffff 5%),
+    color-mix(in srgb, var(--tournament-signal) 88%, #5d4307 12%)
+  );
+}
+
+@keyframes tournamentNavWave {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  18% {
+    opacity: 0.55;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.24);
+  }
 }
 
 main,
@@ -216,6 +297,60 @@ main,
 .btn.primary {
   background: var(--primary);
   color: #fff;
+}
+
+.btn--tournament-signal {
+  position: relative;
+  isolation: isolate;
+  overflow: visible;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 84%, #ffffff 16%),
+    var(--tournament-signal)
+  ) !important;
+  color: #fff7ea !important;
+  border: 1px solid color-mix(in srgb, var(--tournament-signal) 64%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--tournament-signal) 14%, transparent),
+    0 12px 22px color-mix(in srgb, var(--tournament-signal) 20%, transparent);
+}
+
+.btn--tournament-signal::before,
+.btn--tournament-signal::after {
+  content: '';
+  position: absolute;
+  inset: -6px -9px;
+  border: 1.5px solid var(--tournament-signal-soft);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  animation: tournamentNavWave 2.8s ease-out infinite;
+}
+
+.btn--tournament-signal::after {
+  animation-delay: 1.4s;
+}
+
+.btn--tournament-signal:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 90%, #ffffff 10%),
+    color-mix(in srgb, var(--tournament-signal) 88%, #6f3f0c 12%)
+  ) !important;
+}
+
+:root[data-theme='dark'] .btn--tournament-signal {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tournament-signal) 92%, #ffffff 8%),
+    color-mix(in srgb, var(--tournament-signal) 82%, #725207 18%)
+  ) !important;
+  color: #fffaf0 !important;
+  border-color: color-mix(in srgb, var(--tournament-signal) 70%, var(--border));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--tournament-signal) 18%, transparent),
+    0 14px 26px color-mix(in srgb, var(--tournament-signal) 22%, transparent);
 }
 
 .btn.light {
@@ -769,6 +904,17 @@ main,
   font-family: inherit;
   font-size: clamp(2rem, 4vw, 3.2rem);
   font-weight: 700;
+}
+
+.sudoku-official-tournament-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.85rem;
+  min-height: 46px;
+  max-width: 100%;
+  text-align: center;
+  line-height: 1.2;
 }
 
 .sudoku-game-card {
@@ -1603,5 +1749,16 @@ main,
     width: 54px;
     height: 54px;
     min-width: 54px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-btn--tournament-signal::before,
+  .nav-btn--tournament-signal::after,
+  .btn--tournament-signal::before,
+  .btn--tournament-signal::after {
+    animation: none;
+    opacity: 0.28;
+    transform: scale(1.08);
   }
 }

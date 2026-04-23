@@ -2,18 +2,63 @@ import { useEffect, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import { applyTheme, getNextTheme, getStoredTheme, getThemeLabel } from '../lib/theme.js'
+import { canManageTournament, isAvailableOfficialTournament } from '../lib/tournaments.js'
+import { apiClient } from '../services/apiClient.js'
 import logoCerebroDark from '../assets/logo-cerebro.png'
 import logoCerebroLight from '../assets/logo-cerebro-light.png'
 
+const TOURNAMENTS_UPDATED_EVENT = 'cerebro:tournaments-updated'
+
 function Header() {
   const navigate = useNavigate()
-  const { isAuthenticated, user, logout } = useAuth()
+  const { accessToken, isAuthenticated, isLoading, user, logout } = useAuth()
   const [theme, setTheme] = useState(() => getStoredTheme())
+  const [hasAvailableOfficialTournament, setHasAvailableOfficialTournament] = useState(false)
   const logoCerebro = theme === 'dark' ? logoCerebroDark : logoCerebroLight
 
   useEffect(() => {
     applyTheme(theme)
   }, [theme])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadTournamentSignal() {
+      if (isLoading) return
+
+      try {
+        const payload = accessToken
+          ? await apiClient.getTournaments(accessToken)
+          : await apiClient.getPublicTournaments()
+        const nextHasAvailableOfficialTournament = (payload || []).some(
+          (tournament) =>
+            isAvailableOfficialTournament(tournament) &&
+            tournament?.inscrito !== true &&
+            !canManageTournament(tournament, user),
+        )
+
+        if (mounted) {
+          setHasAvailableOfficialTournament(nextHasAvailableOfficialTournament)
+        }
+      } catch {
+        if (mounted) {
+          setHasAvailableOfficialTournament(false)
+        }
+      }
+    }
+
+    function handleTournamentSignalRefresh() {
+      loadTournamentSignal()
+    }
+
+    loadTournamentSignal()
+    window.addEventListener(TOURNAMENTS_UPDATED_EVENT, handleTournamentSignalRefresh)
+
+    return () => {
+      mounted = false
+      window.removeEventListener(TOURNAMENTS_UPDATED_EVENT, handleTournamentSignalRefresh)
+    }
+  }, [accessToken, isLoading, user?.id, user?.sub])
 
   async function handleSessionAction() {
     if (!isAuthenticated) {
@@ -49,7 +94,11 @@ function Header() {
         </NavLink>
         <NavLink
           to="/torneos"
-          className={({ isActive }) => `nav-btn${isActive ? ' active' : ''}`}
+          className={({ isActive }) =>
+            `nav-btn${isActive ? ' active' : ''}${
+              hasAvailableOfficialTournament ? ' nav-btn--tournament-signal' : ''
+            }`
+          }
         >
           Torneos
         </NavLink>

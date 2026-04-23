@@ -14,6 +14,8 @@ import {
   isBoardSolved,
 } from '../lib/sudoku.js'
 
+const UNDO_HISTORY_LIMIT = 200
+
 function normalizeElapsedSeconds(value) {
   const normalized = Math.trunc(Number(value))
   return Number.isFinite(normalized) && normalized >= 0 ? normalized : 0
@@ -236,6 +238,8 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   const autoSubmittedRef = useRef(false)
   const seriesBoardsRef = useRef([])
   const currentBoardIndexRef = useRef(0)
+  const undoHistoryRef = useRef([])
+  const [canUndo, setCanUndo] = useState(false)
 
   const {
     puzzle,
@@ -250,12 +254,57 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     hydrateGame,
     setBoard,
     setNotes,
+    setSelectedCell,
     setNoteMode,
     setHighlightEnabled,
     setStatus,
     clearSelectedCell,
     toggleSelectedNote,
   } = useSudokuGame()
+
+  function clearUndoHistory() {
+    undoHistoryRef.current = []
+    setCanUndo(false)
+  }
+
+  function captureUndoSnapshot() {
+    if (!board.length || !notes.length) return null
+    return {
+      board: cloneBoard(board),
+      notes: cloneNotes(notes),
+      selectedCell: selectedCell ? { row: selectedCell.row, col: selectedCell.col } : null,
+    }
+  }
+
+  function pushUndoSnapshot(snapshot) {
+    if (!snapshot) return
+    const nextHistory = [...undoHistoryRef.current, snapshot]
+    if (nextHistory.length > UNDO_HISTORY_LIMIT) {
+      nextHistory.splice(0, nextHistory.length - UNDO_HISTORY_LIMIT)
+    }
+    undoHistoryRef.current = nextHistory
+    setCanUndo(nextHistory.length > 0)
+  }
+
+  function undoLastMove() {
+    if (controlsDisabled) return
+
+    const previousSnapshot = undoHistoryRef.current[undoHistoryRef.current.length - 1]
+    if (!previousSnapshot) {
+      setCanUndo(false)
+      setStatus('No hay movimientos para deshacer.')
+      return
+    }
+
+    const nextHistory = undoHistoryRef.current.slice(0, -1)
+    undoHistoryRef.current = nextHistory
+    setCanUndo(nextHistory.length > 0)
+
+    setBoard(cloneBoard(previousSnapshot.board))
+    setNotes(cloneNotes(previousSnapshot.notes))
+    setSelectedCell(previousSnapshot.selectedCell ? { ...previousSnapshot.selectedCell } : null)
+    setStatus('Movimiento deshecho.', true)
+  }
 
   useEffect(() => {
     seriesBoardsRef.current = seriesBoards
@@ -276,6 +325,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     const target = series[index]
     if (!target) return
 
+    clearUndoHistory()
     hydrateGame({
       puzzle: cloneBoard(target.puzzle),
       solution: cloneBoard(target.solution),
@@ -555,7 +605,11 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
   function applyValue(num, asNote = false) {
     if (!selectedCell || controlsDisabled) return
     if (asNote) {
-      toggleSelectedNote(num)
+      const snapshot = captureUndoSnapshot()
+      const updated = toggleSelectedNote(num)
+      if (updated) {
+        pushUndoSnapshot(snapshot)
+      }
       return
     }
 
@@ -565,6 +619,9 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
       setStatus('No puedes modificar una celda fija.')
       return
     }
+
+    const snapshot = captureUndoSnapshot()
+    pushUndoSnapshot(snapshot)
 
     setBoard((currentBoard) => {
       const previousValue = currentBoard[row][col]
@@ -602,15 +659,50 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     setStatus('Este torneo no permite pistas.')
   }
 
+  function handleClearCell() {
+    if (!selectedCell || controlsDisabled) return false
+    const snapshot = captureUndoSnapshot()
+    const didClear = clearSelectedCell()
+    if (didClear) {
+      pushUndoSnapshot(snapshot)
+    }
+    return didClear
+  }
+
+  function handleClearNotes() {
+    if (!selectedCell || controlsDisabled) return false
+
+    const { row, col } = selectedCell
+    if (puzzle[row]?.[col] !== 0) return false
+    const hadNotes = notes[row]?.[col]?.size > 0
+
+    const snapshot = captureUndoSnapshot()
+
+    setNotes((currentNotes) => {
+      const nextNotes = cloneNotes(currentNotes)
+      clearNotesCell(nextNotes, row, col)
+      return nextNotes
+    })
+
+    if (hadNotes) {
+      pushUndoSnapshot(snapshot)
+      setStatus('Notas eliminadas.')
+    }
+    return hadNotes
+  }
+
   useSudokuKeyboardControls({
     board,
     puzzle,
     selectedCell,
+    setSelectedCell,
     noteMode,
     isEnabled: !controlsDisabled,
+    onUndo: undoLastMove,
     onToggleNoteMode: () => setNoteMode((current) => !current),
     onApplyValue: applyValue,
-    onClearCell: clearSelectedCell,
+    onClearCell: handleClearCell,
+    onClearNotes: handleClearNotes,
     setNotes,
     setStatus,
   })
@@ -644,6 +736,7 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     timeRemainingSeconds,
     progress,
     correctCounts,
+    canUndo,
     noteMode,
     highlightEnabled,
     submissionRequested,
@@ -657,7 +750,8 @@ export function useTournamentSudokuGame({ tournamentId, accessToken }) {
     loadTournamentSession,
     applyValue,
     applyHint,
-    clearSelectedCell,
+    undoLastMove,
+    clearSelectedCell: handleClearCell,
     setNoteMode,
     setHighlightEnabled,
     finalizeGame,

@@ -94,6 +94,36 @@
   max-height: 28rem;
 }
 
+.board-card.tournament-panel--official-signal {
+  position: relative;
+  overflow: visible;
+  border-color: rgba(217, 133, 55, 0.64);
+  background: #ffffff;
+  box-shadow:
+    var(--shadow),
+    0 0 0 1px rgba(217, 133, 55, 0.28),
+    0 0 14px rgba(217, 133, 55, 0.28),
+    0 0 26px rgba(217, 133, 55, 0.16);
+  isolation: isolate;
+}
+
+.tournament-panel--official-signal::before,
+.tournament-panel--official-signal::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  border: 1.5px solid rgba(217, 133, 55, 0.42);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
+  animation: tournamentPanelWave 3.4s ease-out infinite;
+}
+
+.tournament-panel--official-signal::after {
+  animation-delay: 1.7s;
+}
+
 .tournament-card-list {
   display: grid;
   gap: 0.85rem;
@@ -547,6 +577,30 @@
   background: #b03b3b;
 }
 
+:root[data-theme='dark'] .board-card.tournament-panel--official-signal {
+  border-color: color-mix(in srgb, var(--tournament-signal) 44%, var(--border));
+  background: var(--surface);
+  box-shadow:
+    var(--shadow),
+    0 0 0 2px color-mix(in srgb, var(--tournament-signal) 14%, transparent);
+}
+
+@keyframes tournamentPanelWave {
+  0% {
+    opacity: 0;
+    transform: scale(0.99);
+  }
+
+  18% {
+    opacity: 0.42;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.035);
+  }
+}
+
 @media (max-width: 980px) {
   .tournaments-hero,
   .tournament-detail-hero,
@@ -580,5 +634,14 @@
 
   .tournament-card-top {
     flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tournament-panel--official-signal::before,
+  .tournament-panel--official-signal::after {
+    animation: none;
+    opacity: 0.22;
+    transform: scale(1.015);
   }
 }

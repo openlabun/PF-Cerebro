@@ -34,6 +34,7 @@ function TournamentSudokuPageContent() {
     timeRemainingSeconds,
     progress,
     correctCounts,
+    canUndo,
     noteMode,
     highlightEnabled,
     submissionRequested,
@@ -46,6 +47,7 @@ function TournamentSudokuPageContent() {
     currentBoardSeed,
     loadTournamentSession,
     applyValue,
+    undoLastMove,
     clearSelectedCell,
     setNoteMode,
     setHighlightEnabled,
@@ -214,9 +216,11 @@ function TournamentSudokuPageContent() {
             noteMode={noteMode}
             highlightEnabled={highlightEnabled}
             onApplyValue={(num) => applyValue(num, noteMode)}
+            onUndo={undoLastMove}
             onClearCell={clearSelectedCell}
             onHint={() => {}}
             showHint={false}
+            showUndo
             onToggleNoteMode={() => {
               if (controlsDisabled) return
               setNoteMode((current) => !current)
@@ -229,6 +233,7 @@ function TournamentSudokuPageContent() {
             getNumberDisabled={(num) => correctCounts[num] >= 9}
             keypadDisabled={controlsDisabled}
             clearDisabled={controlsDisabled}
+            undoDisabled={controlsDisabled || !canUndo}
             noteDisabled={controlsDisabled}
             highlightDisabled={controlsDisabled}
           >

@@ -18,6 +18,24 @@ export function EraseIcon({ className = 'btn-icon icon-erase' }) {
   )
 }
 
+export function UndoIcon({ className = 'btn-icon' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 14L4 9l5-5" />
+      <path d="M4 9h10a6 6 0 110 12h-2" />
+    </svg>
+  )
+}
+
 export function NotesIcon({ className = 'btn-icon' }) {
   return (
     <svg

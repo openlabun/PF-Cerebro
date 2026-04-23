@@ -1,4 +1,4 @@
-import { EraseIcon, HintIcon, NotesIcon } from './SudokuControlIcons.jsx'
+import { EraseIcon, HintIcon, NotesIcon, UndoIcon } from './SudokuControlIcons.jsx'
 
 function defaultNumberVisibility() {
   return false
@@ -8,10 +8,13 @@ function defaultNumberDisabled() {
   return false
 }
 
+function noop() {}
+
 function SudokuControlsPanel({
   noteMode,
   highlightEnabled,
   onApplyValue,
+  onUndo = noop,
   onClearCell,
   onToggleNoteMode,
   onToggleHighlight,
@@ -19,8 +22,10 @@ function SudokuControlsPanel({
   keypadDisabled = false,
   clearDisabled = false,
   noteDisabled = false,
+  undoDisabled = false,
   highlightDisabled = false,
   hintDisabled = false,
+  showUndo = false,
   hintCount = 0,
   showHint = true,
   keypadLabel = 'Teclado numerico',
@@ -50,6 +55,19 @@ function SudokuControlsPanel({
       </div>
 
       <div className="board-actions controls icon-actions">
+        {showUndo ? (
+          <button
+            id="undo-move"
+            className="btn-control btn-icon-circle"
+            type="button"
+            aria-label="Deshacer movimiento"
+            title="Deshacer (Ctrl/Cmd + Z)"
+            disabled={undoDisabled}
+            onClick={onUndo}
+          >
+            <UndoIcon />
+          </button>
+        ) : null}
         <button
           id="clear-cell"
           className="btn-control btn-icon-circle"
