@@ -203,6 +203,9 @@ function ProfilePage() {
           experiencia: perfil.experiencia ?? prev.experiencia,
           rachaActual: perfil.rachaActual ?? prev.rachaActual,
         }))
+        if (perfil.marco) {
+          setSelectedFrame(perfil.marco)
+        }
       }
     } catch {
       // Keep current values on failure.
