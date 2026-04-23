@@ -28,6 +28,7 @@ function SudokuPageContent() {
     statusOk,
     progress,
     correctCounts,
+    canUndo,
     showResumePrompt,
     pendingResumeSnapshot,
     showAchievementPopup,
@@ -41,6 +42,7 @@ function SudokuPageContent() {
     discardSavedGame,
     applyValue,
     applyHint,
+    undoLastMove,
     clearSelectedCell,
   } = useLocalSudokuGame()
 
@@ -98,8 +100,11 @@ function SudokuPageContent() {
               highlightEnabled={highlightEnabled}
               hintCount={hintsUsed}
               onApplyValue={(num) => applyValue(num, noteMode)}
+              onUndo={undoLastMove}
               onClearCell={clearSelectedCell}
               onHint={applyHint}
+              showUndo
+              undoDisabled={paused || completed || !canUndo}
               onToggleNoteMode={() => {
                 if (paused || completed) return
                 setNoteMode((current) => !current)

@@ -18,3 +18,8 @@ Backend/ContenedorAdmin/.env
 # OS files
 .DS_Store
 Thumbs.db
+Movil/cerebros-app/expo-env.d.ts
+Movil/cerebros-app/.expo/devices.json
+Movil/cerebros-app/.expo/README.md
+Movil/cerebros-app/.expo/types/router.d.ts
+Movil/cerebros-app/.expo/cache/eslint/.cache_5uckcl
