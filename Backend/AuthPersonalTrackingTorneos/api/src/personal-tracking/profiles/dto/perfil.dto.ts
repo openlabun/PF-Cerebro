@@ -22,4 +22,7 @@ export class PerfilDto {
 
   @ApiProperty({ nullable: true })
   tituloActivo?: string;
+
+  @ApiProperty({ nullable: true })
+  marco?: string;
 }

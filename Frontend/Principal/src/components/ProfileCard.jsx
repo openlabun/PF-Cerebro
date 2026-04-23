@@ -15,6 +15,7 @@ function ProfileCard({
   selectedFrame: parentSelectedFrame,
   activeMode,
   onModeChange,
+  onFrameChange,
 }) {
   const [selectedAvatar, setSelectedAvatar] = useState('♔')
   const [selectedFrame, setSelectedFrame] = useState(parentSelectedFrame || 'frame-royal')
@@ -105,7 +106,7 @@ function ProfileCard({
         onClose={() => setShowAvatarModal(false)} 
         onSelect={setSelectedAvatar} 
         selectedFrame={selectedFrame} 
-        onFrameChange={setSelectedFrame} 
+        onFrameChange={onFrameChange || setSelectedFrame} 
         isFrameUnlocked={(frame) => {
           const streak = Number(profileData?.rachaActual || 0)
           const min = Number(frame?.minStreak || 0)

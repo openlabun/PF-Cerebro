@@ -97,6 +97,19 @@ function ProfilePage() {
   })
   const [unlockedBadges, setUnlockedBadges] = useState(new Set())
   const [selectedFrame, setSelectedFrame] = useState('frame-royal')
+
+  // Persistir el marco seleccionado en el backend
+  const handleFrameChange = async (newFrame) => {
+    setSelectedFrame(newFrame)
+    if (isAuthenticated && accessToken) {
+      try {
+        await apiClient.updateProfileFrame(accessToken, newFrame)
+      } catch (e) {
+        // Opcional: mostrar error al usuario
+        // console.error('No se pudo guardar el marco', e)
+      }
+    }
+  }
   const [loading, setLoading] = useState(false)
   const [tournamentHistory, setTournamentHistory] = useState([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -355,6 +368,7 @@ function ProfilePage() {
         selectedFrame={selectedFrame}
         activeMode={activeMode}
         onModeChange={setActiveMode}
+        onFrameChange={handleFrameChange}
       />
 
       {isAuthenticated && activeMode === 'torneos' ? (

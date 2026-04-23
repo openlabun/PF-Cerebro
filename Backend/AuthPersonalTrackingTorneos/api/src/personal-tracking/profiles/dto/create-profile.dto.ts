@@ -7,4 +7,5 @@ export class CreateProfileDto {
   rachaMaxima?: number; // opcional, default 0
   salvadoresRacha?: number; // opcional, default 0
   tituloActivo?: string | null; // opcional
+  marco?: string | null; // opcional
 }

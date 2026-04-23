@@ -1,3 +1,4 @@
+
 import { Injectable, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { RobleService } from '../../roble/roble.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
@@ -218,6 +219,41 @@ export class ProfilesService {
         `Fallo createProfile usuarioId=${usuarioId}: ${msg}`,
       );
       throw new HttpException(msg, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+  }
+  
+  public async updateMarco(
+    usuarioId: string,
+    marco: string | null,
+    accessToken: string,
+  ): Promise<Perfil> {
+    this.ensureValidUserId(usuarioId, 'updateMarco');
+    const perfil: Perfil | null = await this.getProfile(usuarioId, accessToken);
+    if (!perfil) {
+      throw new HttpException('Perfil no encontrado', HttpStatus.NOT_FOUND);
+    }
+    try {
+      const updated: Perfil = await this.robleService.update<Perfil>(
+        accessToken,
+        'Perfil',
+        'usuarioId',
+        usuarioId,
+        {
+          marco,
+        },
+      );
+      const resp: Perfil = this.normalizarPerfil({ ...perfil, ...updated });
+      return resp;
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'Error desconocido';
+      this.logger.error(
+        `Error al actualizar marco usuarioId=${usuarioId}: ${message}`,
+      );
+      throw new HttpException(
+        'Error al actualizar marco en ROBLE',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 

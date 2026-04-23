@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Patch,
   HttpException,
   HttpStatus,
   Logger,
@@ -23,6 +24,7 @@ import { ProfilesService } from './profiles.service';
 import { CreateProfileDto } from './dto/create-profile.dto';
 import type { Perfil } from './interfaces/perfil.interface';
 import { PersonalTrackingBootstrapService } from '../bootstrap/personal-tracking-bootstrap.service';
+import { UpdateMarcoDto } from './dto/update-marco.dto';
 
 class AddExperienceSelfDto {
   @ApiProperty()
@@ -191,6 +193,23 @@ export class ProfilesController {
       body.experiencia,
       accessToken,
     );
+    return resp;
+  }
+
+  @ApiOperation({ summary: 'Actualizar marco del perfil del usuario autenticado' })
+  @ApiResponse({ status: 200, description: 'Marco actualizado correctamente' })
+  @ApiResponse({ status: 404, description: 'Perfil no encontrado' })
+  @ApiResponse({ status: 400, description: 'Solicitud inválida' })
+  @ApiResponse({ status: 500, description: 'Error interno del servidor' })
+  @Patch('marco')
+  public async updateMarco(
+    @Body() body: UpdateMarcoDto,
+    @Req() req: RobleAuthGuard.RobleRequest,
+  ): Promise<Perfil> {
+    const usuarioId: string = this.resolveUsuarioId(req);
+    const accessToken: string = req.accessToken;
+    this.logger.log(`updateMarco iniciado para usuarioId=${usuarioId}`);
+    const resp: Perfil = await this.profilesService.updateMarco(usuarioId, body.marco ?? null, accessToken);
     return resp;
   }
 

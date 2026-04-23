@@ -1,3 +1,4 @@
+
 import { resolveConfig } from '../config.js'
 
 function buildUrl(baseUrl, path) {
@@ -594,6 +595,15 @@ export const apiClient = {
       method: 'GET',
       baseUrl: 'auth',
       token: accessToken,
+    })
+  },
+
+  updateProfileFrame(accessToken, marco) {
+    return request('profiles/marco', {
+      method: 'PATCH',
+      baseUrl: 'auth',
+      token: accessToken,
+      body: { marco },
     })
   },
 

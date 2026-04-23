@@ -11,4 +11,5 @@ export interface Perfil {
   salvadoresRacha: number;
   tituloActivo?: string | null;
   tituloActivoTexto?: string | null; // Campo adicional para el texto del título activo
+  marco?: string | null; // Campo para el marco seleccionado
 }
