@@ -27,6 +27,12 @@ const GAME_ID_SUDOKU = 'uVsB-k2rjora'
 const STREAK_SESSION_WINDOW_MS = 28 * 60 * 60 * 1000
 const ACTIVE_PROGRESS_SAVE_INTERVAL_MS = 30000
 const UNDO_HISTORY_LIMIT = 200
+const INITIAL_COMPLETION_REWARDS = {
+  state: 'idle',
+  xpGain: 0,
+  eloChange: 0,
+  result: '',
+}
 
 const ACHIEVEMENT_BADGES = [
   { key: 'first-game', label: 'Primera partida', icon: '🏁', description: 'Completa tu primera partida de Sudoku.' },
@@ -302,6 +308,7 @@ export function useLocalSudokuGame() {
   })
   const undoHistoryRef = useRef([])
   const [canUndo, setCanUndo] = useState(false)
+  const [completionRewards, setCompletionRewards] = useState(INITIAL_COMPLETION_REWARDS)
 
   const [unlockedBadges, setUnlockedBadges] = useState(new Set())
   const [showAchievementPopup, setShowAchievementPopup] = useState(false)
@@ -332,6 +339,10 @@ export function useLocalSudokuGame() {
   function clearUndoHistory() {
     undoHistoryRef.current = []
     setCanUndo(false)
+  }
+
+  function resetCompletionRewards() {
+    setCompletionRewards({ ...INITIAL_COMPLETION_REWARDS })
   }
 
   function captureUndoSnapshot() {
@@ -505,6 +516,7 @@ export function useLocalSudokuGame() {
     setSeedId(String(snapshot.seedId || ''))
     setStatus(snapshot.statusMessage || 'Partida anterior reanudada.')
     clearUndoHistory()
+    resetCompletionRewards()
   }
 
   function resumeSavedGame() {
@@ -686,13 +698,22 @@ export function useLocalSudokuGame() {
   }
 
   async function handleSudokuCompletion(nextScore) {
-    if (!isAuthenticated || !accessToken) return
+    if (!isAuthenticated || !accessToken) {
+      setCompletionRewards({
+        state: 'unavailable',
+        xpGain: 0,
+        eloChange: 0,
+        result: '',
+      })
+      return
+    }
 
     let gameSession = null
     let eloChange = 0
     let resultado = 'victoria'
     let xpGain = 0
     let persistenceOk = false
+    let computedRewards = false
 
     try {
       const stats = await apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU).catch(() => null)
@@ -710,6 +731,13 @@ export function useLocalSudokuGame() {
       }
 
       xpGain = getXpByDifficulty(nextScore, difficulty)
+      computedRewards = true
+      setCompletionRewards({
+        state: 'ready',
+        xpGain,
+        eloChange,
+        result: resultado,
+      })
 
       gameSession = await apiClient.createGameSession(accessToken, {
         juegoId: GAME_ID_SUDOKU,
@@ -737,6 +765,15 @@ export function useLocalSudokuGame() {
     await registerSudokuActivity(nextScore, gameSession)
     if (persistenceOk && (xpGain > 0 || eloChange !== 0)) {
       setStatus(`XP ganada: ${xpGain}. ELO cambio: ${eloChange} (${resultado}).`, true)
+    }
+
+    if (!computedRewards) {
+      setCompletionRewards({
+        state: 'failed',
+        xpGain: 0,
+        eloChange: 0,
+        result: '',
+      })
     }
   }
 
@@ -786,6 +823,7 @@ export function useLocalSudokuGame() {
     setPendingResumeSnapshot(null)
     setShowResumePrompt(false)
     clearUndoHistory()
+    resetCompletionRewards()
     setStatus(`Selecciona una celda para comenzar. Limite de pistas: ${getHintLimit(nextGame.difficulty)}.`)
 
     if (accessToken) {
@@ -811,6 +849,12 @@ export function useLocalSudokuGame() {
       `Sudoku completado. Puntaje final: ${nextScore} (tiempo: ${metrics.seconds}s, errores: ${metrics.errorCount}, pistas: ${metrics.hintsUsed}).`,
       true,
     )
+    setCompletionRewards({
+      state: 'pending',
+      xpGain: 0,
+      eloChange: 0,
+      result: '',
+    })
 
     void closeActiveProgress('completada', { silent: true })
     void handleSudokuCompletion(nextScore)
@@ -1124,6 +1168,7 @@ export function useLocalSudokuGame() {
     hintsUsed,
     score,
     seed,
+    completionRewards,
     noteMode,
     highlightEnabled,
     status,

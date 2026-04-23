@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import SudokuBoard from '../components/SudokuBoard.jsx'
 import SudokuControlsPanel from '../components/SudokuControlsPanel.jsx'
 import DifficultySelect from '../components/DifficultySelect.jsx'
@@ -8,6 +9,7 @@ import { useLiveHeartbeat } from '../hooks/useLiveHeartbeat.js'
 import { difficultyLevels } from '../lib/sudoku.js'
 
 function SudokuPageContent() {
+  const [completionModalDismissed, setCompletionModalDismissed] = useState(false)
   const difficultyOptions = difficultyLevels.map((level) => ({
     value: level.key,
     label: level.label,
@@ -22,6 +24,7 @@ function SudokuPageContent() {
     errorCount,
     hintsUsed,
     score,
+    completionRewards,
     noteMode,
     highlightEnabled,
     status,
@@ -51,6 +54,59 @@ function SudokuPageContent() {
     difficulty: difficulty.label,
     state: completed ? 'completed' : paused ? 'paused' : 'playing',
   })
+
+  useEffect(() => {
+    if (completed) {
+      setCompletionModalDismissed(false)
+    }
+  }, [completed])
+
+  function handleDismissCompletionModal() {
+    setCompletionModalDismissed(true)
+  }
+
+  function getRewardsFromStatusMessage() {
+    const match = String(status || '').match(/XP ganada:\s*(-?\d+)\.\s*ELO cambio:\s*(-?\d+)\s*\(([^)]+)\)\./i)
+    if (!match) return null
+
+    return {
+      xpGain: Number(match[1]),
+      eloChange: Number(match[2]),
+      result: String(match[3] || '').trim(),
+    }
+  }
+
+  function formatRewardsCopy({ xpGain, eloChange, result }) {
+    const eloSigned = eloChange > 0 ? `+${eloChange}` : String(eloChange)
+    return `XP ganada: ${xpGain} | ELO cambio: ${eloSigned}${result ? ` (${result})` : ''}`
+  }
+
+  function renderCompletionRewardsCopy() {
+    const rewardsFromStatus = getRewardsFromStatusMessage()
+    if (rewardsFromStatus) {
+      return formatRewardsCopy(rewardsFromStatus)
+    }
+
+    if (completionRewards.state === 'ready') {
+      return formatRewardsCopy(completionRewards)
+    }
+
+    if (completionRewards.state === 'pending') {
+      return ''
+    }
+
+    if (completionRewards.state === 'unavailable') {
+      return 'Inicia sesión para registrar XP y ELO.'
+    }
+
+    if (completionRewards.state === 'failed') {
+      return 'No se pudo sincronizar XP y ELO en este momento.'
+    }
+
+    return ''
+  }
+
+  const completionRewardsCopy = renderCompletionRewardsCopy()
 
   return (
     <main>
@@ -145,14 +201,31 @@ function SudokuPageContent() {
         </div>
       ) : null}
 
-      {completed ? (
-        <div className="sudoku-pause-overlay" role="alertdialog" aria-modal="true">
+      {completed && !completionModalDismissed ? (
+        <div
+          className="sudoku-pause-overlay"
+          role="alertdialog"
+          aria-modal="true"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              handleDismissCompletionModal()
+            }
+          }}
+        >
           <div className="sudoku-pause-card sudoku-completion-card">
             <h3 className="sudoku-pause-title">Sudoku completado</h3>
             <p className="sudoku-pause-text">Puntaje: {score}</p>
             <p className="sudoku-pause-text">
               Tiempo: {formatSudokuTime(seconds)} | Errores: {errorCount} | Pistas: {hintsUsed}
             </p>
+            {completionRewardsCopy ? <p className="sudoku-pause-text">{completionRewardsCopy}</p> : null}
+            <button
+              className="btn ghost sudoku-pause-resume-btn"
+              type="button"
+              onClick={handleDismissCompletionModal}
+            >
+              Cerrar
+            </button>
             <button
               className="btn primary sudoku-pause-resume-btn"
               type="button"
