@@ -1,9 +1,11 @@
-import { LinearGradient } from "expo-linear-gradient";
-import { Image, StyleSheet, View } from "react-native";
-import { Button, Text } from "react-native-paper";
+import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
+import { Image, StyleSheet, View } from 'react-native';
+import { Button, Text } from 'react-native-paper';
 
-import { useAppTheme, useThemeMode } from "@/constants/theme";
-import { useAppStyles } from "@/hooks/useAppStyles";
+import { useAppTheme, useThemeMode } from '@/constants/theme';
+import { useAppStyles } from '@/hooks/useAppStyles';
+import { appRoutes } from '@/routes';
 
 type AuthRequiredPageProps = {
   title?: string;
@@ -16,32 +18,31 @@ type AuthRequiredPageProps = {
 };
 
 export default function AuthRequiredPage({
-  title = "Debes iniciar sesión para acceder a esta página.",
-  subtitle = "¿Aún no tienes cuenta?",
-  primaryActionLabel = "Crear cuenta",
-  secondaryActionLabel = "Iniciar sesión",
-  dividerText = "o, si ya tienes cuenta",
-  onPrimaryAction = () => undefined,
-  onSecondaryAction = () => undefined,
+  title = 'Debes iniciar sesion para acceder a esta pagina.',
+  subtitle = 'Aun no tienes cuenta?',
+  primaryActionLabel = 'Crear cuenta',
+  secondaryActionLabel = 'Iniciar sesion',
+  dividerText = 'o, si ya tienes cuenta',
+  onPrimaryAction,
+  onSecondaryAction,
 }: AuthRequiredPageProps) {
+  const router = useRouter();
   const theme = useAppTheme();
   const ui = useAppStyles();
   const { isDark } = useThemeMode();
   const gradientColors = isDark
-    ? (["#dfe3f3", "#96a0b8", "#2d3440", "#222831"] as const)
+    ? (['#dfe3f3', '#96a0b8', '#2d3440', '#222831'] as const)
     : ui.gradientColors;
-  const gradientLocations = isDark
-    ? ([0, 0.06, 0.22, 1] as const)
-    : ui.gradientLocations;
+  const gradientLocations = isDark ? ([0, 0.06, 0.22, 1] as const) : ui.gradientLocations;
   const logoSource = isDark
-    ? require("../assets/logo-cerebro.png")
-    : require("../assets/logo-cerebro-light.png");
+    ? require('../assets/logo-cerebro.png')
+    : require('../assets/logo-cerebro-light.png');
   const palette = {
-    accent: isDark ? "#76abae" : theme.colors.primary,
+    accent: isDark ? '#76abae' : theme.colors.primary,
     title: theme.colors.onBackground,
-    body: isDark ? "#ffffff" : theme.colors.onBackground,
-    subtle: isDark ? "#76abae" : theme.colors.primary,
-    buttonText: isDark ? "#ffffff" : theme.colors.onPrimary,
+    body: isDark ? '#ffffff' : theme.colors.onBackground,
+    subtle: isDark ? '#76abae' : theme.colors.primary,
+    buttonText: isDark ? '#ffffff' : theme.colors.onPrimary,
   } as const;
 
   return (
@@ -57,13 +58,11 @@ export default function AuthRequiredPage({
 
         <Text style={[styles.title, { color: palette.title }]}>{title}</Text>
 
-        <Text style={[styles.subtitle, { color: palette.body }]}>
-          {subtitle}
-        </Text>
+        <Text style={[styles.subtitle, { color: palette.body }]}>{subtitle}</Text>
 
         <Button
           mode="contained"
-          onPress={onPrimaryAction}
+          onPress={onPrimaryAction ?? (() => router.push(appRoutes.signup))}
           buttonColor={palette.accent}
           textColor={palette.buttonText}
           contentStyle={styles.primaryButtonContent}
@@ -74,20 +73,16 @@ export default function AuthRequiredPage({
         </Button>
 
         <View style={styles.separatorRow}>
-          <View
-            style={[styles.separatorLine, { backgroundColor: palette.subtle }]}
-          />
+          <View style={[styles.separatorLine, { backgroundColor: palette.subtle }]} />
           <Text style={[styles.separatorText, { color: palette.subtle }]}>
             {dividerText}
           </Text>
-          <View
-            style={[styles.separatorLine, { backgroundColor: palette.subtle }]}
-          />
+          <View style={[styles.separatorLine, { backgroundColor: palette.subtle }]} />
         </View>
 
         <Button
           mode="outlined"
-          onPress={onSecondaryAction}
+          onPress={onSecondaryAction ?? (() => router.push(appRoutes.login))}
           textColor={palette.subtle}
           contentStyle={styles.secondaryButtonContent}
           style={[styles.secondaryButton, { borderColor: palette.subtle }]}
@@ -106,8 +101,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 28,
     paddingVertical: 24,
   },
@@ -117,28 +112,27 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   title: {
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
-    alignSelf: "center",
+    alignSelf: 'center',
     fontSize: 22,
     lineHeight: 30,
-    fontWeight: "800",
-    textAlign: "center",
+    fontWeight: '800',
+    textAlign: 'center',
     marginBottom: 12,
   },
   subtitle: {
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
-    alignSelf: "center",
+    alignSelf: 'center',
     fontSize: 17,
     lineHeight: 24,
-    fontWeight: "600",
-    textAlign: "center",
+    fontWeight: '600',
+    textAlign: 'center',
     marginBottom: 24,
-    textTransform: "none",
   },
   primaryButton: {
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
     borderRadius: 28,
     marginBottom: 22,
@@ -149,13 +143,13 @@ const styles = StyleSheet.create({
   primaryButtonLabel: {
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: "700",
+    fontWeight: '700',
   },
   separatorRow: {
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
     marginBottom: 22,
   },
@@ -166,10 +160,10 @@ const styles = StyleSheet.create({
   separatorText: {
     fontSize: 14,
     lineHeight: 18,
-    fontWeight: "600",
+    fontWeight: '600',
   },
   secondaryButton: {
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
     borderRadius: 28,
     borderWidth: 1.5,
@@ -180,6 +174,6 @@ const styles = StyleSheet.create({
   secondaryButtonLabel: {
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: "700",
+    fontWeight: '700',
   },
 });
