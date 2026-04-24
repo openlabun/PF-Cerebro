@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import { useHeaderHeight } from "@react-navigation/elements";
 import { useEffect, useState } from "react";
 import {
@@ -13,6 +14,7 @@ import { ActivityIndicator, Button } from "react-native-paper";
 import { useAppTheme } from "@/constants/theme";
 import { useAuth } from "@/context";
 import { useAppStyles } from "@/hooks/useAppStyles";
+import { appRoutes } from "@/routes";
 import { apiClient } from "@/services";
 
 import { ProfileBadgeModal } from "@/components/profile/ProfileBadgeModal";
@@ -296,6 +298,7 @@ function getPreferredProfileDisplayName(
 }
 
 export default function ProfilePage() {
+  const router = useRouter();
   const { accessToken, isAuthenticated, isLoading, logout, user } = useAuth();
   const theme = useAppTheme();
   const ui = useAppStyles();
@@ -662,7 +665,11 @@ export default function ProfilePage() {
           }}
         />
 
-        <ProfileModeStats loading={profileLoading} stats={modeStats} />
+        <ProfileModeStats
+          loading={profileLoading}
+          stats={modeStats}
+          onPressTournamentStats={() => router.push(appRoutes.tournamentStats)}
+        />
 
         <Button
           mode="outlined"

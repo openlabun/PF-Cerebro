@@ -447,6 +447,14 @@ export const apiClient = {
     });
   },
 
+  getMyTournamentHistory(accessToken: string) {
+    return request('torneos/me/historial', {
+      method: 'GET',
+      baseUrl: 'auth',
+      token: accessToken,
+    });
+  },
+
   createPvpMatch(payload: Record<string, unknown> = {}, accessToken: string) {
     return request('match', {
       method: 'POST',
