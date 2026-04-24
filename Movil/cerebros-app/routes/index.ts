@@ -1,4 +1,5 @@
 export const appRoutes = {
+  confirmEmail: '/confirm-email' as const,
   home: '/index' as const,
   login: '/login' as const,
   profile: '/profile' as const,
@@ -11,8 +12,12 @@ export const rootStackScreens = [
     options: { headerShown: false },
   },
   {
+    name: 'confirm-email' as const,
+    options: { title: 'Confirmar cuenta' },
+  },
+  {
     name: 'login' as const,
-    options: { title: 'Iniciar sesion' },
+    options: { title: 'Iniciar sesión' },
   },
   {
     name: 'signup' as const,

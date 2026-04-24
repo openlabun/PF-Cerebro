@@ -2,6 +2,42 @@ export const profileAvatarOptions = ["♔", "♕", "♖", "♗", "♘", "♙"] a
 
 export type ProfileAvatar = (typeof profileAvatarOptions)[number];
 
+export const profileBadgeOptions = [
+  {
+    key: "first-game",
+    label: "Primera partida",
+    icon: "🏁",
+    description: "Completa tu primera partida de Sudoku.",
+  },
+  {
+    key: "five-games",
+    label: "5 partidas",
+    icon: "5️⃣",
+    description: "Completa 5 partidas de Sudoku.",
+  },
+  {
+    key: "ten-games",
+    label: "10 partidas",
+    icon: "🔟",
+    description: "Completa 10 partidas de Sudoku.",
+  },
+  {
+    key: "score-over-500",
+    label: "Puntaje >500",
+    icon: "🏏",
+    description: "Alcanza un puntaje mayor a 500 en una partida.",
+  },
+] as const;
+
+export type ProfileBadgeKey = (typeof profileBadgeOptions)[number]["key"];
+
+export const achievementIdKeyMap: Record<string, ProfileBadgeKey> = {
+  "jNVlXBxVZ4Ik": "first-game",
+  "eKdjK4OKd_qV": "five-games",
+  "_8uXFa1YZV-d": "ten-games",
+  "pLHLX9-29oIY": "score-over-500",
+};
+
 export const profileFrameOptions = [
   { key: "frame-royal", label: "Real", minStreak: 0 },
   { key: "frame-arcane", label: "Arcano", minStreak: 0 },

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { Button, HelperText, Text, TextInput } from 'react-native-paper';
 
+import { PasswordField } from '@/components/PasswordField';
 import { useAppTheme } from '@/constants/theme';
 import { useAuth } from '@/context';
 import { useAppStyles } from '@/hooks/useAppStyles';
@@ -21,34 +22,54 @@ export default function SignupPage() {
   const router = useRouter();
   const ui = useAppStyles();
   const theme = useAppTheme();
-  const { signup, isAuthenticated } = useAuth();
+  const { signup, isAuthenticated, isVerified, user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (isAuthenticated && isVerified === false) {
+      router.replace({
+        pathname: appRoutes.confirmEmail,
+        params: {
+          email: String(user?.email || email).trim().toLowerCase(),
+        },
+      });
+      return;
+    }
+
     if (isAuthenticated) {
       router.replace(appRoutes.profile);
     }
-  }, [isAuthenticated, router]);
+  }, [email, isAuthenticated, isVerified, router, user?.email]);
 
   async function handleSubmit() {
-    if (!name.trim() || !email.trim() || !password) {
-      setMessage('Completa nombre, correo y contrasena.');
+    if (!name.trim() || !email.trim() || !password || !confirmPassword) {
+      setMessage('Completa nombre, correo y ambas contraseñas.');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setMessage('Las contraseñas no coinciden.');
       return;
     }
 
     try {
       setSubmitting(true);
       setMessage('');
+      const normalizedEmail = email.trim().toLowerCase();
       await signup({
         name: name.trim(),
-        email: email.trim().toLowerCase(),
+        email: normalizedEmail,
         password,
       });
-      router.replace(appRoutes.profile);
+      router.replace({
+        pathname: appRoutes.confirmEmail,
+        params: { email: normalizedEmail },
+      });
     } catch (error) {
       setMessage(normalizeApiError(error));
     } finally {
@@ -95,13 +116,20 @@ export default function SignupPage() {
             textContentType="emailAddress"
           />
 
-          <TextInput
+          <PasswordField
             mode="outlined"
-            label="Contrasena"
+            label="Contraseña"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
             textContentType="newPassword"
+          />
+
+          <PasswordField
+            mode="outlined"
+            label="Confirmar contraseña"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            textContentType="password"
           />
 
           <HelperText type="error" visible={Boolean(message)}>

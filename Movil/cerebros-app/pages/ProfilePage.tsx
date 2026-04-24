@@ -1,6 +1,11 @@
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { ActivityIndicator, Button } from "react-native-paper";
 
 import { useAppTheme } from "@/constants/theme";
@@ -8,11 +13,15 @@ import { useAuth } from "@/context";
 import { useAppStyles } from "@/hooks/useAppStyles";
 import { apiClient } from "@/services";
 
+import { ProfileBadgeModal } from "@/components/profile/ProfileBadgeModal";
+import { ProfileBadges } from "@/components/profile/ProfileBadges";
 import { ProfileCustomizationModal } from "@/components/profile/ProfileCustomizationModal";
 import { ProfileModeStats } from "@/components/profile/ProfileModeStats";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import {
+  achievementIdKeyMap,
   type ProfileAvatar,
+  type ProfileBadgeKey,
   type ProfileFrameKey,
 } from "@/components/profile/profileCustomization";
 import AuthRequiredPage from "./AuthRequiredPage";
@@ -35,11 +44,7 @@ type ProfileModeStatsState = {
 };
 
 const DEFAULT_PROFILE_MODE_STATS: ProfileModeStatsState = {
-  sudoku: [
-    "Partidas jugadas: -",
-    "Elo: -",
-    "Liga: -",
-  ],
+  sudoku: ["Partidas jugadas: -", "Elo: -", "Liga: -"],
   torneos: [
     "Torneos jugados: -",
     "Participaciones: -",
@@ -53,6 +58,21 @@ const DEFAULT_PROFILE_MODE_STATS: ProfileModeStatsState = {
     "Win rate: -",
   ],
 };
+
+const DEFAULT_SELECTED_BADGES: Array<ProfileBadgeKey | null> =
+  Array(6).fill(null);
+
+function getUnlockedKeysByRules(
+  partidasJugadas = 0,
+  elo = 0,
+): ProfileBadgeKey[] {
+  const unlocked: ProfileBadgeKey[] = [];
+  if (partidasJugadas >= 1) unlocked.push("first-game");
+  if (partidasJugadas >= 5) unlocked.push("five-games");
+  if (partidasJugadas >= 10) unlocked.push("ten-games");
+  if (elo > 500) unlocked.push("score-over-500");
+  return unlocked;
+}
 
 function toNumber(value: unknown, fallback: number) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -127,7 +147,10 @@ function getProfileFrame(
   return getFrameByElo(Math.floor(toNumber(sudokuStats?.elo, 0)));
 }
 
-function getStringCandidate(source: Record<string, unknown> | null, keys: string[]) {
+function getStringCandidate(
+  source: Record<string, unknown> | null,
+  keys: string[],
+) {
   if (!source) return "";
 
   for (const key of keys) {
@@ -150,6 +173,26 @@ function getJoinedName(
   const firstName = getStringCandidate(source, firstNameKeys);
   const lastName = getStringCandidate(source, lastNameKeys);
   return `${firstName} ${lastName}`.trim();
+}
+
+function normalizeComparableName(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+}
+
+function namesMatch(a: string, b: string) {
+  return (
+    Boolean(a && b) && normalizeComparableName(a) === normalizeComparableName(b)
+  );
+}
+
+function getTemporaryAppDisplayName(
+  sessionUser: Record<string, unknown> | null,
+) {
+  return getStringCandidate(sessionUser, ["temporaryProfileName"]);
 }
 
 function getProfileDisplayName(
@@ -232,6 +275,24 @@ function getProfileDisplayName(
   return "Jugador";
 }
 
+function getPreferredProfileDisplayName(
+  profile: Record<string, unknown> | null,
+  sessionUser: Record<string, unknown> | null,
+) {
+  const backendDisplayName = getProfileDisplayName(profile, null);
+  const temporaryAppDisplayName = getTemporaryAppDisplayName(sessionUser);
+
+  if (
+    temporaryAppDisplayName &&
+    (!backendDisplayName ||
+      !namesMatch(backendDisplayName, temporaryAppDisplayName))
+  ) {
+    return temporaryAppDisplayName;
+  }
+
+  return backendDisplayName || getProfileDisplayName(null, sessionUser);
+}
+
 export default function ProfilePage() {
   const { accessToken, isAuthenticated, isLoading, logout, user } = useAuth();
   const theme = useAppTheme();
@@ -239,16 +300,28 @@ export default function ProfilePage() {
   const { width } = useWindowDimensions();
   const compact = width < 390;
   const currentUserId = String(user?.sub || user?.id || "").trim();
-  const sessionDisplayName = getProfileDisplayName(
+  const sessionDisplayName = getPreferredProfileDisplayName(
     null,
     (user ?? null) as Record<string, unknown> | null,
   );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [profileLoading, setProfileLoading] = useState(false);
   const [selectedAvatar, setSelectedAvatar] = useState<ProfileAvatar>("♔");
-  const [selectedFrame, setSelectedFrame] = useState<ProfileFrameKey | null>(null);
+  const [selectedBadges, setSelectedBadges] = useState<
+    Array<ProfileBadgeKey | null>
+  >(DEFAULT_SELECTED_BADGES);
+  const [unlockedBadges, setUnlockedBadges] = useState<Set<ProfileBadgeKey>>(
+    new Set(),
+  );
+  const [badgeModalVisible, setBadgeModalVisible] = useState(false);
+  const [activeBadgeSlot, setActiveBadgeSlot] = useState<number | null>(null);
+  const [selectedFrame, setSelectedFrame] = useState<ProfileFrameKey | null>(
+    null,
+  );
   const [customizationVisible, setCustomizationVisible] = useState(false);
-  const [customizationTab, setCustomizationTab] = useState<"avatar" | "frame">("avatar");
+  const [customizationTab, setCustomizationTab] = useState<"avatar" | "frame">(
+    "avatar",
+  );
   const [modeStats, setModeStats] = useState<ProfileModeStatsState>(
     DEFAULT_PROFILE_MODE_STATS,
   );
@@ -277,6 +350,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isAuthenticated) {
       setModeStats(DEFAULT_PROFILE_MODE_STATS);
+      setUnlockedBadges(new Set());
+      setSelectedBadges(DEFAULT_SELECTED_BADGES);
     }
   }, [isAuthenticated]);
 
@@ -295,7 +370,9 @@ export default function ProfilePage() {
           pvpRankingRaw,
         ] = await Promise.all([
           apiClient.getMyProfile(accessToken).catch(() => null),
-          apiClient.getMyGameStats(accessToken, GAME_ID_SUDOKU).catch(() => null),
+          apiClient
+            .getMyGameStats(accessToken, GAME_ID_SUDOKU)
+            .catch(() => null),
           currentUserId
             ? apiClient
                 .getTournamentResultsByUser(currentUserId, accessToken)
@@ -308,15 +385,24 @@ export default function ProfilePage() {
           string,
           unknown
         > | null;
-        const sudokuStats = (sudokuStatsRaw ?? null) as Record<string, unknown> | null;
+        const sudokuStats = (sudokuStatsRaw ?? null) as Record<
+          string,
+          unknown
+        > | null;
         const tournamentResults = Array.isArray(tournamentResultsRaw)
           ? tournamentResultsRaw
           : [];
-        const pvpRanking = (pvpRankingRaw ?? null) as Record<string, unknown> | null;
+        const pvpRanking = (pvpRankingRaw ?? null) as Record<
+          string,
+          unknown
+        > | null;
 
         if (cancelled) return;
 
-        const level = Math.max(1, Math.floor(toNumber(profileResponse?.nivel, 1)));
+        const level = Math.max(
+          1,
+          Math.floor(toNumber(profileResponse?.nivel, 1)),
+        );
         const experience = Math.max(
           0,
           Math.floor(toNumber(profileResponse?.experiencia, 0)),
@@ -325,7 +411,10 @@ export default function ProfilePage() {
           0,
           Math.floor(toNumber(profileResponse?.rachaActual, 0)),
         );
-        const sudokuElo = Math.max(0, Math.floor(toNumber(sudokuStats?.elo, 0)));
+        const sudokuElo = Math.max(
+          0,
+          Math.floor(toNumber(sudokuStats?.elo, 0)),
+        );
         const sudokuGamesPlayed = Math.max(
           0,
           Math.floor(toNumber(sudokuStats?.partidasJugadas, 0)),
@@ -366,10 +455,32 @@ export default function ProfilePage() {
           hasValidPvpStats && pvpTotal > 0
             ? `${((pvpVictories / pvpTotal) * 100).toFixed(1)}%`
             : "-";
+        const localUnlocked = new Set(
+          getUnlockedKeysByRules(sudokuGamesPlayed, sudokuElo),
+        );
+
+        setUnlockedBadges((current) => {
+          const next = new Set([...current, ...localUnlocked]);
+
+          setSelectedBadges((previous) => {
+            const updated = [...previous];
+            const unlockedArray = Array.from(next);
+
+            for (let index = 0; index < updated.length; index += 1) {
+              if (!updated[index] && unlockedArray[index]) {
+                updated[index] = unlockedArray[index];
+              }
+            }
+
+            return updated;
+          });
+
+          return next;
+        });
 
         setProfile({
           displayName:
-            getProfileDisplayName(
+            getPreferredProfileDisplayName(
               profileResponse,
               (user ?? null) as Record<string, unknown> | null,
             ) || sessionDisplayName,
@@ -414,6 +525,63 @@ export default function ProfilePage() {
       cancelled = true;
     };
   }, [accessToken, currentUserId, isAuthenticated, sessionDisplayName, user]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRemoteAchievements() {
+      if (!isAuthenticated || !accessToken) {
+        return;
+      }
+
+      try {
+        const myAchievements = await apiClient.getMyAchievements(accessToken);
+        if (!Array.isArray(myAchievements) || cancelled) {
+          return;
+        }
+
+        const remoteUnlocked = new Set<ProfileBadgeKey>(
+          myAchievements
+            .map(
+              (item) =>
+                achievementIdKeyMap[
+                  String(
+                    (item as Record<string, unknown>)?.logroId || "",
+                  ).trim()
+                ],
+            )
+            .filter(Boolean) as ProfileBadgeKey[],
+        );
+
+        setUnlockedBadges((current) => {
+          const next = new Set([...current, ...remoteUnlocked]);
+
+          setSelectedBadges((previous) => {
+            const updated = [...previous];
+            const unlockedArray = Array.from(next);
+
+            for (let index = 0; index < updated.length; index += 1) {
+              if (!updated[index] && unlockedArray[index]) {
+                updated[index] = unlockedArray[index];
+              }
+            }
+
+            return updated;
+          });
+
+          return next;
+        });
+      } catch {
+        // Keep local badge state on failure.
+      }
+    }
+
+    void loadRemoteAchievements();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [accessToken, isAuthenticated]);
 
   if (isLoading) {
     return (
@@ -480,6 +648,18 @@ export default function ProfilePage() {
           />
         )}
 
+        <ProfileBadges
+          selectedBadges={selectedBadges}
+          unlockedBadges={unlockedBadges}
+          isAuthenticated={isAuthenticated}
+          onBadgeSlotPress={(slot) => {
+            setActiveBadgeSlot(slot);
+            setBadgeModalVisible(true);
+          }}
+        />
+
+        <ProfileModeStats loading={profileLoading} stats={modeStats} />
+
         <Button
           mode="outlined"
           onPress={handleLogout}
@@ -492,8 +672,6 @@ export default function ProfilePage() {
         >
           Cerrar sesion
         </Button>
-
-        <ProfileModeStats loading={profileLoading} stats={modeStats} />
       </ScrollView>
 
       <ProfileCustomizationModal
@@ -506,6 +684,26 @@ export default function ProfilePage() {
         onTabChange={setCustomizationTab}
         onAvatarChange={setSelectedAvatar}
         onFrameChange={setSelectedFrame}
+      />
+
+      <ProfileBadgeModal
+        visible={badgeModalVisible}
+        activeBadgeSlot={activeBadgeSlot}
+        selectedBadges={selectedBadges}
+        unlockedBadges={unlockedBadges}
+        onClose={() => setBadgeModalVisible(false)}
+        onBadgeSelect={(badgeKey) => {
+          if (activeBadgeSlot === null) {
+            return;
+          }
+
+          setSelectedBadges((current) => {
+            const next = [...current];
+            next[activeBadgeSlot] = badgeKey;
+            return next;
+          });
+          setBadgeModalVisible(false);
+        }}
       />
     </LinearGradient>
   );

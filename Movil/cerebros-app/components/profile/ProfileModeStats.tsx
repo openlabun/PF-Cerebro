@@ -85,24 +85,9 @@ function StatsPanel({
 export function ProfileModeStats({ loading = false, stats }: ProfileModeStatsProps) {
   const { width } = useWindowDimensions();
   const compact = width < 390;
-  const rowLineHeight = compact ? 20 : 22;
-  const rowGap = compact ? 4 : 6;
-  const titleHeight = compact ? 20 : 22;
-  const panelPaddingVertical = compact ? 12 : 14;
-  const panelBasePadding = panelPaddingVertical * 2 + titleHeight + 24;
-  const maxRows = Math.max(
-    stats.sudoku.length,
-    stats.torneos.length,
-    stats.pvp.length,
-    3,
-  );
-  const rowsHeight =
-    maxRows * rowLineHeight + Math.max(0, maxRows - 1) * rowGap;
-  const tabBarHeight = compact ? 48 : 52;
-  const wrapperHeight = tabBarHeight + panelBasePadding + rowsHeight + 20;
 
   return (
-    <View style={[styles.wrapper, { height: wrapperHeight }]}>
+    <View style={styles.wrapper}>
       <ProfileModeTabs
         renderScene={(mode) => (
           <StatsPanel

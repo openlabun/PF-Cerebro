@@ -34,15 +34,55 @@ type AuthContextValue = {
   isVerified: boolean | undefined;
   isLoading: boolean;
   login: (credentials: LoginCredentials) => Promise<AuthSession>;
+  refreshSession: () => Promise<AuthSession | null>;
   signup: (payload: SignupPayload) => Promise<SignupResult>;
   logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const TEMPORARY_PROFILE_NAME_KEY = 'temporaryProfileName';
+
+function getStringField(source: SessionUser = {}, keys: string[]) {
+  for (const key of keys) {
+    const value = source[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return '';
+}
+
+function getResolvedUserName(sessionUser: SessionUser = {}, verifiedUser: SessionUser = {}) {
+  const sessionName =
+    getStringField(sessionUser, ['name', 'nombre', 'displayName', 'fullName']) ||
+    `${getStringField(sessionUser, ['firstName', 'nombre'])} ${getStringField(sessionUser, ['lastName', 'apellido'])}`.trim();
+
+  if (sessionName) {
+    return sessionName;
+  }
+
+  const verifiedName =
+    getStringField(verifiedUser, ['name', 'nombre', 'displayName', 'fullName']) ||
+    `${getStringField(verifiedUser, ['firstName', 'nombre'])} ${getStringField(verifiedUser, ['lastName', 'apellido'])}`.trim();
+
+  if (verifiedName) {
+    return verifiedName;
+  }
+
+  const fallbackEmail =
+    getStringField(verifiedUser, ['email']) || getStringField(sessionUser, ['email']);
+
+  return fallbackEmail ? fallbackEmail.split('@')[0] : '';
+}
+
+function getTemporaryProfileName(sessionUser: SessionUser = {}) {
+  return getStringField(sessionUser, [TEMPORARY_PROFILE_NAME_KEY]);
+}
 
 function normalizeSessionUser(sessionUser: SessionUser = {}, verifiedUser: SessionUser = {}) {
-  const fallbackEmail = verifiedUser.email || sessionUser.email || '';
-  const fallbackName = sessionUser.name || (fallbackEmail ? fallbackEmail.split('@')[0] : '');
+  const fallbackEmail =
+    getStringField(verifiedUser, ['email']) || getStringField(sessionUser, ['email']);
   const verificationFlags = [
     verifiedUser.isVerified,
     verifiedUser.verified,
@@ -58,8 +98,9 @@ function normalizeSessionUser(sessionUser: SessionUser = {}, verifiedUser: Sessi
     id: sessionUser.id || verifiedUser.sub || null,
     sub: verifiedUser.sub || sessionUser.sub || sessionUser.id || null,
     email: fallbackEmail,
-    name: sessionUser.name || fallbackName,
+    name: getResolvedUserName(sessionUser, verifiedUser),
     isVerified: resolvedVerification,
+    [TEMPORARY_PROFILE_NAME_KEY]: getTemporaryProfileName(sessionUser),
   };
 }
 
@@ -180,6 +221,17 @@ export function AuthProvider({ children }: PropsWithChildren) {
     return hydrated;
   }
 
+  async function refreshSession() {
+    if (!session) {
+      return null;
+    }
+
+    const hydrated = await hydrateSession(session);
+    await authStorage.setSession(hydrated);
+    setSession(hydrated);
+    return hydrated;
+  }
+
   async function signup(payload: SignupPayload) {
     const c1Data = await apiClient.signup(payload);
 
@@ -193,7 +245,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
         refreshToken: c1Data.refreshToken || '',
         c1AccessToken: c1Data.accessToken,
         c1RefreshToken: c1Data.refreshToken || '',
-        user: c1Data.user || { name: payload.name, email: payload.email },
+        user: {
+          ...(c1Data.user || {}),
+          name: getStringField((c1Data.user ?? {}) as SessionUser, ['name', 'nombre']) || payload.name,
+          email: getStringField((c1Data.user ?? {}) as SessionUser, ['email']) || payload.email,
+          [TEMPORARY_PROFILE_NAME_KEY]: String(payload.name || '').trim(),
+        },
       }),
     );
 
@@ -225,6 +282,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     isVerified: session?.user?.isVerified as boolean | undefined,
     isLoading,
     login,
+    refreshSession,
     signup,
     logout,
   };
