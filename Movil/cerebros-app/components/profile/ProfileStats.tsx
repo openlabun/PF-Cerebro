@@ -17,6 +17,7 @@ type ProfileStatsProps = {
   streak: number;
   frame: ProfileFrameKey;
   onAvatarPress?: () => void;
+  onStreakPress?: () => void;
 };
 
 export function ProfileStats({
@@ -28,6 +29,7 @@ export function ProfileStats({
   streak,
   frame,
   onAvatarPress,
+  onStreakPress,
 }: ProfileStatsProps) {
   const theme = useTheme();
   const progress = Math.min(1, Math.max(0, experience / Math.max(1, xpGoal)));
@@ -75,10 +77,20 @@ export function ProfileStats({
         <Text style={styles.eyebrow}>CUENTA ACTIVA</Text>
         <Text style={[styles.name, { color: theme.colors.onSurface }]}>{displayName}</Text>
 
-        <View style={[styles.streakChip, { borderColor: theme.colors.outline }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Ver racha de juego"
+          disabled={!onStreakPress}
+          onPress={onStreakPress}
+          style={[
+            styles.streakChip,
+            { borderColor: theme.colors.outline },
+            !onStreakPress ? styles.streakChipDisabled : null,
+          ]}
+        >
           <Text style={styles.streakEmoji}>🔥</Text>
           <Text style={styles.streakText}>{streak}</Text>
-        </View>
+        </Pressable>
 
         <View
           style={[
@@ -208,6 +220,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  streakChipDisabled: {
+    opacity: 0.8,
   },
   streakEmoji: {
     fontSize: 14,

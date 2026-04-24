@@ -21,6 +21,7 @@ import { ProfileBadgeModal } from "@/components/profile/ProfileBadgeModal";
 import { ProfileBadges } from "@/components/profile/ProfileBadges";
 import { ProfileCustomizationModal } from "@/components/profile/ProfileCustomizationModal";
 import { ProfileModeStats } from "@/components/profile/ProfileModeStats";
+import { ProfileStreakModal } from "@/components/profile/ProfileStreakModal";
 import { ProfileStats } from "@/components/profile/ProfileStats";
 import {
   achievementIdKeyMap,
@@ -326,6 +327,7 @@ export default function ProfilePage() {
     null,
   );
   const [customizationVisible, setCustomizationVisible] = useState(false);
+  const [streakModalVisible, setStreakModalVisible] = useState(false);
   const [customizationTab, setCustomizationTab] = useState<"avatar" | "frame">(
     "avatar",
   );
@@ -652,6 +654,7 @@ export default function ProfilePage() {
             streak={profile.streak}
             frame={selectedFrame ?? profile.frame}
             onAvatarPress={() => setCustomizationVisible(true)}
+            onStreakPress={() => setStreakModalVisible(true)}
           />
         )}
 
@@ -715,6 +718,12 @@ export default function ProfilePage() {
           });
           setBadgeModalVisible(false);
         }}
+      />
+
+      <ProfileStreakModal
+        visible={streakModalVisible}
+        streak={profile.streak}
+        onClose={() => setStreakModalVisible(false)}
       />
     </LinearGradient>
   );
