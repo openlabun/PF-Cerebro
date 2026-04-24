@@ -67,7 +67,7 @@ export function ProfileBadges({
           : 'Inicia sesión para desbloquear insignias.'}
       </Text>
 
-      <View style={[styles.grid, { gap: compact ? 10 : 12 }]}>
+      <View style={[styles.grid, { gap: compact ? 8 : 10 }]}>
         {selectedBadges.map((badgeKey, index) => (
           <Pressable
             key={`badge-slot-${index}`}
@@ -78,15 +78,23 @@ export function ProfileBadges({
             style={[
               styles.badgeSlot,
               {
-                width: compact ? 46 : 54,
-                height: compact ? 46 : 54,
+                width: compact ? 38 : 44,
+                height: compact ? 38 : 44,
                 borderColor: theme.colors.outline,
                 backgroundColor: theme.dark ? '#44505a' : theme.colors.elevation.level4,
               },
               badgeKey ? styles.badgeSelected : null,
             ]}
           >
-            <Text style={styles.badgeEmoji}>
+            <Text
+              style={[
+                styles.badgeEmoji,
+                {
+                  fontSize: compact ? 18 : 20,
+                  lineHeight: compact ? 22 : 24,
+                },
+              ]}
+            >
               {badgeKey && unlockedBadges.has(badgeKey) ? badgeEmojiMap[badgeKey] : ''}
             </Text>
           </Pressable>
@@ -114,8 +122,8 @@ const styles = StyleSheet.create({
     marginTop: 14,
     width: '100%',
     flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    flexWrap: 'nowrap',
   },
   badgeSlot: {
     borderRadius: 999,
@@ -131,7 +139,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   badgeEmoji: {
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 20,
+    lineHeight: 24,
   },
 });

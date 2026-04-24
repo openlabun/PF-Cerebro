@@ -1,4 +1,5 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useHeaderHeight } from "@react-navigation/elements";
 import { useEffect, useState } from "react";
 import {
   ScrollView,
@@ -6,6 +7,7 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ActivityIndicator, Button } from "react-native-paper";
 
 import { useAppTheme } from "@/constants/theme";
@@ -297,6 +299,8 @@ export default function ProfilePage() {
   const { accessToken, isAuthenticated, isLoading, logout, user } = useAuth();
   const theme = useAppTheme();
   const ui = useAppStyles();
+  const headerHeight = useHeaderHeight();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const compact = width < 390;
   const currentUserId = String(user?.sub || user?.id || "").trim();
@@ -625,7 +629,7 @@ export default function ProfilePage() {
           {
             gap: compact ? 14 : 16,
             paddingHorizontal: compact ? 12 : 16,
-            paddingTop: compact ? 20 : 24,
+            paddingTop: headerHeight + Math.max(8, insets.top * 0.15),
             paddingBottom: compact ? 16 : 24,
           },
         ]}

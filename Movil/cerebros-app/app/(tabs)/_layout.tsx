@@ -43,6 +43,17 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Perfil',
+          headerShown: true,
+          headerTransparent: true,
+          headerTitle: 'Perfil',
+          headerTintColor: theme.dark ? '#ffffff' : '#000000',
+          headerTitleStyle: {
+            color: theme.dark ? '#ffffff' : '#000000',
+          },
+          headerShadowVisible: false,
+          headerStyle: {
+            backgroundColor: 'transparent',
+          },
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="account"
