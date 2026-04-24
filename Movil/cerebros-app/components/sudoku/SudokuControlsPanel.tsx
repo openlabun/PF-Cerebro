@@ -220,7 +220,7 @@ export function SudokuControlsPanel({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 10,
+    gap: 8,
     width: '100%',
   },
   keypadRow: {
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    gap: 2,
+    gap: 1,
   },
   numberButton: {
     flex: 1,
@@ -237,8 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   numberButtonContent: {
-    minHeight: 64,
-
+    minHeight: 58,
   },
   numberButtonLabel: {
     fontSize: 24,
@@ -248,17 +247,17 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 6,
+    gap: 4,
   },
   actionButton: {
     position: 'relative',
     flex: 1,
-    minHeight: 72,
+    minHeight: 66,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   actionButtonDisabled: {
     opacity: 0.45,

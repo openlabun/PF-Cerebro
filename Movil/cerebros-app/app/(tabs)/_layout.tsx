@@ -1,4 +1,4 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { FontAwesome6, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 
 import { useAppTheme } from '@/constants/theme';
@@ -15,9 +15,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.colors.surface,
           borderTopColor: theme.colors.outline,
-          height: 72,
-          paddingBottom: 10,
-          paddingTop: 10,
+          height: 68,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarLabelStyle: {
           fontSize: 12,
@@ -29,9 +29,10 @@ export default function TabsLayout() {
         name="index"
         options={{
           title: 'Jugar',
-          tabBarIcon: ({ color, size, focused }) => (
-            <MaterialCommunityIcons
-              name={focused ? 'puzzle' : 'puzzle-outline'}
+          tabBarIcon: ({ color, size }) => (
+            <FontAwesome6
+              name="table-cells"
+              iconStyle="solid"
               color={color}
               size={size}
             />
@@ -42,9 +43,9 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ color, size, focused }) => (
+          tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
-              name={focused ? 'account-circle' : 'account-circle-outline'}
+              name="account"
               color={color}
               size={size}
             />

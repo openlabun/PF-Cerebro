@@ -195,14 +195,16 @@ export function HomeSudokuSection() {
 
 const styles = StyleSheet.create({
   content: {
-    gap: 14,
-    padding: 16
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
   },
   statsRow: {
     flexDirection: 'row',
@@ -212,13 +214,15 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 6,
   },
   playerActionsRow: {
     flexDirection: 'row',
+    gap: 4,
   },
   progressWrap: {
-    gap: 6,
+    gap: 4,
+    paddingBottom: 2,
   },
   dialogNoRadius: {
     borderRadius: 8,

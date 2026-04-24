@@ -3,8 +3,8 @@ import { View } from 'react-native';
 
 import { Header } from '@/components/Header';
 import { HomeSudokuSection } from '@/components/sudoku/HomeSudokuSection';
+import { SudokuGameProvider } from '@/context';
 import { useAppStyles } from '@/hooks/useAppStyles';
-import { SudokuGameProvider } from '@/context/SudokuGameContext';
 
 export default function HomePage() {
   const ui = useAppStyles();
