@@ -5,6 +5,7 @@ export { default as LoginPage } from './LoginPage';
 export { default as ProfilePage } from './ProfilePage';
 export { default as PvpCreateRoomPage } from './PvpCreateRoomPage';
 export { default as PvpJoinByCodePage } from './PvpJoinByCodePage';
+export { default as PvpMatchLobbyPage } from './PvpMatchLobbyPage';
 export { default as PvpPage } from './PvpPage';
 export { default as SignupPage } from './SignupPage';
 export { default as TournamentStatsPage } from './TournamentStatsPage';

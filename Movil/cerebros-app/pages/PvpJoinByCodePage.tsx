@@ -1,3 +1,4 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -11,11 +12,59 @@ import { ActivityIndicator, Button, Text, TextInput } from "react-native-paper";
 import { useAppTheme } from "@/constants/theme";
 import { useAuth } from "@/context";
 import AuthRequiredPage from "@/pages/AuthRequiredPage";
+import { apiClient } from "@/services";
 
 export default function PvpJoinByCodePage() {
+  const router = useRouter();
   const theme = useAppTheme();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, session, user } = useAuth();
   const [joinCode, setJoinCode] = useState("");
+  const [joining, setJoining] = useState(false);
+  const [status, setStatus] = useState("");
+  const normalizedJoinCode = joinCode.replace(/\D/g, "").slice(0, 5);
+  const displayName =
+    String(user?.name || user?.email || "Jugador").trim() || "Jugador";
+  const accessToken = String(session?.c2AccessToken || "").trim();
+
+  async function handleJoinByCode() {
+    if (!accessToken) {
+      setStatus("No hay sesion activa para unirte a la partida.");
+      return;
+    }
+
+    if (normalizedJoinCode.length < 4) {
+      setStatus("Ingresa un codigo PvP valido de 4 o 5 digitos.");
+      return;
+    }
+
+    try {
+      setJoining(true);
+      setStatus(`Buscando la sala ${normalizedJoinCode}...`);
+
+      const joined = await apiClient.joinPvpMatchByCode(
+        { joinCode: normalizedJoinCode, displayName },
+        accessToken,
+      );
+
+      const matchId = String((joined as Record<string, unknown>)?._id || "").trim();
+      if (!matchId) {
+        throw new Error("El backend no devolvio un match valido.");
+      }
+
+      router.replace({
+        pathname: "/pvp/[matchId]",
+        params: { matchId },
+      });
+    } catch (error) {
+      setStatus(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "No se pudo encontrar una partida con ese codigo.",
+      );
+    } finally {
+      setJoining(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -69,27 +118,40 @@ export default function PvpJoinByCodePage() {
               </Text>
               <TextInput
                 mode="outlined"
-                value={joinCode}
-                onChangeText={(value) =>
-                  setJoinCode(value.replace(/\D/g, "").slice(0, 6))
-                }
+                value={normalizedJoinCode}
+                onChangeText={setJoinCode}
                 placeholder="48217"
                 keyboardType="number-pad"
                 autoCorrect={false}
-                maxLength={6}
+                maxLength={5}
                 contentStyle={styles.inputContent}
                 style={styles.input}
                 outlineStyle={styles.inputOutline}
+                editable={!joining}
+                onSubmitEditing={() => {
+                  void handleJoinByCode();
+                }}
               />
             </View>
 
             <Button
               mode="contained"
+              onPress={() => {
+                void handleJoinByCode();
+              }}
+              disabled={joining || normalizedJoinCode.length < 4}
+              loading={joining}
               contentStyle={styles.buttonContent}
               style={styles.button}
             >
-              Unirme con codigo
+              {joining ? "Uniendote..." : "Unirme con codigo"}
             </Button>
+
+            {status ? (
+              <Text style={[styles.status, { color: theme.colors.onSurfaceVariant }]}>
+                {status}
+              </Text>
+            ) : null}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -156,5 +218,9 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     minHeight: 52,
+  },
+  status: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

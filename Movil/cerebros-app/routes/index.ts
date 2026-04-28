@@ -9,6 +9,10 @@ export const appRoutes = {
   tournamentStats: "/tournament-stats" as const,
 };
 
+export function buildPvpMatchRoute(matchId: string) {
+  return `/pvp/${String(matchId || "").trim()}` as const;
+}
+
 export const rootStackScreens = [
   {
     name: "(tabs)" as const,
@@ -29,6 +33,10 @@ export const rootStackScreens = [
   {
     name: "pvp-join" as const,
     options: { title: "Unirme por codigo" },
+  },
+  {
+    name: "pvp/[matchId]" as const,
+    options: { title: "Sala PvP" },
   },
   {
     name: "signup" as const,

@@ -1,4 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { ActivityIndicator, Button, Menu, Text } from "react-native-paper";
@@ -6,14 +7,55 @@ import { ActivityIndicator, Button, Menu, Text } from "react-native-paper";
 import { useAppTheme } from "@/constants/theme";
 import { useAuth } from "@/context";
 import AuthRequiredPage from "@/pages/AuthRequiredPage";
-import { difficultyLevels, getDifficultyByKey, getHintLimit } from "@/services";
+import { apiClient, difficultyLevels, getDifficultyByKey, getHintLimit } from "@/services";
 
 export default function PvpCreateRoomPage() {
+  const router = useRouter();
   const theme = useAppTheme();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, session, user } = useAuth();
   const [difficultyMenuVisible, setDifficultyMenuVisible] = useState(false);
   const [selectedDifficultyKey, setSelectedDifficultyKey] = useState("medio");
+  const [creating, setCreating] = useState(false);
+  const [status, setStatus] = useState("");
   const selectedDifficulty = getDifficultyByKey(selectedDifficultyKey);
+  const displayName =
+    String(user?.name || user?.email || "Jugador").trim() || "Jugador";
+  const accessToken = String(session?.c2AccessToken || "").trim();
+
+  async function handleCreateMatch() {
+    if (!accessToken) {
+      setStatus("No hay sesion activa para crear la partida.");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      setStatus(`Creando match PvP en dificultad ${selectedDifficulty.label}...`);
+
+      const created = await apiClient.createPvpMatch(
+        { difficultyKey: selectedDifficultyKey, displayName },
+        accessToken,
+      );
+
+      const matchId = String((created as Record<string, unknown>)?._id || "").trim();
+      if (!matchId) {
+        throw new Error("El backend no devolvio un match valido.");
+      }
+
+      router.replace({
+        pathname: "/pvp/[matchId]",
+        params: { matchId },
+      });
+    } catch (error) {
+      setStatus(
+        error instanceof Error && error.message.trim()
+          ? error.message
+          : "No se pudo crear el match.",
+      );
+    } finally {
+      setCreating(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -64,7 +106,11 @@ export default function PvpCreateRoomPage() {
               onDismiss={() => setDifficultyMenuVisible(false)}
               anchor={
                 <Pressable
-                  onPress={() => setDifficultyMenuVisible(true)}
+                  onPress={() => {
+                    if (!creating) {
+                      setDifficultyMenuVisible(true);
+                    }
+                  }}
                   style={[
                     styles.selector,
                     {
@@ -89,8 +135,10 @@ export default function PvpCreateRoomPage() {
                   key={level.key}
                   title={level.label}
                   onPress={() => {
-                    setSelectedDifficultyKey(level.key);
-                    setDifficultyMenuVisible(false);
+                    if (!creating) {
+                      setSelectedDifficultyKey(level.key);
+                      setDifficultyMenuVisible(false);
+                    }
                   }}
                 />
               ))}
@@ -109,11 +157,22 @@ export default function PvpCreateRoomPage() {
 
           <Button
             mode="contained"
+            onPress={() => {
+              void handleCreateMatch();
+            }}
+            disabled={creating}
+            loading={creating}
             contentStyle={styles.buttonContent}
             style={styles.button}
           >
-            Crear partida
+            {creating ? "Creando..." : "Crear partida"}
           </Button>
+
+          {status ? (
+            <Text style={[styles.status, { color: theme.colors.onSurfaceVariant }]}>
+              {status}
+            </Text>
+          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -184,5 +243,9 @@ const styles = StyleSheet.create({
   },
   buttonContent: {
     minHeight: 52,
+  },
+  status: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

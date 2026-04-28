@@ -473,6 +473,15 @@ export const apiClient = {
     });
   },
 
+  joinPvpMatchByCode(payload: Record<string, unknown> = {}, accessToken: string) {
+    return request('match/join-by-code', {
+      method: 'POST',
+      baseUrl: 'pvp',
+      token: accessToken,
+      body: payload,
+    });
+  },
+
   getPvpMatch(matchId: string, accessToken: string, signal?: AbortSignal) {
     return request(`match/${matchId}`, {
       method: 'GET',
