@@ -840,7 +840,7 @@ function PvpMatchPageContent({
           <View style={styles.statsRow}>
             <Chip icon="timer-outline">{formatSudokuTime(elapsedSeconds)}</Chip>
             <Chip icon="alert-circle-outline">{errorCount}</Chip>
-            <Chip icon="account-outline">{opponentDisplayName}</Chip>
+            <Chip icon="sword-cross">{opponentDisplayName}</Chip>
           </View>
 
           {!match ? (
